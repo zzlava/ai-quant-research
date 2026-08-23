@@ -230,11 +230,17 @@ def _normalize_daily(
                 continue
             if last_close is None:
                 prior = [r for r in items if isinstance(r["date"], date) and r["date"] < day]
-                if not prior:
-                    raise DataQualityError(
-                        f"cannot synthesize suspended bar for {symbol} on {day}: no previous close"
-                    )
-                last_close = _as_float(prior[-1]["close"])
+                if prior:
+                    last_close = _as_float(prior[-1]["close"])
+                else:
+                    initial_pre_close = limits.get((symbol, day), (None, None, None))[0]
+                    if initial_pre_close is not None and initial_pre_close > 0:
+                        last_close = initial_pre_close
+                    else:
+                        raise DataQualityError(
+                            f"cannot synthesize suspended bar for {symbol} on {day}: "
+                            "no previous close or official pre_close"
+                        )
             items.append(
                 {
                     "symbol": symbol,

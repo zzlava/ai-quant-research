@@ -62,7 +62,9 @@ def test_latest_all_a_share_fetch_uses_date_batches_and_filters_current_st(tmp_p
     assert result.snapshot.source_name == "tushare_latest_all_a_share"
 
     daily_calls = [params for name, params in client.call_params if name == "daily"]
-    assert [params["trade_date"] for params in daily_calls] == [day.strftime("%Y%m%d") for day in expected_days]
+    assert [params["trade_date"] for params in daily_calls] == [
+        day.strftime("%Y%m%d") for day in calendar[-61:]
+    ]
     assert all("ts_code" not in params for params in daily_calls)
     stock_basic_calls = [params for name, params in client.call_params if name == "stock_basic"]
     assert stock_basic_calls == [
@@ -91,6 +93,28 @@ def test_latest_all_a_share_fetch_uses_date_batches_and_filters_current_st(tmp_p
     assert checked.research_mode == LATEST_MARKET_SNAPSHOT_MODE_LABEL
     scores = run_score(result.as_of, "all_a_share_latest_v1", settings=settings)
     assert {item.symbol for item in scores} == {"000001.SZ"}
+
+
+def test_latest_market_uses_official_pre_close_when_the_feature_window_starts_suspended(tmp_path: Path) -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+    first_feature_day = calendar[-60]
+    calendar, tables = build_fake_tushare_api_tables(
+        suspend_days={("000001.SZ", first_feature_day)},
+    )
+
+    result = fetch_latest_all_a_share_and_import(
+        requested_as_of=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "data" / "parquet",
+        client=FakeTushareClient(tables),
+    )
+
+    daily = pl.read_parquet(tmp_path / "data" / "parquet" / "daily_bars.parquet")
+    first_bar = daily.filter((pl.col("symbol") == "000001.SZ") & (pl.col("date") == first_feature_day))
+    assert first_bar.height == 1
+    assert first_bar["is_suspended"].to_list() == [True]
+    assert first_bar["close"].to_list() == [pytest.approx(10.0)]
+    assert result.snapshot.coverage_start == first_feature_day
 
 
 def test_latest_market_rejects_backtests_and_multi_day_preflight(tmp_path: Path) -> None:

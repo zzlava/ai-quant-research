@@ -82,7 +82,11 @@ def fetch_latest_all_a_share_and_import(
         raise TushareFetchError(
             f"trade_cal has {len(all_days)} open dates through {requested_as_of}; need {required} for warm-up"
         )
-    days = all_days[-required:]
+    # Keep one preceding trading day in the raw fetch. A full-day suspension
+    # can start on the first feature day; its official pre_close and the prior
+    # adjustment factor are then available without extending snapshot coverage.
+    source_days = all_days[-(required + 1) :]
+    days = source_days[-required:]
     start, as_of = days[0], days[-1]
 
     stock_basic = client.query("stock_basic", list_status="L", fields=_STOCK_BASIC_FIELDS)
@@ -95,21 +99,21 @@ def fetch_latest_all_a_share_and_import(
     raw = TushareRaw(
         trade_cal=trade_cal,
         stock_basic=stock_basic,
-        daily=_query_by_day(client, "daily", days),
+        daily=_query_by_day(client, "daily", source_days),
         daily_basic=_query_by_day(
             client,
             "daily_basic",
-            days,
+            source_days,
             fields="ts_code,trade_date,turnover_rate",
         ),
-        adj_factor=_query_by_day(client, "adj_factor", days),
+        adj_factor=_query_by_day(client, "adj_factor", source_days),
         stk_limit=_query_by_day(
             client,
             "stk_limit",
-            days,
+            source_days,
             fields="ts_code,trade_date,pre_close,up_limit,down_limit",
         ),
-        suspend_d=_query_by_day(client, "suspend_d", days, suspend_type="S"),
+        suspend_d=_query_by_day(client, "suspend_d", source_days, suspend_type="S"),
         # Historical ST state would require a per-security history query.
         # This snapshot is only eligible for its resolved as_of date, so the
         # current stock_basic name is used only for that date below.
