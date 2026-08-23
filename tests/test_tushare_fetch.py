@@ -1,0 +1,298 @@
+from __future__ import annotations
+
+from datetime import date
+from pathlib import Path
+
+import polars as pl
+import pytest
+from fastapi.testclient import TestClient
+from typer.testing import CliRunner
+
+from app.api.main import app
+from app.cli import app as cli_app
+from app.clock import available_at_utc
+from app.demo.generator import generate_demo_market, write_demo_parquet
+from app.errors import DataQualityError, MissingTushareTokenError, sanitize_error_message
+from app.pipeline import run_backtest, run_score
+from app.providers.tushare_client import TOKEN_ENV, read_tushare_token
+from app.providers.tushare_fetch import fetch_tushare_and_import, read_symbols_file
+from app.providers.tushare_normalize import require_ts_code
+from app.storage.snapshot_io import load_verified_snapshot
+from app.strategies.loader import load_strategy_config
+from tests.helpers import PROJECT_ROOT
+from tests.tushare_fakes import STOCKS, FakeTushareClient, build_fake_tushare_api_tables
+
+
+def _config():
+    return load_strategy_config("baseline_real_cn_v1", PROJECT_ROOT / "config" / "strategies")
+
+
+def test_missing_token_fails_without_env_leak(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(TOKEN_ENV, raising=False)
+    monkeypatch.setenv("OTHER_SECRET", "should-not-appear")
+    with pytest.raises(MissingTushareTokenError, match="not configured") as exc_info:
+        read_tushare_token()
+    message = str(exc_info.value)
+    assert "should-not-appear" not in message
+    assert "=" not in message
+
+
+def test_token_is_redacted_from_cli_and_errors(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    secret = "super-secret-tushare-token"
+    monkeypatch.setenv(TOKEN_ENV, secret)
+    monkeypatch.setenv("AIQ_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AIQ_CONFIG_DIR", str(PROJECT_ROOT / "config"))
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_app,
+        [
+            "fetch-tushare",
+            "--start",
+            "2024-01-02",
+            "--end",
+            "2024-01-31",
+            "--strategy",
+            "baseline_real_cn_v1",
+        ],
+    )
+    assert result.exit_code == 1
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert secret not in combined
+    assert sanitize_error_message(ValueError(f"token={secret}")) != f"token={secret}"
+    assert secret not in sanitize_error_message(ValueError(f"token={secret}"))
+
+
+def test_fake_tushare_builds_five_tables_and_imports(tmp_path: Path) -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+    client = FakeTushareClient(tables)
+    snapshot = fetch_tushare_and_import(
+        start=calendar[0],
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "parquet",
+        stocks=list(STOCKS),
+        client=client,
+        source_version="batch-1",
+    )
+    verified = load_verified_snapshot(tmp_path / "parquet")
+    assert verified.snapshot_id == snapshot.snapshot_id
+    assert snapshot.source_name == "tushare"
+    assert snapshot.adjustment == "forward"
+    for name in ("daily_bars", "index_bars", "global_bars", "instruments", "calendar"):
+        assert (tmp_path / "parquet" / f"{name}.parquet").exists()
+    daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
+    assert set(daily["symbol"].to_list()) == set(STOCKS)
+
+
+def test_tushare_snapshot_reaches_score_backtest_and_api(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+    monkeypatch.setenv("AIQ_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AIQ_CONFIG_DIR", str(PROJECT_ROOT / "config"))
+    monkeypatch.setenv("AIQ_DATABASE_URL", f"sqlite:///{tmp_path / 'app.db'}")
+    imported = fetch_tushare_and_import(
+        start=calendar[0],
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "data" / "parquet",
+        stocks=list(STOCKS),
+        client=FakeTushareClient(tables),
+    )
+    as_of = date(2024, 1, 15)
+    scores = run_score(as_of, "baseline_real_cn_v1")
+    assert scores
+    assert {row.data_snapshot_id for row in scores} == {imported.snapshot_id}
+    result = run_backtest("baseline_real_cn_v1", date(2024, 1, 2), date(2024, 1, 31))
+    assert result.data_snapshot_id == imported.snapshot_id
+    client = TestClient(app)
+    ranking = client.get("/ranking", params={"date": "2024-01-15", "strategy": "baseline_real_cn_v1", "top": 5})
+    assert ranking.status_code == 200
+    assert ranking.json()["data_snapshot_id"] == imported.snapshot_id
+    created = client.post(
+        "/backtests",
+        json={"strategy": "baseline_real_cn_v1", "start": "2024-01-02", "end": "2024-01-31"},
+    )
+    assert created.status_code == 200
+    assert created.json()["result"]["data_snapshot_id"] == imported.snapshot_id
+
+
+def test_failed_tushare_import_keeps_existing_snapshot(tmp_path: Path) -> None:
+    dest = tmp_path / "parquet"
+    demo = generate_demo_market(seed=42, n_stocks=8, start=date(2023, 1, 3), end=date(2024, 3, 29))
+    previous = write_demo_parquet(demo, dest)
+    calendar, tables = build_fake_tushare_api_tables()
+    client = FakeTushareClient(tables, absent={"stk_limit"})
+    with pytest.raises(DataQualityError, match="stk_limit"):
+        fetch_tushare_and_import(
+            start=calendar[0],
+            end=calendar[-1],
+            config=_config(),
+            dest_dir=dest,
+            stocks=list(STOCKS),
+            client=client,
+        )
+    assert load_verified_snapshot(dest).snapshot_id == previous.snapshot_id
+
+
+def test_tushare_global_available_at_is_naive_utc(tmp_path: Path) -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+    fetch_tushare_and_import(
+        start=calendar[0],
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "parquet",
+        stocks=list(STOCKS),
+        client=FakeTushareClient(tables),
+    )
+    glob = pl.read_parquet(tmp_path / "parquet" / "global_bars.parquet")
+    sample = glob.filter((pl.col("symbol") == "SPX") & (pl.col("date") == date(2024, 1, 2))).to_dicts()
+    assert sample
+    value = sample[0]["available_at"]
+    assert value.tzinfo is None
+    expected = available_at_utc(date(2024, 1, 2), _config().data.sessions["SPX"])
+    assert value == expected
+
+
+def test_offset_global_timestamp_still_rejected_after_tushare_flow(tmp_path: Path) -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+    fetch_tushare_and_import(
+        start=calendar[0],
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "good",
+        stocks=list(STOCKS),
+        client=FakeTushareClient(tables),
+    )
+    src = tmp_path / "tampered"
+    src.mkdir()
+    for name in ("daily_bars", "index_bars", "instruments", "calendar"):
+        pl.read_parquet(tmp_path / "good" / f"{name}.parquet").write_csv(src / f"{name}.csv")
+    glob = pl.read_parquet(tmp_path / "good" / "global_bars.parquet").with_columns(
+        pl.lit("2024-01-02T16:00:00-05:00").alias("available_at")
+    )
+    glob.write_csv(src / "global_bars.csv")
+    from app.storage.import_market import import_market_data
+
+    with pytest.raises(DataQualityError, match="non-zero offsets"):
+        import_market_data(src, tmp_path / "bad", source_name="tushare", adjustment="forward")
+
+
+def test_limit_pct_from_stk_limit_not_st_guess(tmp_path: Path) -> None:
+    calendar, _base = build_fake_tushare_api_tables()
+    day_20 = calendar[-5]
+    day_null = calendar[-4]
+    _, tables = build_fake_tushare_api_tables(
+        limit_override={
+            ("000001.SZ", day_20): (10.0, 12.0, 8.0),
+            ("000001.SZ", day_null): (10.0, None, None),
+        }
+    )
+    fetch_tushare_and_import(
+        start=calendar[0],
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "parquet",
+        stocks=list(STOCKS),
+        client=FakeTushareClient(tables),
+    )
+    daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
+    twenty = daily.filter((pl.col("symbol") == "000001.SZ") & (pl.col("date") == day_20)).to_dicts()[0]
+    empty = daily.filter((pl.col("symbol") == "000001.SZ") & (pl.col("date") == day_null)).to_dicts()[0]
+    assert twenty["price_limit_pct"] == pytest.approx(0.20)
+    assert empty["price_limit_pct"] is None
+    st_row = daily.filter(pl.col("symbol") == "600000.SH").to_dicts()[0]
+    assert st_row["is_st"] is True
+    assert st_row["price_limit_pct"] == pytest.approx(0.10)
+
+
+def test_missing_stk_limit_does_not_default_to_ten_percent() -> None:
+    calendar, tables = build_fake_tushare_api_tables(drop_limit_keys={("000001.SZ", date(2024, 1, 15))})
+    with pytest.raises(DataQualityError, match="refusing to default price_limit_pct"):
+        fetch_tushare_and_import(
+            start=calendar[0],
+            end=calendar[-1],
+            config=_config(),
+            dest_dir=Path("/unused"),
+            stocks=list(STOCKS),
+            client=FakeTushareClient(tables),
+        )
+
+
+def test_missing_st_or_suspend_records_are_not_invented() -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+    with pytest.raises(DataQualityError, match="namechange"):
+        fetch_tushare_and_import(
+            start=calendar[0],
+            end=calendar[-1],
+            config=_config(),
+            dest_dir=Path("/unused"),
+            stocks=list(STOCKS),
+            client=FakeTushareClient(tables, absent={"namechange"}),
+        )
+    with pytest.raises(DataQualityError, match="suspend_d"):
+        fetch_tushare_and_import(
+            start=calendar[0],
+            end=calendar[-1],
+            config=_config(),
+            dest_dir=Path("/unused"),
+            stocks=list(STOCKS),
+            client=FakeTushareClient(tables, absent={"suspend_d"}),
+        )
+
+
+def test_unknown_daily_gap_is_not_forged_as_suspend(tmp_path: Path) -> None:
+    calendar, tables = build_fake_tushare_api_tables(skip_daily={("000001.SZ", date(2024, 1, 16))})
+    fetch_tushare_and_import(
+        start=calendar[0],
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "parquet",
+        stocks=list(STOCKS),
+        client=FakeTushareClient(tables),
+    )
+    daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
+    gap = daily.filter((pl.col("symbol") == "000001.SZ") & (pl.col("date") == date(2024, 1, 16)))
+    assert gap.is_empty()
+
+
+def test_explicit_suspend_synthesizes_untradeable_bar(tmp_path: Path) -> None:
+    day = date(2024, 1, 16)
+    calendar, tables = build_fake_tushare_api_tables(suspend_days={("000001.SZ", day)})
+    fetch_tushare_and_import(
+        start=calendar[0],
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "parquet",
+        stocks=list(STOCKS),
+        client=FakeTushareClient(tables),
+    )
+    daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
+    row = daily.filter((pl.col("symbol") == "000001.SZ") & (pl.col("date") == day)).to_dicts()[0]
+    assert row["is_suspended"] is True
+    assert row["volume"] == 0.0
+    assert row["amount"] == 0.0
+    assert row["open"] == row["close"]
+
+
+def test_symbol_suffix_is_not_inferred(tmp_path: Path) -> None:
+    with pytest.raises(DataQualityError, match="suffixes are not inferred"):
+        require_ts_code("000001", kind="stock")
+    (tmp_path / "symbols.txt").write_text("000001\n", encoding="utf-8")
+    with pytest.raises(DataQualityError, match="suffixes are not inferred"):
+        read_symbols_file(tmp_path / "symbols.txt")
+
+
+def test_index_universe_uses_index_weight(tmp_path: Path) -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+    snapshot = fetch_tushare_and_import(
+        start=calendar[0],
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "parquet",
+        index_universe="000300.SH",
+        client=FakeTushareClient(tables),
+    )
+    assert snapshot.market_index == "000300.SH"
+    daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
+    assert set(daily["symbol"].to_list()) == set(STOCKS)

@@ -132,3 +132,4 @@ ST0002.SZ,2024-01-02,5.00,5.10,4.90,5.02,3000000,15060000,0.02,true,false,0.05
 5. 海外 K 线按该市场收盘的当地时间换算成 UTC，写入 `available_at`。
 6. 停牌日保留 K 线，`is_suspended=true`，成交量为 0。
 7. 将五张表放到同一目录，跑导入命令，再用 YAML 里的代码与导入 symbol 对齐后评分/回测。
+8. 若数据来自 Tushare，使用 `fetch-tushare`（见 `docs/tushare.md`），不要绕过本契约自行写 Parquet。

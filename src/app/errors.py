@@ -17,6 +17,14 @@ class SnapshotError(ValueError):
     """Market snapshot is missing, incomplete, or does not match its manifest."""
 
 
+class MissingTushareTokenError(ValueError):
+    """Tushare token is not configured. Do not include the secret in the message."""
+
+
+class TushareFetchError(ValueError):
+    """Tushare raw data could not be fetched or normalized."""
+
+
 _HOME_RE = re.compile(r"(?:/Users|/home)/[^\s:/]+")
 _WIN_HOME_RE = re.compile(r"[A-Za-z]:\\Users\\[^\s\\]+")
 _ABS_PATH_RE = re.compile(r"(?:[A-Za-z]:\\|/)(?:[\w.\-]+[/\\])+[\w.\-]+")
@@ -40,6 +48,8 @@ def is_client_error(exc: BaseException) -> bool:
         MissingBenchmarkError
         | DataQualityError
         | SnapshotError
+        | MissingTushareTokenError
+        | TushareFetchError
         | FileNotFoundError
         | KeyError
         | ValueError

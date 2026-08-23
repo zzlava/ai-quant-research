@@ -7,9 +7,11 @@ from typing import Annotated, Literal
 import typer
 
 from app.demo.generator import DEMO_SEED, generate_demo_market, write_demo_parquet
+from app.errors import sanitize_error_message
 from app.pipeline import run_backtest, run_score
 from app.settings import get_settings
 from app.storage.import_market import import_market_data
+from app.strategies.loader import load_strategy_config
 from app.strategies.registry import StrategyRegistry
 
 app = typer.Typer(help="A-share research scoring and historical backtest CLI.")
@@ -100,6 +102,49 @@ def backtest(
             typer.echo(f"{key}: {value:.6f}")
         else:
             typer.echo(f"{key}: {value}")
+
+
+@app.command("fetch-tushare")
+def fetch_tushare_cmd(
+    start: Annotated[str, typer.Option("--start", help="YYYY-MM-DD")],
+    end: Annotated[str, typer.Option("--end", help="YYYY-MM-DD")],
+    strategy: Annotated[str, typer.Option("--strategy")],
+    symbols_file: Annotated[Path | None, typer.Option("--symbols-file")] = None,
+    index_universe: Annotated[str | None, typer.Option("--index-universe")] = None,
+    source_version: Annotated[str | None, typer.Option("--source-version")] = None,
+) -> None:
+    """Pull Tushare history into the standardized snapshot. Research only; no trading."""
+    from app.providers.tushare_client import LiveTushareClient, read_tushare_token
+    from app.providers.tushare_fetch import fetch_tushare_and_import, read_symbols_file
+
+    typer.echo("Historical research only. This command does not place orders or connect to a broker.")
+    try:
+        token = read_tushare_token()
+        settings = get_settings()
+        config = load_strategy_config(strategy, settings.strategies_dir)
+        stocks = read_symbols_file(symbols_file) if symbols_file is not None else None
+        snapshot = fetch_tushare_and_import(
+            start=date.fromisoformat(start),
+            end=date.fromisoformat(end),
+            config=config,
+            dest_dir=settings.parquet_dir,
+            stocks=stocks,
+            index_universe=index_universe,
+            source_version=source_version,
+            client=LiveTushareClient(token),
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    stock_count = snapshot.row_counts.get("instruments", 0)
+    typer.echo(f"source_name={snapshot.source_name}")
+    typer.echo(f"coverage={snapshot.coverage_start}..{snapshot.coverage_end}")
+    typer.echo(f"instruments={stock_count}")
+    typer.echo(f"market_index={snapshot.market_index}")
+    typer.echo(f"global_symbol={snapshot.global_symbol}")
+    typer.echo(f"adjustment={snapshot.adjustment}")
+    typer.echo(f"source_version={snapshot.source_version or '-'}")
+    typer.echo(f"data_snapshot_id={snapshot.snapshot_id}")
 
 
 @app.command("list-strategies")

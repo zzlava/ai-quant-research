@@ -74,15 +74,29 @@ python -m app.cli import-market-data \
 
 成功后会打印 `data_snapshot_id`。评分、回测和 API 都会带上同一个快照标识。缺少 manifest、manifest 与内容不一致、或缺表时会直接失败，不会回退 demo 数据。
 
-真实 A 股基准/时区配置示例（无密钥）：
+## 从 Tushare 拉取真实历史
 
-`config/strategies/baseline_real_cn_v1.example.yaml`
-
-复制后把 `data:` 里的代码改成与导入数据完全一致，再：
+Token 只放在环境变量 `AIQ_TUSHARE_TOKEN`，不要提交。步骤见 `docs/tushare.md`。
 
 ```bash
-python -m app.cli score --date 2024-01-15 --strategy baseline_v1
-python -m app.cli backtest --strategy baseline_v1 --start 2024-01-02 --end 2024-06-28
+export AIQ_TUSHARE_TOKEN="你的 token"
+pip install -e ".[tushare]"
+python -m app.cli fetch-tushare \
+  --start 2022-01-01 \
+  --end 2024-12-31 \
+  --strategy baseline_real_cn_v1 \
+  --symbols-file ./symbols.txt
+```
+
+该命令只做历史研究数据导入，不执行交易。真实 A 股配置：
+
+`config/strategies/baseline_real_cn_v1.yaml`
+
+把 `data:` 里的代码保持与导入数据完全一致，再：
+
+```bash
+python -m app.cli score --date 2024-01-15 --strategy baseline_real_cn_v1
+python -m app.cli backtest --strategy baseline_real_cn_v1 --start 2024-01-02 --end 2024-06-28
 ```
 
 ## 要求
@@ -164,7 +178,7 @@ GitHub Actions 会在 push / PR 时自动跑上述三项。
 
 ## 已知限制 / TODO
 
-- `TushareProvider` / `AKShareProvider` 只建立了接口，**没有**实现联网拉取。真实数据请先标准化后走 `import-market-data`。
+- `TushareProvider` 已实现离线可测的官方接口拉取，必须经标准化五表和 `import_market_data()` 入库。`AKShareProvider` 仍是 TODO。
 - 没有分钟级数据。同一根日线盘中同时触发止盈和止损时，按保守原则视为**先止损**；开盘跳空则按开盘价。
 - 涨跌停按逐日 `price_limit_pct` + 日线一字板近似，不是逐笔排队模型。
 - 没有组合再平衡、没有融资融券。
