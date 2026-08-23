@@ -20,6 +20,8 @@ def test_health_and_strategies() -> None:
     assert listed.status_code == 200
     names = {item["name"] for item in listed.json()}
     assert "baseline_v1" in names
+    assert "controlled_sample_anchor_intersection30_v1" in names
+    assert "baseline_real_cn_v1.example" not in names
 
 
 def test_ranking_and_backtest_roundtrip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

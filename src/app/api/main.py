@@ -63,14 +63,20 @@ def health() -> dict[str, str]:
 def strategies() -> list[StrategyInfo]:
     settings = get_settings()
     out: list[StrategyInfo] = []
-    for name in StrategyRegistry.names():
+    for path in sorted(settings.strategies_dir.glob("*.yaml")):
+        # Example files document a schema but are not runnable configurations.
+        if path.name.endswith(".example.yaml"):
+            continue
+        config_id = path.stem
         try:
-            config = load_strategy_config(name, settings.strategies_dir)
+            config = load_strategy_config(config_id, settings.strategies_dir)
+            if not StrategyRegistry.contains(config.name):
+                continue
             out.append(
-                StrategyInfo(name=name, version=config.version, config_hash=config.config_hash())
+                StrategyInfo(name=config_id, version=config.version, config_hash=config.config_hash())
             )
         except FileNotFoundError:
-            out.append(StrategyInfo(name=name))
+            continue
     return out
 
 
