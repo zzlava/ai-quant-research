@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Protocol
 
 import polars as pl
@@ -36,6 +36,16 @@ class MarketStore(Protocol):
         symbol: str | None = None,
         start: date | None = None,
     ) -> pl.DataFrame: ...
+
+    def get_universe_members(
+        self,
+        universe_id: str,
+        as_of: date,
+        available_by: datetime,
+        *,
+        expected_constituents: int | None = None,
+        require_available_cross_section: bool = False,
+    ) -> set[str]: ...
 
     def next_trading_day(self, after: date) -> date | None: ...
 

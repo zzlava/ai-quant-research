@@ -50,6 +50,7 @@ HASH_COLUMNS: dict[str, tuple[str, ...]] = {
         "session_close",
     ),
     "calendar": ("date",),
+    "universe_membership": ("universe_id", "as_of_date", "symbol", "available_at", "weight"),
 }
 
 SORT_KEYS: dict[str, tuple[str, ...]] = {
@@ -58,6 +59,7 @@ SORT_KEYS: dict[str, tuple[str, ...]] = {
     "global_bars": ("symbol", "date"),
     "instruments": ("symbol",),
     "calendar": ("date",),
+    "universe_membership": ("universe_id", "as_of_date", "symbol"),
 }
 
 

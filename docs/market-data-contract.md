@@ -24,7 +24,7 @@ python -m app.cli import-market-data \
 
 ## 输入目录
 
-至少包含下列五个表，每个表为 `.csv` 或 `.parquet`：
+至少包含下列六个表，每个表为 `.csv` 或 `.parquet`：
 
 | 文件 | 用途 |
 | --- | --- |
@@ -33,6 +33,7 @@ python -m app.cli import-market-data \
 | `global_bars` | 海外/跨市场日线，必须带 `available_at` |
 | `instruments` | 证券主数据 |
 | `calendar` | A 股交易日历 |
+| `universe_membership` | 每个交易日的点时股票池成员，必须带 `available_at` |
 
 ## 代码与时间规范
 
@@ -109,11 +110,32 @@ ST0002.SZ,2024-01-02,5.00,5.10,4.90,5.02,3000000,15060000,0.02,true,false,0.05
 
 必须覆盖评分/回测窗口内的 A 股交易日，日期唯一。
 
+### universe_membership
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| universe_id | string | 股票池标识，与策略 YAML `universe.id` 一致 |
+| as_of_date | date | 该日完整成员截面的生效日，不是文件下载日 |
+| symbol | string | Tushare `ts_code`，必须已在 `instruments` 中 |
+| available_at | datetime UTC | 该成员关系在决策时点已经可知的时刻 |
+| weight | float64 \| null | 预留给未来组合构建；当前评分/回测不按权重调仓 |
+
+约束：
+
+- 主键 `(universe_id, as_of_date, symbol)` 唯一
+- 每个交易日必须导入完整截面，不能只存增减差异，也不能沿用前一日
+- 不得包含快照覆盖期外的日期
+- 旧五表快照缺少本表时会被拒绝，不会回退为“所有 instruments 都可交易”
+
+`import-market-data` 可用 `--universe-membership-file` 提供该表。`fetch-tushare` 在 `manual_static` 下按 `--symbols-file` 生成该表；在 `historical_membership` 下只接受离线每日成员历史文件。
+
+原始成分快照 CSV（`universe_id,effective_from,symbol,available_at,weight`）与每日成员 CSV 是两种格式。前者是可信来源的完整截面序列；`build-universe-membership` 只做保守前向物化，不会联网、不会下载指数成分，也不会把“当前成员”写成历史成员。输出必须截断到请求窗口内的交易日历日。`baseline_csi300_pit_v1` 只有在输入完整的 300 成分历史快照时才能用于指数历史研究；两成员或小样本文件只可用于管道验证，不能描述成 CSI300 回测。
+
 ## 快照
 
 导入成功后 `data/parquet/manifest.json` 至少包含：
 
-- `snapshot_id`：五张表内容哈希 + schema + 复权口径的 SHA-256
+- `snapshot_id`：六张表内容哈希 + schema + 复权口径的 SHA-256
 - `schema_version`
 - 每张表的 content hash
 - 合并 `content_hash`（与 `snapshot_id` 相同）
@@ -131,5 +153,5 @@ ST0002.SZ,2024-01-02,5.00,5.10,4.90,5.02,3000000,15060000,0.02,true,false,0.05
 4. **逐日**填写 `price_limit_pct`：主板/ST/创业板/科创板/北交所/上市初期以数据源或官方规则为准，不要让本系统猜测。
 5. 海外 K 线按该市场收盘的当地时间换算成 UTC，写入 `available_at`。
 6. 停牌日保留 K 线，`is_suspended=true`，成交量为 0。
-7. 将五张表放到同一目录，跑导入命令，再用 YAML 里的代码与导入 symbol 对齐后评分/回测。
+7. 将六张表放到同一目录，跑导入命令，再用 YAML 里的代码与导入 symbol 对齐后评分/回测。
 8. 若数据来自 Tushare，使用 `fetch-tushare`（见 `docs/tushare.md`），不要绕过本契约自行写 Parquet。

@@ -27,7 +27,14 @@ def read_tables(parquet_dir: Path) -> dict[str, pl.DataFrame]:
             continue
         tables[name] = pl.read_parquet(path)
     if missing:
-        raise SnapshotError(f"market snapshot is missing required tables: {missing}")
+        hint = ""
+        if "universe_membership.parquet" in missing:
+            hint = (
+                "; universe_membership is required by the six-table snapshot contract. "
+                "Re-import market data or regenerate demo data. "
+                "Legacy five-table snapshots are rejected and are not treated as an all-instrument universe"
+            )
+        raise SnapshotError(f"market snapshot is missing required tables: {missing}{hint}")
     return tables
 
 

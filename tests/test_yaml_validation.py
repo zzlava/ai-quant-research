@@ -65,6 +65,19 @@ def test_valid_yaml_still_loads() -> None:
     StrategyConfig.model_validate(copied)
 
 
+def test_universe_mode_and_id_are_loaded() -> None:
+    config = StrategyConfig.model_validate(_payload())
+    assert config.universe.mode == "manual_static"
+    assert config.universe.id == "demo"
+    payload = _payload()
+    payload["universe"]["mode"] = "historical_membership"
+    payload["universe"]["id"] = "csi300"
+    payload["universe"]["expected_constituents"] = 300
+    hist = StrategyConfig.model_validate(payload)
+    assert hist.universe.mode == "historical_membership"
+    assert hist.universe.expected_constituents == 300
+
+
 def test_optional_config_id_is_allowed() -> None:
     payload = _payload()
     payload["config_id"] = "baseline_real_cn_v1"

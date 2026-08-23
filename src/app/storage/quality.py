@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 import polars as pl
 
 from app.errors import DataQualityError, MissingBenchmarkError
+from app.providers._frames import UNIVERSE_MEMBERSHIP_SCHEMA
+from app.providers.tushare_normalize import require_ts_code
 
 REQUIRED_OHLCV = ("symbol", "date", "open", "high", "low", "close", "volume", "amount")
 REQUIRED_GLOBAL = ("symbol", "date", "close", "available_at")
+REQUIRED_MEMBERSHIP = ("universe_id", "as_of_date", "symbol", "available_at")
 PRICE_COLS = ("open", "high", "low", "close", "volume", "amount")
 
 
@@ -144,6 +147,73 @@ def validate_instruments(frame: pl.DataFrame, name: str = "instruments") -> None
     dups = frame.group_by("symbol").len().filter(pl.col("len") > 1)
     if dups.height:
         raise DataQualityError(f"{name} has duplicate symbols")
+
+
+def validate_universe_membership(
+    frame: pl.DataFrame,
+    calendar: list[date],
+    instruments: pl.DataFrame,
+    *,
+    universe_id: str | None = None,
+    expected_constituents: int | None = None,
+    name: str = "universe_membership",
+) -> None:
+    if frame.is_empty():
+        raise DataQualityError(f"{name} has no rows")
+    missing = [col for col in REQUIRED_MEMBERSHIP if col not in frame.columns]
+    if missing:
+        raise DataQualityError(f"{name} missing columns: {missing}")
+    extra = [col for col in UNIVERSE_MEMBERSHIP_SCHEMA if col not in frame.columns and col != "weight"]
+    if extra:
+        raise DataQualityError(f"{name} missing columns: {extra}")
+    empty_id = frame.filter(
+        pl.col("universe_id").is_null() | (pl.col("universe_id").cast(pl.Utf8).str.strip_chars() == "")
+    )
+    if empty_id.height:
+        raise DataQualityError(f"{name} has empty universe_id")
+    if frame["as_of_date"].null_count() or frame["symbol"].null_count():
+        raise DataQualityError(f"{name} has empty as_of_date or symbol")
+    dups = frame.group_by(["universe_id", "as_of_date", "symbol"]).len().filter(pl.col("len") > 1)
+    if dups.height:
+        raise DataQualityError(f"{name} has duplicate (universe_id, as_of_date, symbol) rows")
+    if frame["available_at"].null_count() > 0:
+        raise DataQualityError(f"{name} has missing available_at")
+    _assert_available_at_utc(frame, name)
+    if "weight" in frame.columns:
+        weight = pl.col("weight")
+        bad_weight = frame.filter(weight.is_not_null() & (weight.is_nan() | weight.is_infinite()))
+        if bad_weight.height:
+            raise DataQualityError(f"{name} has non-finite weight")
+
+    for symbol in frame["symbol"].to_list():
+        require_ts_code(str(symbol), kind="stock")
+    from app.universe.membership import assert_membership_covers_calendar
+
+    assert_membership_covers_calendar(
+        frame,
+        calendar,
+        universe_id=universe_id,
+        expected_constituents=expected_constituents,
+        name=name,
+    )
+
+    member_symbols = {str(code) for code in frame["symbol"].to_list()}
+    known = set(instruments["symbol"].to_list()) if "symbol" in instruments.columns else set()
+    unknown = sorted(member_symbols - known)
+    if unknown:
+        raise DataQualityError(f"{name} references symbols not in instruments, e.g. {unknown[:3]}")
+    blocked_mask = pl.lit(False)
+    if "is_index" in instruments.columns:
+        blocked_mask = blocked_mask | pl.col("is_index")
+    if "is_global" in instruments.columns:
+        blocked_mask = blocked_mask | pl.col("is_global")
+    if "symbol" in instruments.columns:
+        blocked_symbols = set(instruments.filter(blocked_mask)["symbol"].to_list())
+    else:
+        blocked_symbols = set()
+    hits = sorted(member_symbols & blocked_symbols)
+    if hits:
+        raise DataQualityError(f"{name} members must be tradable stocks, not index/global symbols, e.g. {hits[:3]}")
 
 
 def validate_calendar(frame: pl.DataFrame, name: str = "calendar") -> None:

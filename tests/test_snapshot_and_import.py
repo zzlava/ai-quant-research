@@ -19,6 +19,7 @@ from app.providers._frames import bars_to_frame, global_to_frame, instruments_to
 from app.storage.hashing import build_snapshot
 from app.storage.import_market import import_market_data
 from app.storage.snapshot_io import load_verified_snapshot
+from app.universe.membership import build_manual_static_membership
 from tests.helpers import PROJECT_ROOT
 
 
@@ -32,12 +33,15 @@ def _bundle():
 
 
 def _tables_from_bundle(bundle) -> dict[str, pl.DataFrame]:
+    instruments = instruments_to_frame(bundle.instruments)
+    stocks = [item.symbol for item in bundle.instruments if not item.is_index and not item.is_global]
     return {
         "daily_bars": bars_to_frame(bundle.daily_bars),
         "index_bars": bars_to_frame(bundle.index_bars),
         "global_bars": global_to_frame(bundle.global_bars),
-        "instruments": instruments_to_frame(bundle.instruments),
+        "instruments": instruments,
         "calendar": pl.DataFrame({"date": bundle.calendar}).with_columns(pl.col("date").cast(pl.Date)),
+        "universe_membership": build_manual_static_membership(stocks, bundle.calendar, universe_id="demo"),
     }
 
 
@@ -58,14 +62,17 @@ def test_snapshot_id_changes_when_content_changes() -> None:
     avail = tables["global_bars"].with_columns(pl.col("available_at") + pl.duration(hours=1))
     inst = tables["instruments"].with_columns(pl.col("name") + "_x")
     cal = tables["calendar"].filter(pl.col("date") != tables["calendar"]["date"].min())
+    members = tables["universe_membership"].with_columns(pl.col("weight").fill_null(0.0) + 0.01)
     price_id = build_snapshot({**tables, "daily_bars": price}, adjustment="forward", source_name="demo")
     avail_id = build_snapshot({**tables, "global_bars": avail}, adjustment="forward", source_name="demo")
     inst_id = build_snapshot({**tables, "instruments": inst}, adjustment="forward", source_name="demo")
     cal_id = build_snapshot({**tables, "calendar": cal}, adjustment="forward", source_name="demo")
+    member_id = build_snapshot({**tables, "universe_membership": members}, adjustment="forward", source_name="demo")
     assert price_id.snapshot_id != base.snapshot_id
     assert avail_id.snapshot_id != base.snapshot_id
     assert inst_id.snapshot_id != base.snapshot_id
     assert cal_id.snapshot_id != base.snapshot_id
+    assert member_id.snapshot_id != base.snapshot_id
 
 
 def test_snapshot_id_stable_across_row_order_and_fetched_at() -> None:

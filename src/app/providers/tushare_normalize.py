@@ -119,6 +119,11 @@ def normalize_tushare(
     }
 
 
+def open_trading_days(frame: pl.DataFrame, start: date, end: date) -> list[date]:
+    calendar = _normalize_calendar(frame, start, end)
+    return [day for day in calendar["date"].to_list() if isinstance(day, date)]
+
+
 def _normalize_calendar(frame: pl.DataFrame, start: date, end: date) -> pl.DataFrame:
     if frame.is_empty() or "cal_date" not in frame.columns:
         raise DataQualityError("trade_cal returned no open dates")

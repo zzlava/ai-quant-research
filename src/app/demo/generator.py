@@ -14,7 +14,14 @@ from app.models.snapshot import DataSnapshot
 from app.providers._frames import bars_to_frame, global_to_frame, instruments_to_frame
 from app.storage.hashing import build_snapshot
 from app.storage.import_market import write_snapshot_atomically
-from app.storage.quality import validate_calendar, validate_global, validate_instruments, validate_ohlcv
+from app.storage.quality import (
+    validate_calendar,
+    validate_global,
+    validate_instruments,
+    validate_ohlcv,
+    validate_universe_membership,
+)
+from app.universe.membership import build_manual_static_membership
 
 DEMO_SEED = 42
 SECTORS = ("bank", "tech", "consumer")
@@ -60,7 +67,7 @@ def generate_demo_market(
     }
 
     for i in range(1, n_stocks + 1):
-        symbol = f"STK{i:04d}"
+        symbol = f"{i:06d}.SZ"
         sector = SECTORS[(i - 1) % len(SECTORS)]
         is_st = i >= n_stocks - 1
         newly_listed = i == n_stocks - 2
@@ -187,17 +194,21 @@ def write_demo_parquet(bundle: MarketBundle, parquet_dir: Path) -> DataSnapshot:
     glob = global_to_frame(bundle.global_bars)
     instruments = instruments_to_frame(bundle.instruments)
     calendar = pl.DataFrame({"date": bundle.calendar}).with_columns(pl.col("date").cast(pl.Date))
+    stocks = [item.symbol for item in bundle.instruments if not item.is_index and not item.is_global]
+    membership = build_manual_static_membership(stocks, bundle.calendar, universe_id="demo")
     validate_ohlcv(daily, "daily_bars")
     validate_ohlcv(index, "index_bars")
     validate_global(glob)
     validate_instruments(instruments)
     validate_calendar(calendar)
+    validate_universe_membership(membership, bundle.calendar, instruments, universe_id="demo")
     tables = {
         "daily_bars": daily,
         "index_bars": index,
         "global_bars": glob,
         "instruments": instruments,
         "calendar": calendar,
+        "universe_membership": membership,
     }
     snapshot = build_snapshot(
         tables,

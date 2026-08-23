@@ -74,6 +74,23 @@ class LeakyStore:
     def snapshot(self):
         return self.inner.snapshot()
 
+    def get_universe_members(
+        self,
+        universe_id: str,
+        as_of: date,
+        available_by,
+        *,
+        expected_constituents: int | None = None,
+        require_available_cross_section: bool = False,
+    ):
+        return self.inner.get_universe_members(
+            universe_id,
+            as_of,
+            available_by,
+            expected_constituents=expected_constituents,
+            require_available_cross_section=require_available_cross_section,
+        )
+
 
 def _shock_future(frame: pl.DataFrame, as_of: date, factor: float = 7.5) -> pl.DataFrame:
     cols = [c for c in ("open", "high", "low", "close", "volume", "amount") if c in frame.columns]

@@ -9,11 +9,13 @@ import polars as pl
 from app.backtest.costs import apply_slippage, buy_cost, sell_cost, shares_affordable
 from app.backtest.limits import is_one_word_limit
 from app.backtest.metrics import compute_metrics
+from app.clock import decision_at_utc
 from app.models.backtest import BacktestResult, BacktestWindow, EquityPoint, ExitReason, TradeFill
 from app.models.config import StrategyConfig
 from app.models.scores import ScoreResult
 from app.scoring.engine import ScoringEngine
 from app.storage.protocol import MarketStore
+from app.universe.membership import membership_lookup_options
 
 SignalFn = Callable[[date], list[ScoreResult]]
 
@@ -260,9 +262,19 @@ class BacktestEngine:
         if take <= 0:
             return []
         held = set(positions)
+        lookup = membership_lookup_options(self.config.universe)
+        members = self.store.get_universe_members(
+            self.config.universe.id,
+            day,
+            decision_at_utc(day, self.config.data),
+            expected_constituents=lookup["expected_constituents"],
+            require_available_cross_section=bool(lookup["require_available_cross_section"]),
+        )
         picks: list[PendingBuy] = []
         for result in ranked:
             if result.symbol in held:
+                continue
+            if result.symbol not in members:
                 continue
             picks.append(PendingBuy(symbol=result.symbol, signal_date=day))
             if len(picks) >= take:

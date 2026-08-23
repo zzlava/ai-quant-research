@@ -11,6 +11,7 @@ from app.models.market import Instrument
 from app.models.scores import ScoreBreakdown, ScoreResult
 from app.providers._frames import empty_global, instruments_to_frame
 from app.storage.memory import InMemoryStore
+from app.universe.membership import build_manual_static_membership
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_DIR = PROJECT_ROOT / "config" / "strategies"
@@ -101,7 +102,13 @@ def fill_quiet_bars(
     return rows
 
 
-def store_from_rows(calendar: list[date], rows: list[dict[str, object]]) -> InMemoryStore:
+def store_from_rows(
+    calendar: list[date],
+    rows: list[dict[str, object]],
+    *,
+    universe_id: str = "demo",
+    membership: pl.DataFrame | None = None,
+) -> InMemoryStore:
     symbols = sorted({str(r["symbol"]) for r in rows})
     instruments = [
         Instrument(symbol=s, name=s, sector="tech", listing_date=date(2018, 1, 1)) for s in symbols
@@ -114,12 +121,17 @@ def store_from_rows(calendar: list[date], rows: list[dict[str, object]]) -> InMe
             pl.col("price_limit_pct").cast(pl.Float64),
         ]
     )
+    frame = membership
+    if frame is None:
+        frame = build_manual_static_membership(symbols, calendar, universe_id=universe_id)
     return InMemoryStore(
         instruments=instruments_to_frame(instruments),
         daily=daily,
         index=daily.clear(),
         global_bars=empty_global(),
         calendar=calendar,
+        universe_membership=frame,
+        universe_id=universe_id,
     )
 
 

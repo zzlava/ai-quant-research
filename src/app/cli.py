@@ -38,6 +38,9 @@ def import_market_data_cmd(
     source_version: Annotated[str | None, typer.Option("--source-version")] = None,
     market_index: Annotated[str | None, typer.Option("--market-index")] = None,
     global_symbol: Annotated[str | None, typer.Option("--global-symbol")] = None,
+    universe_membership_file: Annotated[
+        Path | None, typer.Option("--universe-membership-file", dir_okay=False)
+    ] = None,
 ) -> None:
     settings = get_settings()
     snapshot = import_market_data(
@@ -48,9 +51,11 @@ def import_market_data_cmd(
         source_version=source_version,
         market_index=market_index,
         global_symbol=global_symbol,
+        membership_file=universe_membership_file,
     )
     typer.echo(f"imported market data from {source_dir}")
     typer.echo(f"source_name={snapshot.source_name} adjustment={snapshot.adjustment}")
+    typer.echo(f"universe_membership_rows={snapshot.row_counts.get('universe_membership', 0)}")
     typer.echo(f"data_snapshot_id={snapshot.snapshot_id}")
     typer.echo(f"coverage={snapshot.coverage_start}..{snapshot.coverage_end}")
 
@@ -110,24 +115,36 @@ def fetch_tushare_cmd(
     start: Annotated[str, typer.Option("--start", help="YYYY-MM-DD")],
     end: Annotated[str, typer.Option("--end", help="YYYY-MM-DD")],
     strategy: Annotated[str, typer.Option("--strategy")],
-    symbols_file: Annotated[Path, typer.Option("--symbols-file", exists=True, dir_okay=False)],
+    symbols_file: Annotated[Path | None, typer.Option("--symbols-file", dir_okay=False)] = None,
+    universe_membership_file: Annotated[
+        Path | None, typer.Option("--universe-membership-file", dir_okay=False)
+    ] = None,
     source_version: Annotated[str | None, typer.Option("--source-version")] = None,
 ) -> None:
     """Pull Tushare history into the standardized snapshot. Research only; no trading."""
     from app.providers.tushare_client import LiveTushareClient, read_tushare_token
-    from app.providers.tushare_fetch import fetch_tushare_and_import, read_symbols_file
+    from app.providers.tushare_fetch import fetch_tushare_and_import
+    from app.universe.membership import resolve_fetch_universe
 
     typer.echo("Historical research only. This command does not place orders or connect to a broker.")
     try:
-        token = read_tushare_token()
         settings = get_settings()
         config = load_strategy_config(strategy, settings.strategies_dir)
+        stocks, membership = resolve_fetch_universe(
+            config,
+            symbols_file=symbols_file,
+            membership_file=universe_membership_file,
+            start=date.fromisoformat(start),
+            end=date.fromisoformat(end),
+        )
+        token = read_tushare_token()
         snapshot = fetch_tushare_and_import(
             start=date.fromisoformat(start),
             end=date.fromisoformat(end),
             config=config,
             dest_dir=settings.parquet_dir,
-            stocks=read_symbols_file(symbols_file),
+            stocks=stocks,
+            membership=membership,
             source_version=source_version,
             client=LiveTushareClient(token),
         )
@@ -136,6 +153,9 @@ def fetch_tushare_cmd(
         raise typer.Exit(code=1) from None
     stock_count = snapshot.row_counts.get("instruments", 0)
     typer.echo(f"source_name={snapshot.source_name}")
+    typer.echo(f"universe_id={config.universe.id}")
+    typer.echo(f"universe_mode={config.universe.mode}")
+    typer.echo(f"universe_membership_rows={snapshot.row_counts.get('universe_membership', 0)}")
     typer.echo(f"coverage={snapshot.coverage_start}..{snapshot.coverage_end}")
     typer.echo(f"instruments={stock_count}")
     typer.echo(f"market_index={snapshot.market_index}")
@@ -143,6 +163,48 @@ def fetch_tushare_cmd(
     typer.echo(f"adjustment={snapshot.adjustment}")
     typer.echo(f"source_version={snapshot.source_version or '-'}")
     typer.echo(f"data_snapshot_id={snapshot.snapshot_id}")
+
+
+@app.command("build-universe-membership")
+def build_universe_membership_cmd(
+    snapshots_file: Annotated[Path, typer.Option("--snapshots-file", exists=True, dir_okay=False)],
+    calendar_file: Annotated[Path, typer.Option("--calendar-file", exists=True, dir_okay=False)],
+    start: Annotated[str, typer.Option("--start", help="YYYY-MM-DD")],
+    end: Annotated[str, typer.Option("--end", help="YYYY-MM-DD")],
+    strategy: Annotated[str, typer.Option("--strategy")],
+    output: Annotated[Path, typer.Option("--output", dir_okay=False)],
+    overwrite: Annotated[bool, typer.Option("--overwrite")] = False,
+) -> None:
+    """Materialize a daily PIT membership file from offline constituent snapshots. Research only."""
+    from app.universe.materialize import build_universe_membership
+
+    typer.echo("Offline research only. This command only writes a membership file and does not trade.")
+    try:
+        start_day = date.fromisoformat(start)
+        end_day = date.fromisoformat(end)
+        if end_day < start_day:
+            raise ValueError("end date must be on or after start date")
+        settings = get_settings()
+        config = load_strategy_config(strategy, settings.strategies_dir)
+        result = build_universe_membership(
+            snapshots_file=snapshots_file,
+            calendar_file=calendar_file,
+            config=config,
+            start=start_day,
+            end=end_day,
+            output=output,
+            overwrite=overwrite,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"universe_id={result.universe_id}")
+    typer.echo(f"trading_days={result.trading_days}")
+    typer.echo(f"members_per_day={result.members_per_day}")
+    typer.echo(f"output_rows={result.row_count}")
+    typer.echo(f"input_snapshots={result.snapshot_count}")
+    typer.echo(f"output={result.path}")
+    typer.echo("仅生成离线研究成员文件，不交易")
 
 
 @app.command("list-strategies")

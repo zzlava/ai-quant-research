@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import duckdb
@@ -10,6 +10,7 @@ from app.errors import SnapshotError
 from app.models.market import Instrument
 from app.models.snapshot import DataSnapshot
 from app.providers._frames import empty_daily, empty_global, empty_instruments
+from app.universe.membership import members_available_on
 
 
 class DuckDBParquetStore:
@@ -60,6 +61,36 @@ class DuckDBParquetStore:
         start: date | None = None,
     ) -> pl.DataFrame:
         return self._query_global(as_of, symbol, start)
+
+    def get_universe_members(
+        self,
+        universe_id: str,
+        as_of: date,
+        available_by: datetime,
+        *,
+        expected_constituents: int | None = None,
+        require_available_cross_section: bool = False,
+    ) -> set[str]:
+        path = self.parquet_dir / "universe_membership.parquet"
+        if not path.exists():
+            raise SnapshotError(
+                "market snapshot is missing required tables: ['universe_membership.parquet']; "
+                "universe_membership is required by the six-table snapshot contract. "
+                "Re-import market data or regenerate demo data. "
+                "Legacy five-table snapshots are rejected and are not treated as an all-instrument universe"
+            )
+        frame = self.conn.execute(
+            "SELECT * FROM read_parquet(?) WHERE universe_id = ? AND as_of_date = ?",
+            [str(path), universe_id, as_of],
+        ).pl()
+        return members_available_on(
+            frame,
+            universe_id=universe_id,
+            as_of=as_of,
+            available_by=available_by,
+            expected_constituents=expected_constituents,
+            require_available_cross_section=require_available_cross_section,
+        )
 
     def next_trading_day(self, after: date) -> date | None:
         days = self.trading_days_after(after, 1)

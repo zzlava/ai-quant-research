@@ -4,9 +4,16 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
-SCHEMA_VERSION = "2"
+SCHEMA_VERSION = "3"
 
-TABLE_NAMES = ("daily_bars", "index_bars", "global_bars", "instruments", "calendar")
+TABLE_NAMES = (
+    "daily_bars",
+    "index_bars",
+    "global_bars",
+    "instruments",
+    "calendar",
+    "universe_membership",
+)
 
 
 class DataSnapshot(BaseModel):

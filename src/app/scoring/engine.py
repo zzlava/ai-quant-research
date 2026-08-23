@@ -5,6 +5,7 @@ from pathlib import Path
 
 import polars as pl
 
+from app.clock import decision_at_utc
 from app.features.engine import FeatureEngine
 from app.models.config import StrategyConfig
 from app.models.scores import ScoreResult, StrategyContext
@@ -13,6 +14,7 @@ from app.storage.protocol import MarketStore
 from app.strategies.base import BaseStrategy
 from app.strategies.registry import StrategyRegistry
 from app.universe.filter import UniverseFilter
+from app.universe.membership import membership_lookup_options
 
 
 class ScoringEngine:
@@ -25,7 +27,16 @@ class ScoringEngine:
 
     def run(self, as_of: date) -> list[ScoreResult]:
         raw = self.features.compute_all(as_of)
-        filtered = self.universe.apply(raw)
+        lookup = membership_lookup_options(self.config.universe)
+        members = self.store.get_universe_members(
+            self.config.universe.id,
+            as_of,
+            decision_at_utc(as_of, self.config.data),
+            expected_constituents=lookup["expected_constituents"],
+            require_available_cross_section=bool(lookup["require_available_cross_section"]),
+        )
+        eligible = [feat for feat in raw if feat.symbol in members]
+        filtered = self.universe.apply(eligible)
         if not filtered:
             return []
         market_score = filtered[0].market_score

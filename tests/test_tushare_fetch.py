@@ -78,8 +78,12 @@ def test_fake_tushare_builds_five_tables_and_imports(tmp_path: Path) -> None:
     assert verified.snapshot_id == snapshot.snapshot_id
     assert snapshot.source_name == "tushare"
     assert snapshot.adjustment == "forward"
-    for name in ("daily_bars", "index_bars", "global_bars", "instruments", "calendar"):
+    for name in ("daily_bars", "index_bars", "global_bars", "instruments", "calendar", "universe_membership"):
         assert (tmp_path / "parquet" / f"{name}.parquet").exists()
+    membership = pl.read_parquet(tmp_path / "parquet" / "universe_membership.parquet")
+    assert set(membership["universe_id"].to_list()) == {"manual_real_cn"}
+    assert set(membership["as_of_date"].to_list()) == set(calendar)
+    assert set(membership["symbol"].to_list()) == set(STOCKS)
     daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
     assert set(daily["symbol"].to_list()) == set(STOCKS)
     statuses = [params.get("list_status") for name, params in client.call_params if name == "stock_basic"]
@@ -177,7 +181,7 @@ def test_offset_global_timestamp_still_rejected_after_tushare_flow(tmp_path: Pat
     )
     src = tmp_path / "tampered"
     src.mkdir()
-    for name in ("daily_bars", "index_bars", "instruments", "calendar"):
+    for name in ("daily_bars", "index_bars", "instruments", "calendar", "universe_membership"):
         pl.read_parquet(tmp_path / "good" / f"{name}.parquet").write_csv(src / f"{name}.csv")
     glob = pl.read_parquet(tmp_path / "good" / "global_bars.parquet").with_columns(
         pl.lit("2024-01-02T16:00:00-05:00").alias("available_at")

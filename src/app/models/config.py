@@ -25,6 +25,9 @@ class UniverseConfig(StrictModel):
     exclude_suspended: bool = True
     min_listing_days: int = Field(default=120, gt=0)
     min_avg_turnover_20d: float = Field(default=100_000_000, ge=0)
+    mode: Literal["manual_static", "historical_membership"] = "manual_static"
+    id: str = Field(default="demo", min_length=1)
+    expected_constituents: int | None = Field(default=None, gt=0)
 
 
 class MarketGateBand(StrictModel):

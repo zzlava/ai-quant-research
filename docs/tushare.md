@@ -1,6 +1,6 @@
 # Tushare 历史行情拉取
 
-本系统只把 Tushare 当作**原始数据来源**。拉取结果必须标准化成现有五表契约，再经 `import_market_data()` 写入 `data/parquet/`。评分和回测不直接调用 Tushare。
+本系统只把 Tushare 当作**原始数据来源**。拉取结果必须标准化成现有六表契约（含 `universe_membership`），再经 `import_market_data()` 写入 `data/parquet/`。评分和回测不直接调用 Tushare。
 
 **仅用于历史研究。不接券商，不自动下单。**
 
@@ -17,24 +17,38 @@ pip install -e ".[tushare]"
 
 ## 拉取范围
 
-必须同时给出 `--start`、`--end` 和 `--symbols-file`（不允许默默拉全市场）。
+必须同时给出 `--start`、`--end`，以及互斥的股票池输入之一（不允许默默拉全市场）。
 
 ```bash
+# 手工受控股票池（manual_static）。只代表文件中的研究样本。
 python -m app.cli fetch-tushare \
-  --start 2022-01-01 \
+  --start 2024-01-01 \
   --end 2024-12-31 \
   --strategy baseline_real_cn_v1 \
-  --symbols-file ./symbols.txt \
-  --source-version 2024Q4
+  --symbols-file ./symbols.txt
+
+# 历史点时股票池（historical_membership）。成员文件必须覆盖每个交易日的完整截面。
+python -m app.cli fetch-tushare \
+  --start 2024-01-01 \
+  --end 2024-12-31 \
+  --strategy baseline_csi300_pit_v1 \
+  --universe-membership-file ./csi300_membership_daily.csv
 ```
 
-`--index-universe` 已禁用。按结束日 `index_weight` 取成分再铺回整个历史，会把后来的成分股用于早期评分，形成幸存者偏差。指数历史回测需要逐日成员关系，当前尚未实现。
+`--symbols-file` 只对应 `universe.mode: manual_static`，导入时会为这些代码生成标记为该模式的每日成员表，**不代表全市场或指数历史成分**。
 
-`symbols.txt` 每行一个 **已经带交易所后缀** 的 Tushare `ts_code`，例如 `000001.SZ`。系统不会猜测或改写后缀。
+`--universe-membership-file` 只对应 `historical_membership`。系统从文件提取历史并集代码去拉行情，但每日候选仍按文件里的 `as_of_date` + `available_at` 过滤，不会把并集当作每天的股票池。当前阶段不从 Tushare `index_weight` 联网拉取成分。
+
+`--index-universe` 已禁用，传入会报未知选项。按结束日成分铺回历史会造成幸存者偏差。
+
+`symbols.txt` 每行一个 **已经带交易所后缀** 的 Tushare `ts_code`，例如 `000001.SZ`。系统不会猜测或改写后缀。成员 CSV 表头为 `universe_id,as_of_date,symbol,available_at,weight`。
 
 策略 YAML 的 `data.market_index`、`data.global_symbol`、`data.sessions` 必须与输出 symbol 完全一致。可用配置：
 
-`config/strategies/baseline_real_cn_v1.yaml`
+- 手工受控池：`config/strategies/baseline_real_cn_v1.yaml`
+- 沪深 300 点时研究：`config/strategies/baseline_csi300_pit_v1.yaml`
+
+不要把 API 连通、单股票导入成功或手工股票池回测描述成“全市场策略有效”。
 
 ## 使用的官方接口
 
@@ -65,4 +79,4 @@ python -m app.cli fetch-tushare \
 
 海外 `available_at` 按策略 YAML 的 session 收盘时间换算成 **naive UTC**。不接受、也不写入 `-05:00` 这类非零偏移。
 
-成功时打印 `source_name`、覆盖区间、证券数量、基准、`adjustment`、`source_version`、`data_snapshot_id`。失败不会破坏已有 `data/parquet/` 快照。
+成功时打印 `source_name`、`universe_id`、`universe_mode`、成员表行数、覆盖区间、证券数量、基准、`adjustment`、`source_version`、`data_snapshot_id`。失败不会破坏已有 `data/parquet/` 快照。

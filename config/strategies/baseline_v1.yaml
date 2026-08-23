@@ -10,6 +10,8 @@ weights:
   execution_risk: 0.10
 
 universe:
+  mode: manual_static
+  id: demo
   exclude_st: true
   exclude_suspended: true
   min_listing_days: 120

@@ -43,6 +43,14 @@ INSTRUMENT_SCHEMA = {
     "session_close": pl.String,
 }
 
+UNIVERSE_MEMBERSHIP_SCHEMA = {
+    "universe_id": pl.String,
+    "as_of_date": pl.Date,
+    "symbol": pl.String,
+    "available_at": pl.Datetime("us"),
+    "weight": pl.Float64,
+}
+
 
 def empty_daily() -> pl.DataFrame:
     return pl.DataFrame(schema=DAILY_SCHEMA)
@@ -54,6 +62,10 @@ def empty_global() -> pl.DataFrame:
 
 def empty_instruments() -> pl.DataFrame:
     return pl.DataFrame(schema=INSTRUMENT_SCHEMA)
+
+
+def empty_universe_membership() -> pl.DataFrame:
+    return pl.DataFrame(schema=UNIVERSE_MEMBERSHIP_SCHEMA)  # type: ignore[arg-type]
 
 
 def bars_to_frame(bars: list[DailyBar]) -> pl.DataFrame:

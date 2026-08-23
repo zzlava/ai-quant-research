@@ -5,6 +5,8 @@ import uuid
 from datetime import date
 from pathlib import Path
 
+import polars as pl
+
 from app.errors import DataQualityError, TushareFetchError
 from app.models.config import StrategyConfig
 from app.models.snapshot import TABLE_NAMES, DataSnapshot
@@ -12,6 +14,7 @@ from app.providers.tushare_client import TushareQueryClient
 from app.providers.tushare_normalize import require_ts_code
 from app.providers.tushare_provider import TushareProvider
 from app.storage.import_market import import_market_data
+from app.universe.membership import assert_membership_within_window, bind_membership_to_tables
 
 
 def read_symbols_file(path: Path) -> list[str]:
@@ -45,14 +48,22 @@ def fetch_tushare_and_import(
     source_version: str | None = None,
     client: TushareQueryClient | None = None,
     source_name: str = "tushare",
+    membership: pl.DataFrame | None = None,
 ) -> DataSnapshot:
     if not stocks:
         raise TushareFetchError(
             "stock universe is empty; pass --symbols-file. "
             "--index-universe is disabled because end-date constituents look ahead"
         )
+    if membership is not None:
+        assert_membership_within_window(membership, start, end)
     provider = TushareProvider(client=client)
-    tables = provider.fetch(start, end, config=config, stocks=stocks)
+    tables = bind_membership_to_tables(
+        provider.fetch(start, end, config=config, stocks=stocks, membership=membership),
+        config=config,
+        membership=membership,
+        stocks=stocks,
+    )
     parent = Path(dest_dir).parent
     parent.mkdir(parents=True, exist_ok=True)
     tmp = parent / f".tushare-norm-{uuid.uuid4().hex}"

@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 import uuid
 from collections.abc import Mapping
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -11,7 +11,7 @@ import polars as pl
 
 from app.errors import DataQualityError, SnapshotError
 from app.models.snapshot import TABLE_NAMES, DataSnapshot
-from app.providers._frames import DAILY_SCHEMA, INSTRUMENT_SCHEMA
+from app.providers._frames import DAILY_SCHEMA, INSTRUMENT_SCHEMA, UNIVERSE_MEMBERSHIP_SCHEMA
 from app.storage.hashing import build_snapshot
 from app.storage.quality import (
     assert_benchmarks,
@@ -20,6 +20,7 @@ from app.storage.quality import (
     validate_global,
     validate_instruments,
     validate_ohlcv,
+    validate_universe_membership,
 )
 from app.storage.snapshot_io import write_manifest
 
@@ -36,7 +37,7 @@ def _read_named_table(source_dir: Path, name: str) -> pl.DataFrame:
     csv_path = source_dir / f"{name}.csv"
     parquet_path = source_dir / f"{name}.parquet"
     if csv_path.exists():
-        overrides = {"available_at": pl.String} if name == "global_bars" else None
+        overrides = {"available_at": pl.String} if name in {"global_bars", "universe_membership"} else None
         return pl.read_csv(csv_path, try_parse_dates=True, schema_overrides=overrides)
     if parquet_path.exists():
         return pl.read_parquet(parquet_path)
@@ -93,9 +94,32 @@ def _prepare_global(frame: pl.DataFrame) -> pl.DataFrame:
     return _cast_schema(work, schema, "global_bars")
 
 
-def load_normalized_tables(source_dir: Path) -> dict[str, pl.DataFrame]:
+def _prepare_membership(frame: pl.DataFrame) -> pl.DataFrame:
+    work = _blank_to_null(frame, ("universe_id", "as_of_date", "symbol", "available_at", "weight"))
+    if "weight" not in work.columns:
+        work = work.with_columns(pl.lit(None).cast(pl.Float64).alias("weight"))
+    if "available_at" not in work.columns:
+        raise DataQualityError("universe_membership missing required columns: ['available_at']")
+    work = normalize_available_at(work, "universe_membership")
+    prepared = _cast_schema(work, UNIVERSE_MEMBERSHIP_SCHEMA, "universe_membership")
+    from app.providers.tushare_normalize import require_ts_code
+
+    for symbol in prepared["symbol"].to_list():
+        require_ts_code(str(symbol), kind="stock")
+    return prepared
+
+
+def load_normalized_tables(
+    source_dir: Path,
+    membership_override: pl.DataFrame | None = None,
+) -> dict[str, pl.DataFrame]:
     root = Path(source_dir)
-    raw = {name: _read_named_table(root, name) for name in TABLE_NAMES}
+    raw: dict[str, pl.DataFrame] = {}
+    for name in TABLE_NAMES:
+        if name == "universe_membership" and membership_override is not None:
+            raw[name] = membership_override
+        else:
+            raw[name] = _read_named_table(root, name)
     daily = _cast_schema(raw["daily_bars"], DAILY_SCHEMA, "daily_bars")
     index = _cast_schema(raw["index_bars"], DAILY_SCHEMA, "index_bars")
     glob = _prepare_global(raw["global_bars"])
@@ -103,17 +127,21 @@ def load_normalized_tables(source_dir: Path) -> dict[str, pl.DataFrame]:
         glob = glob.with_columns(pl.col("available_at").cast(pl.Datetime("us"), strict=True))
     instruments = _cast_schema(raw["instruments"], INSTRUMENT_SCHEMA, "instruments")
     calendar = raw["calendar"].with_columns(pl.col("date").cast(pl.Date, strict=True))
+    membership = _prepare_membership(raw["universe_membership"])
     validate_ohlcv(daily, "daily_bars")
     validate_ohlcv(index, "index_bars")
     validate_global(glob)
     validate_instruments(instruments)
     validate_calendar(calendar)
+    cal_days = [day for day in calendar["date"].to_list() if isinstance(day, date)]
+    validate_universe_membership(membership, cal_days, instruments)
     return {
         "daily_bars": daily,
         "index_bars": index,
         "global_bars": glob,
         "instruments": instruments,
         "calendar": calendar,
+        "universe_membership": membership,
     }
 
 
@@ -126,8 +154,14 @@ def import_market_data(
     source_version: str | None = None,
     market_index: str | None = None,
     global_symbol: str | None = None,
+    membership_file: Path | None = None,
 ) -> DataSnapshot:
-    tables = load_normalized_tables(source_dir)
+    membership_override = None
+    if membership_file is not None:
+        from app.universe.membership import read_universe_membership_file
+
+        membership_override = read_universe_membership_file(Path(membership_file))
+    tables = load_normalized_tables(source_dir, membership_override=membership_override)
     assert_benchmarks(tables["index_bars"], tables["global_bars"], market_index, global_symbol)
     snapshot = build_snapshot(
         tables,

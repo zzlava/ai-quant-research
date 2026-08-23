@@ -79,18 +79,36 @@ python -m app.cli import-market-data \
 Token 只放在环境变量 `AIQ_TUSHARE_TOKEN`，不要提交。步骤见 `docs/tushare.md`。
 
 ```bash
-export AIQ_TUSHARE_TOKEN="你的 token"
-pip install -e ".[tushare]"
+# 手工受控股票池。只代表 symbols.txt 里的研究样本，不是全市场或指数历史成分。
 python -m app.cli fetch-tushare \
-  --start 2022-01-01 \
+  --start 2024-01-01 \
   --end 2024-12-31 \
   --strategy baseline_real_cn_v1 \
   --symbols-file ./symbols.txt
+
+# 历史点时股票池：成员文件已预先准备好。不要把 API 连通或手工股票池回测说成全市场有效。
+python -m app.cli fetch-tushare \
+  --start 2024-01-01 \
+  --end 2024-12-31 \
+  --strategy baseline_csi300_pit_v1 \
+  --universe-membership-file ./csi300_membership_daily.csv
 ```
 
-该命令只做历史研究数据导入，不执行交易。必须用 `--symbols-file` 给出股票池；`--index-universe` 已禁用，避免把结束日成分股铺回历史。真实 A 股配置：
+历史点时成员文件应由可信来源的完整成分快照离线物化，不要把当前成分当成历史成分：
 
-`config/strategies/baseline_real_cn_v1.yaml`
+```bash
+python -m app.cli build-universe-membership \
+  --snapshots-file ./csi300_snapshots.csv \
+  --calendar-file ./cn_trade_calendar.csv \
+  --start 2024-01-02 \
+  --end 2024-12-31 \
+  --strategy baseline_csi300_pit_v1 \
+  --output ./csi300_membership_daily.csv
+```
+
+该命令不联网、不读 Token。原始快照 CSV 与每日成员 CSV 格式不同；工具只把已经生效且已知的完整截面前向延续到下一份可用快照。`baseline_csi300_pit_v1` 需要完整的 300 成分历史快照才谈得上指数研究；小样本文件只能验证管道。
+
+该命令只做历史研究数据导入，不执行交易。`--symbols-file` 对应 `universe.mode: manual_static`；`--universe-membership-file` 对应 `historical_membership`，两者互斥。`--index-universe` 已禁用，避免把结束日成分股铺回历史。API 连通、单股票导入成功或手工股票池回测，都不代表全市场策略有效。
 
 把 `data:` 里的代码保持与导入数据完全一致，再：
 
@@ -178,7 +196,7 @@ GitHub Actions 会在 push / PR 时自动跑上述三项。
 
 ## 已知限制 / TODO
 
-- `TushareProvider` 已实现离线可测的官方接口拉取，必须经标准化五表和 `import_market_data()` 入库。`AKShareProvider` 仍是 TODO。
+- `TushareProvider` 已实现离线可测的官方接口拉取，必须经标准化六表（含 `universe_membership`）和 `import_market_data()` 入库。`AKShareProvider` 仍是 TODO。
 - 没有分钟级数据。同一根日线盘中同时触发止盈和止损时，按保守原则视为**先止损**；开盘跳空则按开盘价。
 - 涨跌停按逐日 `price_limit_pct` + 日线一字板近似，不是逐笔排队模型。
 - 没有组合再平衡、没有融资融券。

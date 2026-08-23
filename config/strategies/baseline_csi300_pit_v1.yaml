@@ -1,8 +1,8 @@
-# Real A-share research config. No tokens, accounts, or private URLs.
-# Symbols must match the imported Tushare ts_code values exactly.
-# name is the registered implementation; config_id distinguishes this run from demo YAML.
+# Point-in-time CSI 300 research config. Requires a daily membership history file.
+# This is not a full-market backtest and does not pull Tushare index_weight.
+# name is the registered implementation; config_id distinguishes this run.
 name: baseline_v1
-config_id: baseline_real_cn_v1
+config_id: baseline_csi300_pit_v1
 version: "1.0.0"
 
 weights:
@@ -15,8 +15,9 @@ weights:
   execution_risk: 0.10
 
 universe:
-  mode: manual_static
-  id: manual_real_cn
+  mode: historical_membership
+  id: csi300
+  expected_constituents: 300
   exclude_st: true
   exclude_suspended: true
   min_listing_days: 120

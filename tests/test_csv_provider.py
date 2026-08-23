@@ -22,6 +22,6 @@ def test_csv_provider_reads_offline_files(tmp_path: Path) -> None:
 
     provider = CsvProvider(tmp_path)
     assert provider.get_calendar(date(2024, 1, 2), date(2024, 1, 31))
-    daily = provider.get_daily_bars("STK0001", date(2024, 1, 2), date(2024, 1, 31))
+    daily = provider.get_daily_bars("000001.SZ", date(2024, 1, 2), date(2024, 1, 31))
     assert daily.height > 0
     assert set(provider.get_sector(item.symbol) for item in provider.get_instruments()[:4])

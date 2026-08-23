@@ -15,10 +15,12 @@ from app.providers.tushare_normalize import (
     TushareRaw,
     format_stock_basic_status_failures,
     normalize_tushare,
+    open_trading_days,
     require_ts_code,
     split_session_symbols,
     ymd,
 )
+from app.universe.membership import assert_membership_covers_calendar
 
 _CODE_BATCH = 80
 _SINGLE_CODE_APIS = frozenset({"index_daily", "index_global"})
@@ -28,7 +30,7 @@ _STOCK_BASIC_STATUSES = ("L", "D", "P", "G")
 
 
 class TushareProvider(MarketDataProvider):
-    """Pull Tushare history and normalize it to the existing five-table contract.
+    """Pull Tushare history and normalize it to the six-table snapshot contract.
 
     Network happens only when fetch() runs with a live client. Importing this
     module does not open sockets or read the token.
@@ -48,6 +50,7 @@ class TushareProvider(MarketDataProvider):
         *,
         config: StrategyConfig,
         stocks: list[str],
+        membership: pl.DataFrame | None = None,
     ) -> dict[str, pl.DataFrame]:
         if end < start:
             raise TushareFetchError("end date must be on or after start date")
@@ -55,7 +58,16 @@ class TushareProvider(MarketDataProvider):
         if not stock_codes:
             raise TushareFetchError("stock universe is empty")
         indices, globals_ = split_session_symbols(config, stock_codes)
-        raw = self._pull(start, end, stock_codes, indices, globals_)
+        raw = self._pull(
+            start,
+            end,
+            stock_codes,
+            indices,
+            globals_,
+            membership=membership,
+            universe_id=config.universe.id,
+            expected_constituents=config.universe.expected_constituents,
+        )
         tables = normalize_tushare(raw, config, start, end, stock_codes)
         self._tables = tables
         return tables
@@ -108,10 +120,20 @@ class TushareProvider(MarketDataProvider):
         stocks: list[str],
         indices: list[str],
         globals_: list[str],
+        membership: pl.DataFrame | None = None,
+        universe_id: str | None = None,
+        expected_constituents: int | None = None,
     ) -> TushareRaw:
         client = self._client_or_live()
         start_s, end_s = ymd(start), ymd(end)
         trade_cal = client.query("trade_cal", exchange="SSE", start_date=start_s, end_date=end_s, is_open="1")
+        if membership is not None:
+            assert_membership_covers_calendar(
+                membership,
+                open_trading_days(trade_cal, start, end),
+                universe_id=universe_id,
+                expected_constituents=expected_constituents,
+            )
         stock_basic, status_errors = self._query_stock_basic(client)
         daily = self._query_codes(client, "daily", stocks, start_s, end_s)
         daily_basic = self._query_codes(
