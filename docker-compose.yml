@@ -1,0 +1,11 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    environment:
+      AIQ_DATA_DIR: /app/data
+      AIQ_CONFIG_DIR: /app/config

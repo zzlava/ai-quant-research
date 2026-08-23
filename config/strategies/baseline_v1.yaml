@@ -1,0 +1,38 @@
+name: baseline_v1
+version: "1.0.0"
+
+weights:
+  market_score: 0.25
+  global_score: 0.15
+  sector_score: 0.20
+  alpha_score: 0.40
+  crowding_risk: 0.10
+  execution_risk: 0.10
+
+universe:
+  exclude_st: true
+  exclude_suspended: true
+  min_listing_days: 120
+  min_avg_turnover_20d: 100000000
+
+market_gate:
+  - { min: 0.0, max: 40.0, max_new_positions: 0 }
+  - { min: 40.0, max: 55.0, max_new_positions: 1 }
+  - { min: 55.0, max: 70.0, max_new_positions: 2 }
+  - { min: 70.0, max: 100.1, max_new_positions: 3 }
+
+trade:
+  take_profit: 0.03
+  stop_loss: -0.025
+  max_holding_days: 10
+
+portfolio:
+  initial_cash: 80000
+  max_positions: 3
+  weighting: equal_weight
+
+costs:
+  commission_rate: 0.00025
+  min_commission: 5.0
+  stamp_tax_rate: 0.0005
+  slippage_bps: 5.0
