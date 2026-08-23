@@ -90,16 +90,38 @@ def fetch_latest_all_a_share_and_import(
     start, as_of = days[0], days[-1]
 
     stock_basic = client.query("stock_basic", list_status="L", fields=_STOCK_BASIC_FIELDS)
-    stocks, current_st_symbols = _select_current_a_share(
+    candidate_stocks, current_st_symbols = _select_current_a_share(
         stock_basic,
         as_of=as_of,
         min_listing_days=config.universe.min_listing_days,
     )
+    daily = _query_by_day(client, "daily", source_days)
+    suspend_d = _query_by_day(client, "suspend_d", source_days, suspend_type="S")
+    stk_limit = _query_by_day(
+        client,
+        "stk_limit",
+        source_days,
+        fields="ts_code,trade_date,pre_close,up_limit,down_limit",
+    )
+    stocks = _current_tradable_stocks(
+        candidate_stocks,
+        daily=daily,
+        suspend_d=suspend_d,
+        as_of=as_of,
+    )
+    stocks = _exclude_unseeded_warmup_suspensions(
+        stocks,
+        daily=daily,
+        suspend_d=suspend_d,
+        stk_limit=stk_limit,
+        feature_start=start,
+    )
+    current_st_symbols.intersection_update(stocks)
     indices, globals_ = split_session_symbols(config, stocks)
     raw = TushareRaw(
         trade_cal=trade_cal,
         stock_basic=stock_basic,
-        daily=_query_by_day(client, "daily", source_days),
+        daily=daily,
         daily_basic=_query_by_day(
             client,
             "daily_basic",
@@ -107,13 +129,8 @@ def fetch_latest_all_a_share_and_import(
             fields="ts_code,trade_date,turnover_rate",
         ),
         adj_factor=_query_by_day(client, "adj_factor", source_days),
-        stk_limit=_query_by_day(
-            client,
-            "stk_limit",
-            source_days,
-            fields="ts_code,trade_date,pre_close,up_limit,down_limit",
-        ),
-        suspend_d=_query_by_day(client, "suspend_d", source_days, suspend_type="S"),
+        stk_limit=stk_limit,
+        suspend_d=suspend_d,
         # Historical ST state would require a per-security history query.
         # This snapshot is only eligible for its resolved as_of date, so the
         # current stock_basic name is used only for that date below.
@@ -212,6 +229,100 @@ def _query_by_day(
     if not frames:
         return pl.DataFrame()
     return pl.concat(frames, how="diagonal_relaxed")
+
+
+def _current_tradable_stocks(
+    candidates: list[str],
+    *,
+    daily: pl.DataFrame,
+    suspend_d: pl.DataFrame,
+    as_of: date,
+) -> list[str]:
+    """Exclude only explicitly full-day suspended securities on the score date.
+
+    A missing daily row without a matching full-day suspension is a data-quality
+    failure, not evidence that the security may be silently removed.
+    """
+    if daily.is_empty() or "ts_code" not in daily.columns or "trade_date" not in daily.columns:
+        raise DataQualityError("daily has no rows for current all-A-share eligibility")
+    daily_on_as_of = {
+        str(item["ts_code"]).strip()
+        for item in daily.to_dicts()
+        if parse_ymd(item["trade_date"]) == as_of
+    }
+    suspended_on_as_of = _full_day_suspended_symbols(suspend_d, as_of)
+    missing = set(candidates) - daily_on_as_of
+    unknown = sorted(missing - suspended_on_as_of)
+    if unknown:
+        raise DataQualityError(
+            f"daily is missing {len(unknown)} current listed securities on {as_of}; "
+            f"first={unknown[0]}; refusing to treat missing data as a suspension"
+        )
+    tradable = sorted(set(candidates) & daily_on_as_of)
+    if not tradable:
+        raise DataQualityError(f"no current tradable securities have daily bars on {as_of}")
+    return tradable
+
+
+def _full_day_suspended_symbols(frame: pl.DataFrame, as_of: date) -> set[str]:
+    if frame.is_empty():
+        return set()
+    required = {"ts_code", "trade_date", "suspend_type"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise DataQualityError(f"suspend_d missing columns: {missing}")
+    out: set[str] = set()
+    for item in frame.to_dicts():
+        if parse_ymd(item["trade_date"]) != as_of:
+            continue
+        if str(item.get("suspend_type") or "").upper() != "S":
+            continue
+        if item.get("suspend_timing") not in (None, "", "None"):
+            continue
+        out.add(str(item["ts_code"]).strip())
+    return out
+
+
+def _exclude_unseeded_warmup_suspensions(
+    candidates: list[str],
+    *,
+    daily: pl.DataFrame,
+    suspend_d: pl.DataFrame,
+    stk_limit: pl.DataFrame,
+    feature_start: date,
+) -> list[str]:
+    """Exclude a current stock only when its feature window has no auditable seed.
+
+    A full-day halt on the first 60-bar day needs either an actual daily bar or
+    an official `stk_limit.pre_close` to synthesize a flat bar.  Without one,
+    the stock cannot meet the declared warm-up requirement and is not ranked.
+    """
+    daily_on_start = {
+        str(item["ts_code"]).strip()
+        for item in daily.to_dicts()
+        if parse_ymd(item["trade_date"]) == feature_start
+    }
+    suspended_on_start = _full_day_suspended_symbols(suspend_d, feature_start)
+    missing = set(candidates) - daily_on_start
+    unknown = sorted(missing - suspended_on_start)
+    if unknown:
+        raise DataQualityError(
+            f"daily is missing {len(unknown)} securities at warm-up start {feature_start}; "
+            f"first={unknown[0]}; refusing to treat missing data as a suspension"
+        )
+    pre_close: dict[str, float] = {}
+    if not stk_limit.is_empty():
+        required = {"ts_code", "trade_date", "pre_close"}
+        missing_columns = sorted(required - set(stk_limit.columns))
+        if missing_columns:
+            raise DataQualityError(f"stk_limit missing columns: {missing_columns}")
+        for item in stk_limit.to_dicts():
+            if parse_ymd(item["trade_date"]) != feature_start:
+                continue
+            value = item.get("pre_close")
+            if isinstance(value, int | float) and float(value) > 0:
+                pre_close[str(item["ts_code"]).strip()] = float(value)
+    return sorted(set(candidates) - {symbol for symbol in missing if symbol not in pre_close})
 
 
 def _query_symbol_history(

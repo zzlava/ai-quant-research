@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import polars as pl
@@ -115,6 +116,55 @@ def test_latest_market_uses_official_pre_close_when_the_feature_window_starts_su
     assert first_bar["is_suspended"].to_list() == [True]
     assert first_bar["close"].to_list() == [pytest.approx(10.0)]
     assert result.snapshot.coverage_start == first_feature_day
+
+
+def test_latest_market_excludes_only_currently_full_day_suspended_securities(tmp_path: Path) -> None:
+    calendar, _ = build_fake_tushare_api_tables()
+    calendar, tables = build_fake_tushare_api_tables(
+        suspend_days={("000001.SZ", calendar[-1])},
+    )
+    result = fetch_latest_all_a_share_and_import(
+        requested_as_of=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "data" / "parquet",
+        client=FakeTushareClient(tables),
+    )
+
+    assert result.candidate_count == 1
+    instruments = pl.read_parquet(tmp_path / "data" / "parquet" / "instruments.parquet")
+    assert instruments.filter(pl.col("symbol") == "000001.SZ").is_empty()
+
+
+def test_latest_market_excludes_unseeded_start_of_warmup_suspension(tmp_path: Path) -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+    first_feature_day = calendar[-60]
+    calendar, tables = build_fake_tushare_api_tables(
+        suspend_days={("000001.SZ", first_feature_day)},
+        drop_limit_keys={("000001.SZ", first_feature_day)},
+    )
+    result = fetch_latest_all_a_share_and_import(
+        requested_as_of=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "data" / "parquet",
+        client=FakeTushareClient(tables),
+    )
+
+    assert result.candidate_count == 1
+    daily = pl.read_parquet(tmp_path / "data" / "parquet" / "daily_bars.parquet")
+    assert daily.filter(pl.col("symbol") == "000001.SZ").is_empty()
+
+
+def test_latest_market_rejects_an_unexplained_current_daily_gap(tmp_path: Path) -> None:
+    calendar, tables = build_fake_tushare_api_tables(
+        skip_daily={("000001.SZ", date(2024, 1, 19))},
+    )
+    with pytest.raises(DataQualityError, match="refusing to treat missing data as a suspension"):
+        fetch_latest_all_a_share_and_import(
+            requested_as_of=calendar[-1],
+            config=_config(),
+            dest_dir=tmp_path / "data" / "parquet",
+            client=FakeTushareClient(tables),
+        )
 
 
 def test_latest_market_rejects_backtests_and_multi_day_preflight(tmp_path: Path) -> None:
