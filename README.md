@@ -78,6 +78,9 @@ python -m app.cli import-market-data \
 
 Token 只放在环境变量 `AIQ_TUSHARE_TOKEN`，不要提交。步骤见 `docs/tushare.md`。
 
+免费第三方的 CSI300 历史成员/权重只能作为公开重建研究候选，不能替代历史点时成员来源。BigQuant 收集与质量检查的隔离流程见
+[`docs/bigquant-public-reconstruction.md`](docs/bigquant-public-reconstruction.md)。
+
 ```bash
 # 手工受控股票池。只代表 symbols.txt 里的研究样本，不是全市场或指数历史成分。
 python -m app.cli fetch-tushare \

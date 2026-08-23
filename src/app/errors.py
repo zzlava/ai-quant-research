@@ -25,6 +25,14 @@ class TushareFetchError(ValueError):
     """Tushare raw data could not be fetched or normalized."""
 
 
+class MissingBigQuantCredentialsError(ValueError):
+    """BigQuant credentials are not configured. Do not include the secrets in the message."""
+
+
+class BigQuantFetchError(ValueError):
+    """BigQuant public-reconstruction data could not be fetched or normalized."""
+
+
 class PreflightError(ValueError):
     """Research window failed warm-up or point-in-time membership preflight."""
 
@@ -54,6 +62,8 @@ def is_client_error(exc: BaseException) -> bool:
         | SnapshotError
         | MissingTushareTokenError
         | TushareFetchError
+        | MissingBigQuantCredentialsError
+        | BigQuantFetchError
         | PreflightError
         | FileNotFoundError
         | KeyError

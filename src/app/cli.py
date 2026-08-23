@@ -165,6 +165,44 @@ def fetch_tushare_cmd(
     typer.echo(f"data_snapshot_id={snapshot.snapshot_id}")
 
 
+@app.command("fetch-bigquant-public-membership")
+def fetch_bigquant_public_membership_cmd(
+    start: Annotated[str, typer.Option("--start", help="YYYY-MM-DD")],
+    end: Annotated[str, typer.Option("--end", help="YYYY-MM-DD")],
+    output_dir: Annotated[Path, typer.Option("--output-dir", file_okay=False)],
+) -> None:
+    """Collect third-party public CSI300 candidates. It never creates a PIT membership file."""
+    from app.providers.bigquant_client import LiveBigQuantClient, read_bigquant_credentials
+    from app.universe.public_reconstruction import collect_bigquant_public_reconstruction
+
+    typer.echo(
+        "Public reconstruction only. This command does not create historical_membership, "
+        "does not infer available_at, and does not trade."
+    )
+    try:
+        start_day = date.fromisoformat(start)
+        end_day = date.fromisoformat(end)
+        access_key, secret_key = read_bigquant_credentials()
+        result = collect_bigquant_public_reconstruction(
+            client=LiveBigQuantClient(access_key, secret_key),
+            start=start_day,
+            end=end_day,
+            output_dir=output_dir,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"raw_rows={result.raw_rows}")
+    typer.echo(f"source_dates={result.source_dates}")
+    typer.echo(f"complete_dates={result.complete_dates}")
+    typer.echo(f"incomplete_dates={result.incomplete_dates}")
+    typer.echo(f"eligible_for_public_reconstruction={result.eligible_for_public_reconstruction}")
+    typer.echo(f"collection_manifest={result.collection_manifest_path}")
+    typer.echo(f"quality_report={result.quality_report_path}")
+    if result.candidate_membership_path is not None:
+        typer.echo(f"candidate_membership={result.candidate_membership_path}")
+
+
 @app.command("build-universe-membership")
 def build_universe_membership_cmd(
     snapshots_file: Annotated[Path, typer.Option("--snapshots-file", exists=True, dir_okay=False)],
