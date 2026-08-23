@@ -169,7 +169,7 @@ ST0002.SZ,2024-01-02,5.00,5.10,4.90,5.02,3000000,15060000,0.02,true,false,0.05
 
 `fetched_at` 和输入文件的修改时间**不进入** `snapshot_id`。同一批逻辑内容再次导入，得到同一个 `snapshot_id`。价格、`available_at`、证券信息或日历任一关键字段变化，`snapshot_id` 必须改变。
 
-缺少 `manifest.json`、manifest 与 Parquet 内容不一致、或缺表时，评分和回测会失败，**不会**回退 demo 数据。
+缺少 `manifest.json`、manifest 与 Parquet 内容不一致、或缺表时，评分和回测会失败，**不会**回退 demo 数据。`preflight-research` 以及 `score` / `backtest` 都走同一只读预检：先复用已校验快照，再检查请求窗口、点时成员，以及特征实际所需历史（股票 `ma60` 等至少 60 根连续 A 股交易日；海外序列只计 `available_at <=` 决策时点的可用收盘，不少于 `min_history_bars`，不以 A 股日历缺席当全球缺口）；通过预检不能证明策略收益有效。
 
 ## 真实数据预处理
 

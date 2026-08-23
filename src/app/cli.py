@@ -240,6 +240,45 @@ def verify_universe_source_cmd(
     typer.echo("来源清单由用户/可信来源提供，本命令只验证，不下载/不生成/不把下载时间当 available_at")
 
 
+@app.command("preflight-research")
+def preflight_research_cmd(
+    strategy: Annotated[str, typer.Option("--strategy")],
+    start: Annotated[str, typer.Option("--start", help="YYYY-MM-DD")],
+    end: Annotated[str, typer.Option("--end", help="YYYY-MM-DD")],
+) -> None:
+    """Read-only research window check. Does not trade or prove strategy returns."""
+    from app.pipeline import load_store
+    from app.preflight import preflight_research
+
+    typer.echo("Offline research only. This command is read-only preflight and does not trade.")
+    try:
+        start_day = date.fromisoformat(start)
+        end_day = date.fromisoformat(end)
+        settings = get_settings()
+        config = load_strategy_config(strategy, settings.strategies_dir)
+        result = preflight_research(
+            store=load_store(settings),
+            config=config,
+            start=start_day,
+            end=end_day,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"universe_id={result.universe_id}")
+    typer.echo(f"universe_mode={result.universe_mode}")
+    typer.echo(f"research_mode={result.research_mode}")
+    if result.sector_status:
+        typer.echo(f"sector_score={result.sector_status}")
+    typer.echo(f"signal_ready_start={result.signal_ready_start.isoformat()}")
+    typer.echo(f"coverage={result.coverage_start.isoformat()}..{result.coverage_end.isoformat()}")
+    typer.echo(f"trading_days={result.trading_days}")
+    typer.echo(f"min_history_bars={result.min_history_bars}")
+    typer.echo(f"required_history_bars={result.required_history_bars}")
+    typer.echo(f"data_snapshot_id={result.snapshot_id}")
+    typer.echo("预检只读，不能证明策略收益有效")
+
+
 @app.command("list-strategies")
 def list_strategies() -> None:
     typer.echo("\n".join(StrategyRegistry.names()))

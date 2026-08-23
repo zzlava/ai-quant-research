@@ -6,6 +6,7 @@ from pathlib import Path
 from app.backtest.engine import BacktestEngine
 from app.models.backtest import BacktestResult
 from app.models.scores import ScoreResult
+from app.preflight import preflight_research
 from app.scoring.engine import ScoringEngine
 from app.settings import Settings, get_settings
 from app.storage.duckdb_store import DuckDBParquetStore
@@ -28,7 +29,9 @@ def run_score(
 ) -> list[ScoreResult]:
     settings = settings or get_settings()
     config = load_strategy_config(strategy_name, settings.strategies_dir)
-    engine = ScoringEngine(store or load_store(settings), config)
+    market = store or load_store(settings)
+    preflight_research(store=market, config=config, start=as_of, end=as_of)
+    engine = ScoringEngine(market, config)
     results = engine.run(as_of)
     engine.persist(results, settings.scores_dir / "scores.parquet")
     return results
@@ -43,7 +46,9 @@ def run_backtest(
 ) -> BacktestResult:
     settings = settings or get_settings()
     config = load_strategy_config(strategy_name, settings.strategies_dir)
-    engine = BacktestEngine(store or load_store(settings), config)
+    market = store or load_store(settings)
+    preflight_research(store=market, config=config, start=start, end=end)
+    engine = BacktestEngine(market, config)
     return engine.run(start, end)
 
 

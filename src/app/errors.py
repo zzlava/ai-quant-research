@@ -25,6 +25,10 @@ class TushareFetchError(ValueError):
     """Tushare raw data could not be fetched or normalized."""
 
 
+class PreflightError(ValueError):
+    """Research window failed warm-up or point-in-time membership preflight."""
+
+
 _HOME_RE = re.compile(r"(?:/Users|/home)/[^\s:/]+")
 _WIN_HOME_RE = re.compile(r"[A-Za-z]:\\Users\\[^\s\\]+")
 _ABS_PATH_RE = re.compile(r"(?:[A-Za-z]:\\|/)(?:[\w.\-]+[/\\])+[\w.\-]+")
@@ -50,6 +54,7 @@ def is_client_error(exc: BaseException) -> bool:
         | SnapshotError
         | MissingTushareTokenError
         | TushareFetchError
+        | PreflightError
         | FileNotFoundError
         | KeyError
         | ValueError

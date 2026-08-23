@@ -119,6 +119,15 @@ python -m app.cli verify-universe-source \
 
 该命令只做历史研究数据导入，不执行交易。`--symbols-file` 对应 `universe.mode: manual_static`；`--universe-membership-file` 对应 `historical_membership`，两者互斥。`--index-universe` 已禁用，避免把结束日成分股铺回历史。API 连通、单股票导入成功或手工股票池回测，都不代表全市场策略有效。
 
+评分和回测前先做只读预检。命令复用已校验快照，拒绝覆盖范围外、点时成员不完整、或仍处于 warm-up 的区间，不会把 ready 日之前当成零信号。通过预检不能证明策略收益有效：
+
+```bash
+python -m app.cli preflight-research \
+  --strategy baseline_csi300_pit_v1 \
+  --start 2022-01-01 \
+  --end 2024-12-31
+```
+
 把 `data:` 里的代码保持与导入数据完全一致，再：
 
 ```bash

@@ -11,6 +11,13 @@ from app.models.config import StrategyConfig
 from app.models.features import StockFeatureVector
 from app.storage.protocol import MarketStore
 
+STOCK_FEATURE_HISTORY_BARS = 60
+
+
+def required_history_bars(min_history_bars: int) -> int:
+    """Longest lookback needed before a date can produce usable features."""
+    return max(int(min_history_bars), STOCK_FEATURE_HISTORY_BARS)
+
 
 def clip(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
@@ -140,9 +147,11 @@ class FeatureEngine:
                 (pl.col("close") / pl.col("close").rolling_mean(window_size=20).over("symbol") - 1.0).alias(
                     "ma20_distance"
                 ),
-                (pl.col("close") / pl.col("close").rolling_mean(window_size=60).over("symbol") - 1.0).alias(
-                    "ma60_distance"
-                ),
+                (
+                    pl.col("close")
+                    / pl.col("close").rolling_mean(window_size=STOCK_FEATURE_HISTORY_BARS).over("symbol")
+                    - 1.0
+                ).alias("ma60_distance"),
                 (pl.col("volume") / prior_vol_5).alias("volume_ratio_5d"),
                 ret_1d.rolling_std(window_size=20).over("symbol").alias("volatility_20d"),
                 true_range.rolling_mean(window_size=14).over("symbol").alias("atr_14"),

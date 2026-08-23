@@ -118,7 +118,7 @@ def test_tushare_snapshot_reaches_score_backtest_and_api(
     scores = run_score(as_of, "baseline_real_cn_v1")
     assert scores
     assert {row.data_snapshot_id for row in scores} == {imported.snapshot_id}
-    result = run_backtest("baseline_real_cn_v1", date(2024, 1, 2), date(2024, 1, 31))
+    result = run_backtest("baseline_real_cn_v1", date(2024, 1, 2), calendar[-1])
     assert result.data_snapshot_id == imported.snapshot_id
     client = TestClient(app)
     ranking = client.get("/ranking", params={"date": "2024-01-15", "strategy": "baseline_real_cn_v1", "top": 5})
@@ -126,7 +126,7 @@ def test_tushare_snapshot_reaches_score_backtest_and_api(
     assert ranking.json()["data_snapshot_id"] == imported.snapshot_id
     created = client.post(
         "/backtests",
-        json={"strategy": "baseline_real_cn_v1", "start": "2024-01-02", "end": "2024-01-31"},
+        json={"strategy": "baseline_real_cn_v1", "start": "2024-01-02", "end": calendar[-1].isoformat()},
     )
     assert created.status_code == 200
     assert created.json()["result"]["data_snapshot_id"] == imported.snapshot_id
