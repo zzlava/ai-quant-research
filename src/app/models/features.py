@@ -39,6 +39,7 @@ class StockFeatureVector(BaseModel):
     listing_days: int
     is_st: bool
     is_suspended: bool
+    attention_risk: float = 0.0
     index_ret_20d: float = 0.0
     global_ret_20d: float = 0.0
 

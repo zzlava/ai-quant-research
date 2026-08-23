@@ -90,6 +90,14 @@ class FeatureEngine:
             execution = 0.5 * scale(0.03 - turnover_rate, 0.0, 0.03) + 0.5 * scale(
                 atr / max(close, 1e-9), 0.01, 0.05
             )
+            # This is an observable attention-stress proxy, not an inference
+            # about investor identity or motivation.  It uses only data known
+            # at the decision date.
+            attention = (
+                0.50 * scale(turnover_rate, 0.01, 0.10)
+                + 0.25 * scale(volume_ratio, 1.0, 4.0)
+                + 0.25 * scale(abs(ret_5d), 0.02, 0.15)
+            )
 
             listing_days = (as_of - inst.listing_date).days
             vectors.append(
@@ -113,6 +121,7 @@ class FeatureEngine:
                     global_score=global_score,
                     crowding_risk=crowding,
                     execution_risk=execution,
+                    attention_risk=attention,
                     avg_turnover_20d=float(row["avg_turnover_20d"]),
                     listing_days=listing_days,
                     is_st=bool(row["is_st"]),

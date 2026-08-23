@@ -15,6 +15,7 @@ class ScoreBreakdown(BaseModel):
     crowding_risk: float
     execution_risk: float
     final_score: float
+    attention_risk: float = 0.0
 
 
 class ScoreResult(BaseModel):

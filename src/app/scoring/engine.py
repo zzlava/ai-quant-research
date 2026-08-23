@@ -70,6 +70,7 @@ class ScoringEngine:
                 "alpha_score": r.breakdown.alpha_score,
                 "crowding_risk": r.breakdown.crowding_risk,
                 "execution_risk": r.breakdown.execution_risk,
+                "attention_risk": r.breakdown.attention_risk,
                 "sector": r.sector,
                 "data_snapshot_id": r.data_snapshot_id,
             }

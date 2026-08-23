@@ -76,14 +76,14 @@ def score(
     )
     typer.echo(
         f"{'rank':<6}{'symbol':<10}{'final':>8}{'mkt':>8}{'glb':>8}"
-        f"{'sec':>8}{'alpha':>8}{'crowd':>8}{'exec':>8}"
+        f"{'sec':>8}{'alpha':>8}{'crowd':>8}{'exec':>8}{'attent':>8}"
     )
     for idx, item in enumerate(results[:20], start=1):
         b = item.breakdown
         typer.echo(
             f"{idx:<6}{item.symbol:<10}{item.final_score:8.2f}{b.market_score:8.2f}"
             f"{b.global_score:8.2f}{b.sector_score:8.2f}{b.alpha_score:8.2f}"
-            f"{b.crowding_risk:8.2f}{b.execution_risk:8.2f}"
+            f"{b.crowding_risk:8.2f}{b.execution_risk:8.2f}{b.attention_risk:8.2f}"
         )
 
 

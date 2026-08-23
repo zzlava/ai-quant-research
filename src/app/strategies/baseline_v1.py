@@ -21,6 +21,7 @@ class BaselineV1Strategy(BaseStrategy):
         )
         crowding = feature.crowding_risk
         execution = feature.execution_risk
+        attention = feature.attention_risk
         raw = (
             weights.market_score * market_score
             + weights.global_score * global_score
@@ -28,6 +29,7 @@ class BaselineV1Strategy(BaseStrategy):
             + weights.alpha_score * alpha_score
             - weights.crowding_risk * crowding
             - weights.execution_risk * execution
+            - weights.attention_risk * attention
         )
         final_score = clip(raw, 0.0, 100.0)
         breakdown = ScoreBreakdown(
@@ -38,6 +40,7 @@ class BaselineV1Strategy(BaseStrategy):
             crowding_risk=crowding,
             execution_risk=execution,
             final_score=final_score,
+            attention_risk=attention,
         )
         return ScoreResult(
             symbol=feature.symbol,

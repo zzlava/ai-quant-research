@@ -18,6 +18,7 @@ class WeightsConfig(StrictModel):
     alpha_score: float
     crowding_risk: float
     execution_risk: float
+    attention_risk: float = Field(default=0.0, ge=0)
 
 
 class UniverseConfig(StrictModel):

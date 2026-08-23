@@ -37,6 +37,7 @@ def _feature() -> StockFeatureVector:
         global_score=60.0,
         crowding_risk=20.0,
         execution_risk=15.0,
+        attention_risk=30.0,
         avg_turnover_20d=200_000_000,
         listing_days=400,
         is_st=False,
@@ -52,6 +53,7 @@ def test_baseline_weights_come_from_yaml() -> None:
     assert config.weights.alpha_score == 0.40
     assert config.weights.crowding_risk == 0.10
     assert config.weights.execution_risk == 0.10
+    assert config.weights.attention_risk == 0.0
     text = (CONFIG_DIR / "baseline_v1.yaml").read_text(encoding="utf-8")
     assert "0.25" in text and "0.40" in text
 
@@ -99,6 +101,22 @@ def test_real_config_has_separate_run_id_and_disabled_sector() -> None:
     scored = BaselineV1Strategy(real).score(feat, ctx)
     assert scored.config_id == "baseline_real_cn_v1"
     assert scored.strategy_name == "baseline_v1"
+
+
+def test_attention_weight_is_opt_in_and_applies_a_penalty(tmp_path: Path) -> None:
+    original = (CONFIG_DIR / "baseline_v1.yaml").read_text(encoding="utf-8")
+    (tmp_path / "baseline_v1.yaml").write_text(
+        original.replace("execution_risk: 0.10", "execution_risk: 0.10\n  attention_risk: 0.20"),
+        encoding="utf-8",
+    )
+    base = load_strategy_config("baseline_v1", CONFIG_DIR)
+    attention = load_strategy_config("baseline_v1", tmp_path)
+    feat = _feature()
+    ctx = StrategyContext(as_of=feat.as_of, market_score=70.0, global_score=60.0)
+    base_score = BaselineV1Strategy(base).score(feat, ctx)
+    attention_score = BaselineV1Strategy(attention).score(feat, ctx)
+    assert base_score.breakdown.attention_risk == 30.0
+    assert attention_score.final_score == base_score.final_score - 0.20 * 30.0
 
 
 def test_controlled_sample_config_and_provenance_are_explicit() -> None:
