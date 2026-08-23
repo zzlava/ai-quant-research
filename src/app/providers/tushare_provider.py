@@ -23,10 +23,14 @@ from app.providers.tushare_normalize import (
 from app.universe.membership import assert_membership_covers_calendar
 
 _CODE_BATCH = 80
-# `adj_factor` must be fetched per security.  The live endpoint may accept a
-# comma-separated `ts_code` argument but can return an incomplete result set;
-# a missing factor must never be mistaken for a genuine market-data gap.
-_SINGLE_CODE_APIS = frozenset({"adj_factor", "index_daily", "index_global", "stk_limit"})
+# Fetch long-history security data one security at a time.  `daily` and
+# `daily_basic` cap each response at 6,000 rows, so a multi-security request
+# can truncate silently; `adj_factor` can likewise return an incomplete
+# result set for a comma-separated security list.  A missing row must never
+# be mistaken for a genuine market-data gap.
+_SINGLE_CODE_APIS = frozenset(
+    {"adj_factor", "daily", "daily_basic", "index_daily", "index_global", "stk_limit"}
+)
 _STOCK_BASIC_FIELDS = "ts_code,name,industry,list_date,delist_date,market,exchange,list_status"
 # Official stock_basic list_status values. Default is L, so D/P/G must be queried separately.
 _STOCK_BASIC_STATUSES = ("L", "D", "P", "G")

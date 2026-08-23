@@ -88,6 +88,15 @@ def test_fake_tushare_builds_five_tables_and_imports(tmp_path: Path) -> None:
     assert set(daily["symbol"].to_list()) == set(STOCKS)
     statuses = [params.get("list_status") for name, params in client.call_params if name == "stock_basic"]
     assert statuses == ["L", "D", "P", "G"]
+    daily_calls = [params for name, params in client.call_params if name == "daily"]
+    assert len(daily_calls) == len(STOCKS)
+    assert all(isinstance(params.get("ts_code"), str) and "," not in str(params["ts_code"]) for params in daily_calls)
+    daily_basic_calls = [params for name, params in client.call_params if name == "daily_basic"]
+    assert len(daily_basic_calls) == len(STOCKS)
+    assert all(
+        isinstance(params.get("ts_code"), str) and "," not in str(params["ts_code"])
+        for params in daily_basic_calls
+    )
     index_codes = [params.get("ts_code") for name, params in client.call_params if name == "index_daily"]
     assert index_codes
     assert all(isinstance(code, str) and "," not in code for code in index_codes)
