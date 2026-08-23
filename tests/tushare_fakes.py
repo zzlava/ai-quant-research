@@ -35,6 +35,8 @@ def build_fake_tushare_api_tables(
     skip_daily: set[tuple[str, date]] | None = None,
     suspend_days: set[tuple[str, date]] | None = None,
     drop_limit_keys: set[tuple[str, date]] | None = None,
+    list_dates: dict[str, date] | None = None,
+    delist_dates: dict[str, date] | None = None,
 ) -> tuple[list[date], dict[str, pl.DataFrame]]:
     calendar = weekdays(start, n_days)
     skip = set(skip_daily or [])
@@ -49,12 +51,18 @@ def build_fake_tushare_api_tables(
             "is_open": ["1"] * len(calendar),
         }
     )
+    default_lists = {"000001.SZ": date(1991, 4, 3), "600000.SH": date(1999, 11, 10)}
+    listed = {**default_lists, **(list_dates or {})}
+    delisted = delist_dates or {}
     stock_basic = pl.DataFrame(
         {
             "ts_code": list(STOCKS),
             "name": ["平安银行", "ST浦发"],
             "industry": ["bank", "bank"],
-            "list_date": ["19910403", "19991110"],
+            "list_date": [listed[symbol].strftime("%Y%m%d") for symbol in STOCKS],
+            "delist_date": [
+                delisted[symbol].strftime("%Y%m%d") if symbol in delisted else None for symbol in STOCKS
+            ],
             "market": ["主板", "主板"],
             "exchange": ["SZSE", "SSE"],
             "list_status": ["L", "L"],
@@ -114,14 +122,6 @@ def build_fake_tushare_api_tables(
     )
     index_daily = _index_like(INDICES, calendar, 3800.0)
     index_global = _index_like(GLOBALS, calendar, 4200.0)
-    index_weight = pl.DataFrame(
-        {
-            "index_code": ["000300.SH", "000300.SH"],
-            "con_code": list(STOCKS),
-            "trade_date": [calendar[-1].strftime("%Y%m%d")] * 2,
-            "weight": [1.0, 1.0],
-        }
-    )
     tables = {
         "trade_cal": trade_cal,
         "stock_basic": stock_basic,
@@ -135,7 +135,6 @@ def build_fake_tushare_api_tables(
         "namechange": namechange,
         "index_daily": index_daily,
         "index_global": index_global,
-        "index_weight": index_weight,
     }
     return calendar, tables
 

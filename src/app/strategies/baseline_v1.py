@@ -43,6 +43,7 @@ class BaselineV1Strategy(BaseStrategy):
             symbol=feature.symbol,
             score_date=context.as_of,
             strategy_name=self.config.name,
+            config_id=self.config.run_id(),
             strategy_version=self.config.version,
             strategy_config_hash=self.config.config_hash(),
             final_score=final_score,

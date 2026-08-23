@@ -64,7 +64,8 @@ def score(
     results = run_score(as_of, strategy)
     snapshot_id = results[0].data_snapshot_id if results else ""
     typer.echo(
-        f"strategy={strategy} date={as_of} names={len(results)} "
+        f"strategy={strategy} config_id={results[0].config_id if results else '-'} "
+        f"date={as_of} names={len(results)} "
         f"hash={results[0].strategy_config_hash if results else '-'} "
         f"data_snapshot_id={snapshot_id}"
     )
@@ -109,8 +110,7 @@ def fetch_tushare_cmd(
     start: Annotated[str, typer.Option("--start", help="YYYY-MM-DD")],
     end: Annotated[str, typer.Option("--end", help="YYYY-MM-DD")],
     strategy: Annotated[str, typer.Option("--strategy")],
-    symbols_file: Annotated[Path | None, typer.Option("--symbols-file")] = None,
-    index_universe: Annotated[str | None, typer.Option("--index-universe")] = None,
+    symbols_file: Annotated[Path, typer.Option("--symbols-file", exists=True, dir_okay=False)],
     source_version: Annotated[str | None, typer.Option("--source-version")] = None,
 ) -> None:
     """Pull Tushare history into the standardized snapshot. Research only; no trading."""
@@ -122,14 +122,12 @@ def fetch_tushare_cmd(
         token = read_tushare_token()
         settings = get_settings()
         config = load_strategy_config(strategy, settings.strategies_dir)
-        stocks = read_symbols_file(symbols_file) if symbols_file is not None else None
         snapshot = fetch_tushare_and_import(
             start=date.fromisoformat(start),
             end=date.fromisoformat(end),
             config=config,
             dest_dir=settings.parquet_dir,
-            stocks=stocks,
-            index_universe=index_universe,
+            stocks=read_symbols_file(symbols_file),
             source_version=source_version,
             client=LiveTushareClient(token),
         )

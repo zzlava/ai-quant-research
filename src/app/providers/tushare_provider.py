@@ -15,7 +15,6 @@ from app.providers.tushare_normalize import (
     TushareRaw,
     normalize_tushare,
     require_ts_code,
-    resolve_index_universe,
     split_session_symbols,
     ymd,
 )
@@ -55,17 +54,6 @@ class TushareProvider(MarketDataProvider):
         tables = normalize_tushare(raw, config, start, end, stock_codes)
         self._tables = tables
         return tables
-
-    def resolve_index_constituents(self, index_code: str, start: date, end: date) -> list[str]:
-        code = require_ts_code(index_code, kind="index")
-        lookback = start.fromordinal(max(start.toordinal() - 120, 1))
-        weight = self._client_or_live().query(
-            "index_weight",
-            index_code=code,
-            start_date=ymd(lookback),
-            end_date=ymd(end),
-        )
-        return resolve_index_universe(weight, code, end)
 
     def get_instruments(self) -> list[Instrument]:
         frame = self._require_tables()["instruments"]
@@ -121,7 +109,7 @@ class TushareProvider(MarketDataProvider):
         trade_cal = client.query("trade_cal", exchange="SSE", start_date=start_s, end_date=end_s, is_open="1")
         stock_basic = client.query(
             "stock_basic",
-            fields="ts_code,name,industry,list_date,market,exchange,list_status",
+            fields="ts_code,name,industry,list_date,delist_date,market,exchange,list_status",
         )
         daily = self._query_codes(client, "daily", stocks, start_s, end_s)
         daily_basic = self._query_codes(

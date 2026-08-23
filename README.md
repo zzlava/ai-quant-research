@@ -88,7 +88,7 @@ python -m app.cli fetch-tushare \
   --symbols-file ./symbols.txt
 ```
 
-该命令只做历史研究数据导入，不执行交易。真实 A 股配置：
+该命令只做历史研究数据导入，不执行交易。必须用 `--symbols-file` 给出股票池；`--index-universe` 已禁用，避免把结束日成分股铺回历史。真实 A 股配置：
 
 `config/strategies/baseline_real_cn_v1.yaml`
 

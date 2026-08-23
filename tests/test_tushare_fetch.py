@@ -12,14 +12,14 @@ from app.api.main import app
 from app.cli import app as cli_app
 from app.clock import available_at_utc
 from app.demo.generator import generate_demo_market, write_demo_parquet
-from app.errors import DataQualityError, MissingTushareTokenError, sanitize_error_message
+from app.errors import DataQualityError, MissingTushareTokenError, TushareFetchError, sanitize_error_message
 from app.pipeline import run_backtest, run_score
 from app.providers.tushare_client import TOKEN_ENV, read_tushare_token
 from app.providers.tushare_fetch import fetch_tushare_and_import, read_symbols_file
 from app.providers.tushare_normalize import require_ts_code
 from app.storage.snapshot_io import load_verified_snapshot
 from app.strategies.loader import load_strategy_config
-from tests.helpers import PROJECT_ROOT
+from tests.helpers import PROJECT_ROOT, weekdays
 from tests.tushare_fakes import STOCKS, FakeTushareClient, build_fake_tushare_api_tables
 
 
@@ -55,7 +55,7 @@ def test_token_is_redacted_from_cli_and_errors(monkeypatch: pytest.MonkeyPatch, 
             "baseline_real_cn_v1",
         ],
     )
-    assert result.exit_code == 1
+    assert result.exit_code in {1, 2}
     combined = (result.stdout or "") + (result.stderr or "")
     assert secret not in combined
     assert sanitize_error_message(ValueError(f"token={secret}")) != f"token={secret}"
@@ -241,19 +241,17 @@ def test_missing_st_or_suspend_records_are_not_invented() -> None:
         )
 
 
-def test_unknown_daily_gap_is_not_forged_as_suspend(tmp_path: Path) -> None:
+def test_unknown_daily_gap_is_rejected() -> None:
     calendar, tables = build_fake_tushare_api_tables(skip_daily={("000001.SZ", date(2024, 1, 16))})
-    fetch_tushare_and_import(
-        start=calendar[0],
-        end=calendar[-1],
-        config=_config(),
-        dest_dir=tmp_path / "parquet",
-        stocks=list(STOCKS),
-        client=FakeTushareClient(tables),
-    )
-    daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
-    gap = daily.filter((pl.col("symbol") == "000001.SZ") & (pl.col("date") == date(2024, 1, 16)))
-    assert gap.is_empty()
+    with pytest.raises(DataQualityError, match="unknown daily gap"):
+        fetch_tushare_and_import(
+            start=calendar[0],
+            end=calendar[-1],
+            config=_config(),
+            dest_dir=Path("/unused"),
+            stocks=list(STOCKS),
+            client=FakeTushareClient(tables),
+        )
 
 
 def test_explicit_suspend_synthesizes_untradeable_bar(tmp_path: Path) -> None:
@@ -283,16 +281,124 @@ def test_symbol_suffix_is_not_inferred(tmp_path: Path) -> None:
         read_symbols_file(tmp_path / "symbols.txt")
 
 
-def test_index_universe_uses_index_weight(tmp_path: Path) -> None:
+def test_index_universe_cli_is_disabled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(TOKEN_ENV, "unused-token")
+    monkeypatch.setenv("AIQ_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AIQ_CONFIG_DIR", str(PROJECT_ROOT / "config"))
+    (tmp_path / "symbols.txt").write_text("000001.SZ\n", encoding="utf-8")
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_app,
+        [
+            "fetch-tushare",
+            "--start",
+            "2024-01-02",
+            "--end",
+            "2024-01-31",
+            "--strategy",
+            "baseline_real_cn_v1",
+            "--symbols-file",
+            str(tmp_path / "symbols.txt"),
+            "--index-universe",
+            "000300.SH",
+        ],
+    )
+    assert result.exit_code != 0
+    combined = ((result.stdout or "") + (result.stderr or "")).lower()
+    assert "no such option" in combined
+    assert "index-universe" in combined
+
+
+def test_empty_symbols_are_rejected() -> None:
     calendar, tables = build_fake_tushare_api_tables()
-    snapshot = fetch_tushare_and_import(
+    with pytest.raises(TushareFetchError, match="index-universe is disabled"):
+        fetch_tushare_and_import(
+            start=calendar[0],
+            end=calendar[-1],
+            config=_config(),
+            dest_dir=Path("/unused"),
+            stocks=[],
+            client=FakeTushareClient(tables),
+        )
+
+
+def test_pre_listing_gap_is_allowed(tmp_path: Path) -> None:
+    listed_on = date(2024, 1, 10)
+    preview = weekdays(date(2023, 10, 2), 80)
+    calendar, tables = build_fake_tushare_api_tables(
+        list_dates={"000001.SZ": listed_on},
+        skip_daily={("000001.SZ", day) for day in preview if day < listed_on},
+    )
+    fetch_tushare_and_import(
         start=calendar[0],
         end=calendar[-1],
         config=_config(),
         dest_dir=tmp_path / "parquet",
-        index_universe="000300.SH",
+        stocks=list(STOCKS),
         client=FakeTushareClient(tables),
     )
-    assert snapshot.market_index == "000300.SH"
     daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
-    assert set(daily["symbol"].to_list()) == set(STOCKS)
+    early = daily.filter((pl.col("symbol") == "000001.SZ") & (pl.col("date") < listed_on))
+    listed = daily.filter((pl.col("symbol") == "000001.SZ") & (pl.col("date") >= listed_on))
+    assert early.is_empty()
+    assert not listed.is_empty()
+
+
+def test_listed_stock_with_no_daily_rows_is_rejected() -> None:
+    preview = weekdays(date(2023, 10, 2), 80)
+    calendar, tables = build_fake_tushare_api_tables(
+        skip_daily={("000001.SZ", day) for day in preview},
+    )
+    with pytest.raises(DataQualityError, match="unknown daily gap"):
+        fetch_tushare_and_import(
+            start=calendar[0],
+            end=calendar[-1],
+            config=_config(),
+            dest_dir=Path("/unused"),
+            stocks=list(STOCKS),
+            client=FakeTushareClient(tables),
+        )
+
+
+def test_daily_bars_outside_listing_window_are_dropped(tmp_path: Path) -> None:
+    listed_on = date(2024, 1, 10)
+    delist_on = date(2024, 1, 22)
+    calendar, tables = build_fake_tushare_api_tables(
+        list_dates={"000001.SZ": listed_on},
+        delist_dates={"000001.SZ": delist_on},
+    )
+    fetch_tushare_and_import(
+        start=calendar[0],
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "parquet",
+        stocks=list(STOCKS),
+        client=FakeTushareClient(tables),
+    )
+    daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
+    owned = daily.filter(pl.col("symbol") == "000001.SZ")
+    assert owned.filter(pl.col("date") < listed_on).is_empty()
+    assert owned.filter(pl.col("date") >= delist_on).is_empty()
+    assert not owned.filter((pl.col("date") >= listed_on) & (pl.col("date") < delist_on)).is_empty()
+
+
+def test_post_delist_gap_is_allowed(tmp_path: Path) -> None:
+    delist_on = date(2024, 1, 22)
+    preview = weekdays(date(2023, 10, 2), 80)
+    calendar, tables = build_fake_tushare_api_tables(
+        delist_dates={"000001.SZ": delist_on},
+        skip_daily={("000001.SZ", day) for day in preview if day >= delist_on},
+    )
+    fetch_tushare_and_import(
+        start=calendar[0],
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "parquet",
+        stocks=list(STOCKS),
+        client=FakeTushareClient(tables),
+    )
+    daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
+    after = daily.filter((pl.col("symbol") == "000001.SZ") & (pl.col("date") >= delist_on))
+    before = daily.filter((pl.col("symbol") == "000001.SZ") & (pl.col("date") < delist_on))
+    assert after.is_empty()
+    assert not before.is_empty()

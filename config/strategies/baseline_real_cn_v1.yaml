@@ -1,12 +1,15 @@
 # Real A-share research config. No tokens, accounts, or private URLs.
 # Symbols must match the imported Tushare ts_code values exactly.
+# name is the registered implementation; config_id distinguishes this run from demo YAML.
 name: baseline_v1
+config_id: baseline_real_cn_v1
 version: "1.0.0"
 
 weights:
   market_score: 0.25
   global_score: 0.15
-  sector_score: 0.20
+  # stock_basic.industry is the current snapshot, not point-in-time. Keep at 0 until dated industry exists.
+  sector_score: 0.0
   alpha_score: 0.40
   crowding_risk: 0.10
   execution_risk: 0.10

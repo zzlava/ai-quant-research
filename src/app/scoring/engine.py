@@ -49,6 +49,7 @@ class ScoringEngine:
                 "symbol": r.symbol,
                 "score_date": r.score_date,
                 "strategy_name": r.strategy_name,
+                "config_id": r.config_id,
                 "strategy_version": r.strategy_version,
                 "strategy_config_hash": r.strategy_config_hash,
                 "final_score": r.final_score,
@@ -67,9 +68,14 @@ class ScoringEngine:
         if dest.exists():
             existing = pl.read_parquet(dest)
             first = results[0]
-            keep = existing.filter(
-                ~((pl.col("score_date") == first.score_date) & (pl.col("strategy_name") == first.strategy_name))
-            )
+            same_run = pl.col("score_date") == first.score_date
+            if "strategy_config_hash" in existing.columns:
+                same_run = same_run & (pl.col("strategy_config_hash") == first.strategy_config_hash)
+            if "data_snapshot_id" in existing.columns:
+                same_run = same_run & (pl.col("data_snapshot_id") == first.data_snapshot_id)
+            if "strategy_config_hash" not in existing.columns and "data_snapshot_id" not in existing.columns:
+                same_run = same_run & (pl.col("strategy_name") == first.strategy_name)
+            keep = existing.filter(~same_run)
             frame = pl.concat([keep, frame], how="vertical_relaxed")
         if results:
             frame.write_parquet(dest)

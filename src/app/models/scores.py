@@ -21,6 +21,7 @@ class ScoreResult(BaseModel):
     symbol: str
     score_date: date
     strategy_name: str
+    config_id: str = ""
     strategy_version: str
     strategy_config_hash: str
     final_score: float

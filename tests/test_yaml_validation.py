@@ -59,5 +59,14 @@ def test_valid_yaml_still_loads() -> None:
     config = StrategyConfig.model_validate(_payload())
     assert config.data.market_index == "IDX_CSI300"
     assert config.data.global_symbol == "GLB_SPX"
+    assert config.config_id is None
+    assert config.run_id() == config.name
     copied = copy.deepcopy(_payload())
     StrategyConfig.model_validate(copied)
+
+
+def test_optional_config_id_is_allowed() -> None:
+    payload = _payload()
+    payload["config_id"] = "baseline_real_cn_v1"
+    config = StrategyConfig.model_validate(payload)
+    assert config.run_id() == "baseline_real_cn_v1"

@@ -9,7 +9,7 @@ from typing import Literal
 import polars as pl
 
 from app.clock import available_at_utc
-from app.errors import DataQualityError, TushareFetchError
+from app.errors import DataQualityError
 from app.models.config import SessionConfig, StrategyConfig
 from app.providers._frames import DAILY_SCHEMA, GLOBAL_SCHEMA, INSTRUMENT_SCHEMA
 
@@ -135,6 +135,7 @@ def _normalize_daily(
     if raw.daily.is_empty():
         raise DataQualityError("daily bars are empty")
     daily = _require_cols(raw.daily, ("ts_code", "trade_date", "open", "high", "low", "close"), "daily")
+    listing_bounds = _listing_bounds(raw.stock_basic, stocks)
     stk_limit = raw.stk_limit
     suspend_d = raw.suspend_d
     namechange = raw.namechange
@@ -166,10 +167,18 @@ def _normalize_daily(
     suspend_days = _full_day_suspends(suspend_d, stocks)
 
     for symbol, items in by_symbol.items():
+        listed_from, delist_on = listing_bounds[symbol]
+        items = [
+            row
+            for row in items
+            if isinstance(row["date"], date) and _in_listing_window(row["date"], listed_from, delist_on)
+        ]
         items.sort(key=lambda r: r["date"])  # type: ignore[arg-type, return-value]
         last_close = None
         present = {r["date"] for r in items}
         for day in calendar:
+            if not _in_listing_window(day, listed_from, delist_on):
+                continue
             if day in present:
                 continue
             if (symbol, day) not in suspend_days:
@@ -241,6 +250,12 @@ def _normalize_daily(
                 }
             )
             last_close = _as_float(row["close"])
+    present_dates: dict[str, set[date]] = {}
+    for row in rows:
+        raw_dt = row["date"]
+        if isinstance(raw_dt, date):
+            present_dates.setdefault(str(row["symbol"]), set()).add(raw_dt)
+    _assert_no_unknown_listed_gaps(stocks, calendar, listing_bounds, present_dates)
     if not rows:
         raise DataQualityError("no daily bars remained after Tushare normalization")
     return pl.DataFrame(rows).with_columns(
@@ -337,7 +352,9 @@ def _normalize_instruments(
         if item is None:
             raise DataQualityError(f"stock_basic missing {symbol}")
         list_raw = item.get("list_date")
-        listing = parse_ymd(list_raw) if list_raw else date(1990, 1, 1)
+        if not list_raw:
+            raise DataQualityError(f"stock_basic missing list_date for {symbol}")
+        listing = parse_ymd(list_raw)
         session = config.data.sessions.get(symbol)
         rows.append(
             {
@@ -571,21 +588,51 @@ def _full_day_suspends(frame: pl.DataFrame, stocks: list[str]) -> set[tuple[str,
     return out
 
 
-def resolve_index_universe(weight: pl.DataFrame, index_code: str, as_of: date) -> list[str]:
-    if weight.is_empty() or "con_code" not in weight.columns:
-        raise TushareFetchError(f"index_weight returned no constituents for {index_code}")
-    work = weight
-    if "index_code" in work.columns:
-        work = work.filter(pl.col("index_code") == index_code)
-    if "trade_date" in work.columns:
-        dated = [(parse_ymd(row["trade_date"]), str(row["con_code"])) for row in work.to_dicts() if row.get("con_code")]
-        eligible = [dt for dt, _ in dated if dt <= as_of]
-        if not eligible:
-            raise TushareFetchError(f"index_weight has no trade_date on or before {as_of}")
-        chosen = max(eligible)
-        codes = sorted({require_ts_code(code, kind="stock") for dt, code in dated if dt == chosen})
-    else:
-        codes = sorted({require_ts_code(str(v), kind="stock") for v in work["con_code"].to_list() if v})
-    if not codes:
-        raise TushareFetchError(f"index_weight produced an empty universe for {index_code}")
-    return codes
+def _optional_ymd(value: object) -> date | None:
+    if value in (None, "", "None"):
+        return None
+    return parse_ymd(value)
+
+
+def _listing_bounds(basic: pl.DataFrame, stocks: list[str]) -> dict[str, tuple[date, date | None]]:
+    by_code: dict[str, dict[str, object]] = {}
+    if not basic.is_empty() and "ts_code" in basic.columns:
+        for item in basic.to_dicts():
+            by_code[str(item["ts_code"]).strip()] = item
+    out: dict[str, tuple[date, date | None]] = {}
+    for symbol in stocks:
+        basic_row = by_code.get(symbol)
+        if basic_row is None:
+            raise DataQualityError(f"stock_basic missing {symbol}")
+        list_raw = basic_row.get("list_date")
+        if not list_raw:
+            raise DataQualityError(f"stock_basic missing list_date for {symbol}")
+        listed_from = parse_ymd(list_raw)
+        delist_on = _optional_ymd(basic_row.get("delist_date"))
+        if delist_on is not None and delist_on <= listed_from:
+            raise DataQualityError(f"delist_date is not after list_date for {symbol}")
+        out[symbol] = (listed_from, delist_on)
+    return out
+
+
+def _in_listing_window(day: date, listed_from: date, delist_on: date | None) -> bool:
+    if day < listed_from:
+        return False
+    return delist_on is None or day < delist_on
+
+
+def _assert_no_unknown_listed_gaps(
+    stocks: list[str],
+    calendar: list[date],
+    listing_bounds: dict[str, tuple[date, date | None]],
+    present_dates: dict[str, set[date]],
+) -> None:
+    for symbol in stocks:
+        listed_from, delist_on = listing_bounds[symbol]
+        have = present_dates.get(symbol, set())
+        missing = [day for day in calendar if _in_listing_window(day, listed_from, delist_on) and day not in have]
+        if missing:
+            raise DataQualityError(
+                f"unknown daily gap for {symbol} on {missing[0]}; "
+                "refusing to skip listed trading days that are not full-day suspends"
+            )

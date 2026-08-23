@@ -79,6 +79,7 @@ class DataConfig(StrictModel):
 
 class StrategyConfig(StrictModel):
     name: str
+    config_id: str | None = None
     version: str
     weights: WeightsConfig
     universe: UniverseConfig
@@ -106,6 +107,9 @@ class StrategyConfig(StrictModel):
         if self.data.global_symbol not in self.data.sessions:
             raise ValueError(f"data.sessions missing global_symbol '{self.data.global_symbol}'")
         return self
+
+    def run_id(self) -> str:
+        return self.config_id or self.name
 
     def config_hash(self) -> str:
         payload = self.model_dump(mode="json")

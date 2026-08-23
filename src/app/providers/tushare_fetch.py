@@ -41,18 +41,17 @@ def fetch_tushare_and_import(
     end: date,
     config: StrategyConfig,
     dest_dir: Path,
-    stocks: list[str] | None = None,
-    index_universe: str | None = None,
+    stocks: list[str],
     source_version: str | None = None,
     client: TushareQueryClient | None = None,
     source_name: str = "tushare",
 ) -> DataSnapshot:
-    if (stocks is None) == (index_universe is None):
-        raise TushareFetchError("provide exactly one of a symbols file or an index universe")
+    if not stocks:
+        raise TushareFetchError(
+            "stock universe is empty; pass --symbols-file. "
+            "--index-universe is disabled because end-date constituents look ahead"
+        )
     provider = TushareProvider(client=client)
-    if index_universe is not None:
-        stocks = provider.resolve_index_constituents(index_universe, start, end)
-    assert stocks is not None
     tables = provider.fetch(start, end, config=config, stocks=stocks)
     parent = Path(dest_dir).parent
     parent.mkdir(parents=True, exist_ok=True)

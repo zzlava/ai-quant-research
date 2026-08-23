@@ -3,9 +3,12 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+import polars as pl
+
 from app.features.engine import clip
 from app.models.features import StockFeatureVector
-from app.models.scores import StrategyContext
+from app.models.scores import ScoreBreakdown, ScoreResult, StrategyContext
+from app.scoring.engine import ScoringEngine
 from app.strategies.baseline_v1 import BaselineV1Strategy
 from app.strategies.loader import load_strategy_config
 from tests.helpers import CONFIG_DIR
@@ -79,3 +82,63 @@ def test_changing_yaml_weights_changes_final_score(tmp_path: Path) -> None:
     assert 0.0 <= s1.final_score <= 100.0
     assert 0.0 <= s2.final_score <= 100.0
     assert s1.strategy_config_hash != s2.strategy_config_hash
+
+
+def test_real_config_has_separate_run_id_and_disabled_sector() -> None:
+    real = load_strategy_config("baseline_real_cn_v1", CONFIG_DIR)
+    demo = load_strategy_config("baseline_v1", CONFIG_DIR)
+    assert real.name == "baseline_v1"
+    assert real.config_id == "baseline_real_cn_v1"
+    assert real.run_id() != demo.run_id()
+    assert real.config_hash() != demo.config_hash()
+    assert real.weights.sector_score == 0.0
+    feat = _feature()
+    ctx = StrategyContext(as_of=feat.as_of, market_score=70.0, global_score=60.0)
+    scored = BaselineV1Strategy(real).score(feat, ctx)
+    assert scored.config_id == "baseline_real_cn_v1"
+    assert scored.strategy_name == "baseline_v1"
+
+
+def _score_row(*, config_hash: str, snapshot_id: str, config_id: str, final: float) -> ScoreResult:
+    return ScoreResult(
+        symbol="AAA",
+        score_date=date(2024, 1, 15),
+        strategy_name="baseline_v1",
+        config_id=config_id,
+        strategy_version="1.0.0",
+        strategy_config_hash=config_hash,
+        final_score=final,
+        breakdown=ScoreBreakdown(
+            market_score=70.0,
+            global_score=60.0,
+            sector_score=0.0,
+            alpha_score=70.0,
+            crowding_risk=10.0,
+            execution_risk=10.0,
+            final_score=final,
+        ),
+        data_snapshot_id=snapshot_id,
+    )
+
+
+def test_same_day_scores_from_different_runs_do_not_overwrite(tmp_path: Path) -> None:
+    dest = tmp_path / "scores.parquet"
+    engine = object.__new__(ScoringEngine)
+    demo = _score_row(config_hash="hash-demo", snapshot_id="snap-demo", config_id="baseline_v1", final=80.0)
+    real = _score_row(config_hash="hash-real", snapshot_id="snap-real", config_id="baseline_real_cn_v1", final=70.0)
+    engine.persist([demo], dest)
+    engine.persist([real], dest)
+    stored = pl.read_parquet(dest)
+    assert stored.height == 2
+    ids = set(zip(stored["strategy_config_hash"].to_list(), stored["data_snapshot_id"].to_list(), strict=True))
+    assert ids == {("hash-demo", "snap-demo"), ("hash-real", "snap-real")}
+
+    replacement = _score_row(config_hash="hash-demo", snapshot_id="snap-demo", config_id="baseline_v1", final=11.0)
+    engine.persist([replacement], dest)
+    stored = pl.read_parquet(dest)
+    assert stored.height == 2
+    demo_row = stored.filter(pl.col("strategy_config_hash") == "hash-demo").to_dicts()[0]
+    real_row = stored.filter(pl.col("strategy_config_hash") == "hash-real").to_dicts()[0]
+    assert demo_row["final_score"] == 11.0
+    assert real_row["final_score"] == 70.0
+    assert set(stored["config_id"].to_list()) == {"baseline_v1", "baseline_real_cn_v1"}

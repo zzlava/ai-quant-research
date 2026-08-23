@@ -1,14 +1,17 @@
 # 真实 A 股历史数据的策略配置示例。
 # 不含账号、Token 或私密 URL。
 # 复制后按「已导入数据」里的标准化 symbol 修改 data: 段。
-# name 必须是已注册策略（当前为 baseline_v1）；文件名可自定，例如 baseline_v1_real.yaml。
+# name 必须是已注册策略（当前为 baseline_v1）；文件名可自定。
+# config_id 区分同一实现的不同配置，避免与 demo 的同日评分互相覆盖。
 name: baseline_v1
+config_id: baseline_real_cn_v1
 version: "1.0.0"
 
 weights:
   market_score: 0.25
   global_score: 0.15
-  sector_score: 0.20
+  # stock_basic.industry 是当前行业，不是点时分类。在有日期版本的行业数据之前保持为 0。
+  sector_score: 0.0
   alpha_score: 0.40
   crowding_risk: 0.10
   execution_risk: 0.10
