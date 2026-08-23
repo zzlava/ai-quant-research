@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import date
 from pathlib import Path
 
@@ -97,6 +99,28 @@ def test_real_config_has_separate_run_id_and_disabled_sector() -> None:
     scored = BaselineV1Strategy(real).score(feat, ctx)
     assert scored.config_id == "baseline_real_cn_v1"
     assert scored.strategy_name == "baseline_v1"
+
+
+def test_controlled_sample_config_and_provenance_are_explicit() -> None:
+    controlled = load_strategy_config("controlled_sample_anchor_intersection30_v1", CONFIG_DIR)
+    universe_dir = CONFIG_DIR.parent / "research-universes"
+    symbols_path = universe_dir / "controlled_sample_anchor_intersection30_v1.txt"
+    provenance_path = universe_dir / "controlled_sample_anchor_intersection30_v1.provenance.json"
+
+    symbols = [line.strip() for line in symbols_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+
+    assert controlled.research_scope == "controlled_sample"
+    assert controlled.universe.mode == "manual_static"
+    assert controlled.universe.id == "controlled_sample_anchor_intersection30"
+    assert controlled.weights.sector_score == 0.0
+    assert len(symbols) == 30
+    assert len(set(symbols)) == 30
+    assert provenance["classification"] == "controlled_sample_survivorship_biased_not_csi300"
+    assert provenance["selection_method"]["take"] == len(symbols)
+    assert provenance["selection_method"]["symbols_file"] == symbols_path.name
+    sample_sha256 = hashlib.sha256(symbols_path.read_bytes()).hexdigest()
+    assert provenance["selection_method"]["symbols_file_sha256"] == sample_sha256
 
 
 def _score_row(*, config_hash: str, snapshot_id: str, config_id: str, final: float) -> ScoreResult:

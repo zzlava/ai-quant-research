@@ -1,0 +1,25 @@
+{
+  "schema": "aiq.controlled_sample_provenance.v1",
+  "classification": "controlled_sample_survivorship_biased_not_csi300",
+  "purpose": "Validate local data ingestion, preflight, scoring, and backtest mechanics. It is not an investable universe or a CSI300 historical study.",
+  "source_snapshots": {
+    "path": "claude-csi300-full-reconstruction/aiq_anchor_snapshots.csv",
+    "sha256": "bfb2abb8ad1f024fcb5f1a9e100929d55a3aaddcf443116f44c351be4e24edc9",
+    "anchors": [
+      "2021-07-12",
+      "2024-12-31"
+    ]
+  },
+  "selection_method": {
+    "population": "Intersection of the two direct 300-member anchors; 219 symbols.",
+    "ordering": "Ascending SHA-256 of UTF-8 literal 'aiq-controlled-sample-anchor-intersection30-v1:' plus symbol.",
+    "take": 30,
+    "symbols_file": "controlled_sample_anchor_intersection30_v1.txt",
+    "symbols_file_sha256": "32a61842c66c831558b575708c6a599433c587fa3ea288855ea9eba80017fe24"
+  },
+  "known_biases": [
+    "Membership at the 2024 anchor is used to construct the sample, so it has survivorship bias.",
+    "The sample is a static universe and does not represent CSI300 membership on any historical day.",
+    "Any measured return is suitable only for regression and pipeline checks, not investment or benchmark claims."
+  ]
+}
