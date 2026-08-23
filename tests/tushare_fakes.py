@@ -29,6 +29,9 @@ class FakeTushareClient:
             return pl.DataFrame()
         if api_name == "stock_basic" and "list_status" in params and "list_status" in frame.columns:
             frame = frame.filter(pl.col("list_status") == str(params["list_status"]))
+        if "ts_code" in params and "ts_code" in frame.columns:
+            wanted = {code.strip() for code in str(params["ts_code"]).split(",") if code.strip()}
+            frame = frame.filter(pl.col("ts_code").is_in(list(wanted)))
         return frame
 
 

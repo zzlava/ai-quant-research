@@ -16,7 +16,7 @@ from app.errors import DataQualityError, MissingTushareTokenError, TushareFetchE
 from app.pipeline import run_backtest, run_score
 from app.providers.tushare_client import TOKEN_ENV, read_tushare_token
 from app.providers.tushare_fetch import fetch_tushare_and_import, read_symbols_file
-from app.providers.tushare_normalize import require_ts_code
+from app.providers.tushare_normalize import require_ts_code, split_session_symbols
 from app.storage.snapshot_io import load_verified_snapshot
 from app.strategies.loader import load_strategy_config
 from tests.helpers import PROJECT_ROOT, weekdays
@@ -84,6 +84,15 @@ def test_fake_tushare_builds_five_tables_and_imports(tmp_path: Path) -> None:
     assert set(daily["symbol"].to_list()) == set(STOCKS)
     statuses = [params.get("list_status") for name, params in client.call_params if name == "stock_basic"]
     assert statuses == ["L", "D", "P", "G"]
+    index_codes = [params.get("ts_code") for name, params in client.call_params if name == "index_daily"]
+    assert index_codes
+    assert all(isinstance(code, str) and "," not in code for code in index_codes)
+    _, expected_globals = split_session_symbols(_config(), list(STOCKS))
+    global_codes = [params.get("ts_code") for name, params in client.call_params if name == "index_global"]
+    assert global_codes
+    assert all(isinstance(code, str) and "," not in code for code in global_codes)
+    if len(expected_globals) >= 2:
+        assert set(global_codes) == set(expected_globals)
 
 
 def test_tushare_snapshot_reaches_score_backtest_and_api(

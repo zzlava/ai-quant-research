@@ -21,6 +21,7 @@ from app.providers.tushare_normalize import (
 )
 
 _CODE_BATCH = 80
+_SINGLE_CODE_APIS = frozenset({"index_daily", "index_global"})
 _STOCK_BASIC_FIELDS = "ts_code,name,industry,list_date,delist_date,market,exchange,list_status"
 # Official stock_basic list_status values. Default is L, so D/P/G must be queried separately.
 _STOCK_BASIC_STATUSES = ("L", "D", "P", "G")
@@ -170,8 +171,9 @@ class TushareProvider(MarketDataProvider):
         if not codes:
             return pl.DataFrame()
         frames: list[pl.DataFrame] = []
-        for offset in range(0, len(codes), _CODE_BATCH):
-            chunk = codes[offset : offset + _CODE_BATCH]
+        batch = 1 if api_name in _SINGLE_CODE_APIS else _CODE_BATCH
+        for offset in range(0, len(codes), batch):
+            chunk = codes[offset : offset + batch]
             params: dict[str, Any] = {"ts_code": ",".join(chunk)}
             if start_s is not None:
                 params["start_date"] = start_s
