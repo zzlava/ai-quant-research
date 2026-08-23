@@ -25,6 +25,9 @@ GLOBAL_SCHEMA = {
     "date": pl.Date,
     "close": pl.Float64,
     "ret_1d": pl.Float64,
+    "market": pl.String,
+    "timezone": pl.String,
+    "available_at": pl.Datetime("us"),
 }
 
 INSTRUMENT_SCHEMA = {
@@ -34,6 +37,9 @@ INSTRUMENT_SCHEMA = {
     "listing_date": pl.Date,
     "is_index": pl.Boolean,
     "is_global": pl.Boolean,
+    "market": pl.String,
+    "timezone": pl.String,
+    "session_close": pl.String,
 }
 
 
@@ -42,7 +48,7 @@ def empty_daily() -> pl.DataFrame:
 
 
 def empty_global() -> pl.DataFrame:
-    return pl.DataFrame(schema=GLOBAL_SCHEMA)
+    return pl.DataFrame(schema=GLOBAL_SCHEMA)  # type: ignore[arg-type]
 
 
 def empty_instruments() -> pl.DataFrame:
@@ -52,25 +58,24 @@ def empty_instruments() -> pl.DataFrame:
 def bars_to_frame(bars: list[DailyBar]) -> pl.DataFrame:
     if not bars:
         return empty_daily()
-    return pl.DataFrame([b.model_dump() for b in bars]).with_columns(
-        pl.col("date").cast(pl.Date)
-    )
+    return pl.DataFrame([b.model_dump() for b in bars]).with_columns(pl.col("date").cast(pl.Date))
 
 
 def global_to_frame(bars: list[GlobalBar]) -> pl.DataFrame:
     if not bars:
         return empty_global()
     return pl.DataFrame([b.model_dump() for b in bars]).with_columns(
-        pl.col("date").cast(pl.Date)
+        [
+            pl.col("date").cast(pl.Date),
+            pl.col("available_at").cast(pl.Datetime("us")),
+        ]
     )
 
 
 def instruments_to_frame(items: list[Instrument]) -> pl.DataFrame:
     if not items:
         return empty_instruments()
-    return pl.DataFrame([i.model_dump() for i in items]).with_columns(
-        pl.col("listing_date").cast(pl.Date)
-    )
+    return pl.DataFrame([i.model_dump() for i in items]).with_columns(pl.col("listing_date").cast(pl.Date))
 
 
 def filter_dates(

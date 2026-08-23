@@ -9,7 +9,11 @@ from app.providers.base import MarketDataProvider
 
 
 class AKShareProvider(MarketDataProvider):
-    """Adapter only. Live AKShare fetch is not implemented in this MVP."""
+    """Adapter only. Live AKShare fetch is not implemented in this MVP.
+
+    TODO: when implementing, attach available_at, declare adjustment, and
+    run quality checks. Tests must stay offline.
+    """
 
     def __init__(self) -> None:
         return

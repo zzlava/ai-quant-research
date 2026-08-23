@@ -5,7 +5,9 @@ from datetime import date
 
 import polars as pl
 
-from app.demo.generator import GLOBAL_SPX, INDEX_CSI300
+from app.clock import decision_at_utc
+from app.errors import MissingBenchmarkError
+from app.models.config import StrategyConfig
 from app.models.features import StockFeatureVector
 from app.storage.protocol import MarketStore
 
@@ -23,9 +25,11 @@ def scale(value: float, lo: float, hi: float) -> float:
 class FeatureEngine:
     """Compute point-in-time features. Store queries always pass as_of."""
 
-    def __init__(self, store: MarketStore, index_symbol: str = INDEX_CSI300) -> None:
+    def __init__(self, store: MarketStore, config: StrategyConfig) -> None:
         self.store = store
-        self.index_symbol = index_symbol
+        self.config = config
+        self.index_symbol = config.data.market_index
+        self.global_symbol = config.data.global_symbol
 
     def compute_all(self, as_of: date) -> list[StockFeatureVector]:
         daily = self.store.get_daily_bars(as_of=as_of)
@@ -35,7 +39,9 @@ class FeatureEngine:
         if daily.is_empty():
             return []
 
-        instruments = {i.symbol: i for i in self.store.get_instruments() if not i.is_index and not i.is_global}
+        instruments = {
+            i.symbol: i for i in self.store.get_instruments() if not i.is_index and not i.is_global
+        }
         enriched = self._stock_features(daily)
         as_of_rows = enriched.filter(pl.col("date") == as_of)
         if as_of_rows.is_empty():
@@ -147,8 +153,11 @@ class FeatureEngine:
     def _market_snapshot(self, as_of: date) -> tuple[float, float]:
         index = self.store.get_index_bars(as_of=as_of, symbol=self.index_symbol)
         index = index.filter(pl.col("date") <= as_of).sort("date")
-        if index.height < 21:
-            return 0.0, 50.0
+        needed = self.config.data.min_history_bars
+        if index.height < needed:
+            raise MissingBenchmarkError(
+                f"market index '{self.index_symbol}' has {index.height} bars as of {as_of}, need {needed}"
+            )
         closes = [float(x) for x in index["close"].to_list()]
         last = closes[-1]
         ret_20d = last / closes[-21] - 1.0
@@ -158,10 +167,21 @@ class FeatureEngine:
         return ret_20d, market_score
 
     def _global_snapshot(self, as_of: date) -> tuple[float, float]:
-        glob = self.store.get_global_bars(as_of=as_of, symbol=GLOBAL_SPX)
-        glob = glob.filter(pl.col("date") <= as_of).sort("date")
-        if glob.height < 21:
-            return 0.0, 50.0
+        glob = self.store.get_global_bars(as_of=as_of, symbol=self.global_symbol)
+        if glob.is_empty():
+            raise MissingBenchmarkError(f"global series '{self.global_symbol}' is missing as of {as_of}")
+        if "available_at" not in glob.columns:
+            raise MissingBenchmarkError(
+                f"global series '{self.global_symbol}' has no available_at; cannot apply the data clock"
+            )
+        cutoff = decision_at_utc(as_of, self.config.data)
+        glob = glob.filter(pl.col("available_at") <= cutoff).sort("date")
+        needed = self.config.data.min_history_bars
+        if glob.height < needed:
+            raise MissingBenchmarkError(
+                f"global series '{self.global_symbol}' has {glob.height} available bars "
+                f"at A-share decision {as_of} {self.config.data.decision_time}, need {needed}"
+            )
         closes = [float(x) for x in glob["close"].to_list()]
         last = closes[-1]
         ret_20d = last / closes[-21] - 1.0

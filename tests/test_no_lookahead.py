@@ -4,7 +4,7 @@ from datetime import date
 
 import polars as pl
 
-from app.demo.generator import generate_demo_market
+from app.demo.generator import GLOBAL_SPX, generate_demo_market
 from app.features.engine import FeatureEngine
 from app.models.market import Instrument
 from app.providers.demo_provider import DemoProvider
@@ -96,7 +96,7 @@ def test_features_and_scores_ignore_future_prices() -> None:
 
     leaky_clean = LeakyStore(clean)
     config = load_strategy_config("baseline_v1", CONFIG_DIR)
-    features_before = FeatureEngine(leaky_clean).compute_all(as_of)
+    features_before = FeatureEngine(leaky_clean, config).compute_all(as_of)
     scores_before = ScoringEngine(leaky_clean, config).run(as_of)
     assert features_before
     assert scores_before
@@ -107,7 +107,7 @@ def test_features_and_scores_ignore_future_prices() -> None:
     poisoned.global_bars = _shock_future(poisoned.global_bars, as_of)
     leaky_poisoned = LeakyStore(poisoned)
 
-    features_after = FeatureEngine(leaky_poisoned).compute_all(as_of)
+    features_after = FeatureEngine(leaky_poisoned, config).compute_all(as_of)
     scores_after = ScoringEngine(leaky_poisoned, config).run(as_of)
 
     before_map = {f.symbol: f.model_dump() for f in features_before}
@@ -119,3 +119,29 @@ def test_features_and_scores_ignore_future_prices() -> None:
     score_before = {s.symbol: s.model_dump(exclude={"feature"}) for s in scores_before}
     score_after = {s.symbol: s.model_dump(exclude={"feature"}) for s in scores_after}
     assert score_before == score_after
+
+
+def test_same_day_us_close_does_not_change_a_share_score() -> None:
+    bundle = generate_demo_market(
+        seed=42,
+        n_stocks=12,
+        start=date(2023, 1, 3),
+        end=date(2024, 3, 29),
+    )
+    store = InMemoryStore.from_provider(DemoProvider(bundle=bundle))
+    as_of = date(2024, 1, 15)
+    config = load_strategy_config("baseline_v1", CONFIG_DIR)
+    before = ScoringEngine(store, config).run(as_of)
+    assert before
+
+    poisoned = store.clone()
+    poisoned.global_bars = poisoned.global_bars.with_columns(
+        pl.when((pl.col("date") == as_of) & (pl.col("symbol") == GLOBAL_SPX))
+        .then(pl.col("close") * 10.0)
+        .otherwise(pl.col("close"))
+        .alias("close")
+    )
+    after = ScoringEngine(LeakyStore(poisoned), config).run(as_of)
+    assert {s.symbol: s.model_dump(exclude={"feature"}) for s in before} == {
+        s.symbol: s.model_dump(exclude={"feature"}) for s in after
+    }

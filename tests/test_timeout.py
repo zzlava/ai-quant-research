@@ -26,7 +26,7 @@ def test_timeout_exits_on_tenth_exit_eligible_close() -> None:
     def signals(as_of: date):
         return constant_signal(["AAA"], 80.0, as_of) if as_of == signal_day else []
 
-    result = BacktestEngine(store, zero_cost_config(), signal_fn=signals).run(signal_day, signal_day)
+    result = BacktestEngine(store, zero_cost_config(), signal_fn=signals).run(signal_day, timeout_day)
     trade = result.trades[0]
     assert trade.exit_reason == "timeout"
     assert trade.exit_date == timeout_day

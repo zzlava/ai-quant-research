@@ -7,8 +7,11 @@ from pathlib import Path
 
 import polars as pl
 
+from app.clock import available_at_utc
+from app.models.config import SessionConfig
 from app.models.market import DailyBar, GlobalBar, Instrument, MarketBundle
 from app.providers._frames import bars_to_frame, global_to_frame, instruments_to_frame
+from app.storage.quality import snapshot_payload, validate_global, validate_ohlcv, write_snapshot_manifest
 
 DEMO_SEED = 42
 SECTORS = ("bank", "tech", "consumer")
@@ -16,6 +19,11 @@ INDEX_CSI300 = "IDX_CSI300"
 INDEX_SSE = "IDX_SSE"
 GLOBAL_SPX = "GLB_SPX"
 GLOBAL_HSI = "GLB_HSI"
+
+GLOBAL_SESSIONS = {
+    GLOBAL_SPX: SessionConfig(market="US", timezone="America/New_York", session_close="16:00"),
+    GLOBAL_HSI: SessionConfig(market="HK", timezone="Asia/Hong_Kong", session_close="16:00"),
+}
 
 
 def weekday_calendar(start: date, end: date) -> list[date]:
@@ -127,6 +135,7 @@ def generate_demo_market(
                 sector="index",
                 listing_date=date(2005, 1, 1),
                 is_index=True,
+                market="CN",
             ),
             Instrument(
                 symbol=INDEX_SSE,
@@ -134,6 +143,7 @@ def generate_demo_market(
                 sector="index",
                 listing_date=date(1990, 1, 1),
                 is_index=True,
+                market="CN",
             ),
             Instrument(
                 symbol=GLOBAL_SPX,
@@ -141,6 +151,9 @@ def generate_demo_market(
                 sector="global",
                 listing_date=date(1957, 1, 1),
                 is_global=True,
+                market="US",
+                timezone="America/New_York",
+                session_close="16:00",
             ),
             Instrument(
                 symbol=GLOBAL_HSI,
@@ -148,6 +161,9 @@ def generate_demo_market(
                 sector="global",
                 listing_date=date(1969, 1, 1),
                 is_global=True,
+                market="HK",
+                timezone="Asia/Hong_Kong",
+                session_close="16:00",
             ),
         ]
     )
@@ -157,17 +173,34 @@ def generate_demo_market(
         index_bars=index_bars,
         global_bars=global_bars,
         calendar=calendar,
+        adjustment="forward",
     )
 
 
 def write_demo_parquet(bundle: MarketBundle, parquet_dir: Path) -> None:
     parquet_dir.mkdir(parents=True, exist_ok=True)
-    bars_to_frame(bundle.daily_bars).write_parquet(parquet_dir / "daily_bars.parquet")
-    bars_to_frame(bundle.index_bars).write_parquet(parquet_dir / "index_bars.parquet")
-    global_to_frame(bundle.global_bars).write_parquet(parquet_dir / "global_bars.parquet")
+    daily = bars_to_frame(bundle.daily_bars)
+    index = bars_to_frame(bundle.index_bars)
+    glob = global_to_frame(bundle.global_bars)
+    validate_ohlcv(daily, "daily_bars")
+    validate_ohlcv(index, "index_bars")
+    validate_global(glob)
+    daily.write_parquet(parquet_dir / "daily_bars.parquet")
+    index.write_parquet(parquet_dir / "index_bars.parquet")
+    glob.write_parquet(parquet_dir / "global_bars.parquet")
     instruments_to_frame(bundle.instruments).write_parquet(parquet_dir / "instruments.parquet")
     pl.DataFrame({"date": bundle.calendar}).with_columns(pl.col("date").cast(pl.Date)).write_parquet(
         parquet_dir / "calendar.parquet"
+    )
+    write_snapshot_manifest(
+        parquet_dir,
+        snapshot_payload(
+            daily,
+            index,
+            glob,
+            bundle.adjustment,
+            extra={"seed": DEMO_SEED, "kind": "demo"},
+        ),
     )
 
 
@@ -218,7 +251,18 @@ def _build_global_bars(calendar: list[date], rng: random.Random) -> list[GlobalB
             ret = _gauss(rng, drift, vol)
             close = prev * (1.0 + ret)
             prices[symbol] = close
-            out.append(GlobalBar(symbol=symbol, date=dt, close=round(close, 2), ret_1d=ret))
+            session = GLOBAL_SESSIONS[symbol]
+            out.append(
+                GlobalBar(
+                    symbol=symbol,
+                    date=dt,
+                    close=round(close, 2),
+                    ret_1d=ret,
+                    market=session.market,
+                    timezone=session.timezone,
+                    available_at=available_at_utc(dt, session),
+                )
+            )
     return out
 
 

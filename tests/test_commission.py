@@ -45,7 +45,7 @@ def test_backtest_applies_commission_and_stamp_tax() -> None:
     def signals(as_of: date):
         return constant_signal(["AAA"], 80.0, as_of) if as_of == signal_day else []
 
-    result = BacktestEngine(store, config, signal_fn=signals).run(signal_day, signal_day)
+    result = BacktestEngine(store, config, signal_fn=signals).run(signal_day, exit_day)
     trade = result.trades[0]
     assert trade.shares == 4000
     assert abs(trade.buy_commission - 10.0) < 1e-9

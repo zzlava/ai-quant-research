@@ -9,7 +9,14 @@ from app.providers.base import MarketDataProvider
 
 
 class TushareProvider(MarketDataProvider):
-    """Adapter only. Live Tushare fetch is not implemented in this MVP."""
+    """Adapter only. Live Tushare fetch is not implemented in this MVP.
+
+    TODO: when implementing, the adapter must:
+    - declare adjustment (forward/backward/none) on the snapshot
+    - attach market/timezone/available_at for every global bar
+    - run storage.quality checks before serving data
+    - never be used by tests (offline CsvProvider / DemoProvider only)
+    """
 
     def __init__(self, token: str | None = None) -> None:
         self.token = token

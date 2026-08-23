@@ -28,7 +28,7 @@ def test_cannot_sell_on_buy_day() -> None:
             return constant_signal(["AAA"], market_score=80.0, as_of=as_of)
         return []
 
-    result = BacktestEngine(store, config, signal_fn=signals).run(signal_day, signal_day)
+    result = BacktestEngine(store, config, signal_fn=signals).run(signal_day, next_day)
     assert len(result.trades) == 1
     trade = result.trades[0]
     assert trade.entry_date == buy_day

@@ -7,6 +7,7 @@ from typing import Any, cast
 
 import polars as pl
 
+from app.errors import DataQualityError
 from app.models.market import Instrument
 from app.providers._frames import (
     DAILY_SCHEMA,
@@ -18,12 +19,19 @@ from app.providers._frames import (
     filter_dates,
 )
 from app.providers.base import MarketDataProvider
+from app.storage.quality import validate_global, validate_ohlcv
 
 
 class CsvProvider(MarketDataProvider):
     """Offline CSV provider. Directory layout:
 
     daily_bars.csv, index_bars.csv, global_bars.csv, instruments.csv, calendar.csv
+
+    Required contract:
+    - OHLC must be valid
+    - no duplicate (symbol, date)
+    - global_bars must include available_at
+    - adjustment is declared by the caller / snapshot, not inferred here
     """
 
     def __init__(self, root: Path) -> None:
@@ -33,6 +41,12 @@ class CsvProvider(MarketDataProvider):
         self._index = self._read_csv("index_bars.csv", DAILY_SCHEMA, empty_daily)
         self._global = self._read_csv("global_bars.csv", GLOBAL_SCHEMA, empty_global)
         self._calendar = self._read_calendar()
+        if not self._daily.is_empty():
+            validate_ohlcv(self._daily, "daily_bars.csv")
+        if not self._index.is_empty():
+            validate_ohlcv(self._index, "index_bars.csv")
+        if not self._global.is_empty():
+            validate_global(self._global, "global_bars.csv")
 
     def get_instruments(self) -> list[Instrument]:
         rows = self._instruments.to_dicts()
@@ -72,16 +86,21 @@ class CsvProvider(MarketDataProvider):
         if not path.exists():
             return empty()
         frame = pl.read_csv(path, try_parse_dates=True)
+        missing = [col for col in schema if col not in frame.columns]
+        if missing:
+            raise DataQualityError(f"{name} missing required columns: {missing}")
         casts = []
         for col, dtype in schema.items():
-            if col in frame.columns:
-                casts.append(pl.col(col).cast(cast(Any, dtype), strict=False))
-        return frame.with_columns(casts)
+            casts.append(pl.col(col).cast(cast(Any, dtype), strict=True))
+        try:
+            return frame.with_columns(casts)
+        except Exception as exc:
+            raise DataQualityError(f"{name} failed strict type conversion: {exc}") from exc
 
     def _read_calendar(self) -> list[date]:
         path = self.root / "calendar.csv"
         if not path.exists():
             dates = self._daily.select("date").unique().sort("date")
             return [row[0] for row in dates.iter_rows()]
-        frame = pl.read_csv(path, try_parse_dates=True).with_columns(pl.col("date").cast(pl.Date))
+        frame = pl.read_csv(path, try_parse_dates=True).with_columns(pl.col("date").cast(pl.Date, strict=True))
         return list(frame["date"].to_list())

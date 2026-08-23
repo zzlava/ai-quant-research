@@ -14,7 +14,6 @@ from app.persistence.db import init_db
 from app.persistence.models import BacktestRun
 from app.pipeline import run_backtest, run_score
 from app.settings import get_settings
-from app.strategies import baseline_v1 as _baseline_v1  # noqa: F401
 from app.strategies.loader import load_strategy_config
 from app.strategies.registry import StrategyRegistry
 

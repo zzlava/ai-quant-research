@@ -10,9 +10,6 @@ from app.models.config import StrategyConfig
 from app.models.scores import ScoreResult, StrategyContext
 from app.ranking.ranker import rank_scores
 from app.storage.protocol import MarketStore
-
-# Ensure built-in strategies register themselves.
-from app.strategies import baseline_v1 as _baseline_v1  # noqa: F401
 from app.strategies.base import BaseStrategy
 from app.strategies.registry import StrategyRegistry
 from app.universe.filter import UniverseFilter
@@ -23,7 +20,7 @@ class ScoringEngine:
         self.store = store
         self.config = config
         self.strategy = strategy or StrategyRegistry.create(config.name, config)
-        self.features = FeatureEngine(store)
+        self.features = FeatureEngine(store, config)
         self.universe = UniverseFilter(config.universe)
 
     def run(self, as_of: date) -> list[ScoreResult]:

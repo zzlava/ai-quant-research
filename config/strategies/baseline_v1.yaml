@@ -25,6 +25,9 @@ trade:
   take_profit: 0.03
   stop_loss: -0.025
   max_holding_days: 10
+  limit_pct: 0.10
+  st_limit_pct: 0.05
+  model_limit_moves: true
 
 portfolio:
   initial_cash: 80000
@@ -36,3 +39,24 @@ costs:
   min_commission: 5.0
   stamp_tax_rate: 0.0005
   slippage_bps: 5.0
+
+data:
+  market_index: IDX_CSI300
+  global_symbol: GLB_SPX
+  adjustment: forward
+  decision_timezone: Asia/Shanghai
+  decision_time: "15:00"
+  min_history_bars: 21
+  sessions:
+    IDX_CSI300:
+      market: CN
+      timezone: Asia/Shanghai
+      session_close: "15:00"
+    GLB_SPX:
+      market: US
+      timezone: America/New_York
+      session_close: "16:00"
+    GLB_HSI:
+      market: HK
+      timezone: Asia/Hong_Kong
+      session_close: "16:00"

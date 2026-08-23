@@ -25,7 +25,7 @@ def test_take_profit_fills_at_target() -> None:
     def signals(as_of: date):
         return constant_signal(["AAA"], 80.0, as_of) if as_of == signal_day else []
 
-    result = BacktestEngine(store, config, signal_fn=signals).run(signal_day, signal_day)
+    result = BacktestEngine(store, config, signal_fn=signals).run(signal_day, exit_day)
     assert result.trades[0].exit_reason == "take_profit"
     assert result.trades[0].exit_date == exit_day
     assert abs(result.trades[0].exit_price - 10.0 * 1.03) < 1e-9

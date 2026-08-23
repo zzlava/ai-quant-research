@@ -8,9 +8,6 @@ import typer
 from app.demo.generator import DEMO_SEED, generate_demo_market, write_demo_parquet
 from app.pipeline import run_backtest, run_score
 from app.settings import get_settings
-
-# Built-in registration.
-from app.strategies import baseline_v1 as _baseline_v1  # noqa: F401
 from app.strategies.registry import StrategyRegistry
 
 app = typer.Typer(help="A-share research scoring and historical backtest CLI.")
@@ -62,6 +59,11 @@ def backtest(
     m = result.metrics
     typer.echo(f"strategy={result.strategy_name} version={result.strategy_version}")
     typer.echo(f"config_hash={result.strategy_config_hash}")
+    typer.echo(
+        f"window signal_end={result.window.signal_end} "
+        f"entry_end={result.window.entry_end} valuation_end={result.window.valuation_end}"
+    )
+    typer.echo(f"open_positions_at_end: {result.open_positions_at_end}")
     for key, value in m.model_dump().items():
         if isinstance(value, float):
             typer.echo(f"{key}: {value:.6f}")

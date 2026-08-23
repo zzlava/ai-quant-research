@@ -12,12 +12,12 @@ from tests.helpers import (
 )
 
 
-def test_stop_loss_fills_at_stop() -> None:
+def test_gap_down_stop_fills_at_open_not_stop_line() -> None:
     calendar = weekdays(date(2024, 1, 2), 16)
     signal_day, buy_day, exit_day = calendar[0], calendar[1], calendar[2]
     overrides = {
-        buy_day: {"open": 10.0, "high": 10.10, "low": 9.95, "close": 10.02},
-        exit_day: {"open": 10.00, "high": 10.10, "low": 9.70, "close": 9.80},
+        buy_day: {"open": 10.0, "high": 10.05, "low": 9.97, "close": 10.0},
+        exit_day: {"open": 9.0, "high": 9.20, "low": 8.80, "close": 9.10},
     }
     store = store_from_rows(calendar, fill_quiet_bars("AAA", calendar, overrides))
 
@@ -25,7 +25,7 @@ def test_stop_loss_fills_at_stop() -> None:
         return constant_signal(["AAA"], 80.0, as_of) if as_of == signal_day else []
 
     result = BacktestEngine(store, zero_cost_config(), signal_fn=signals).run(signal_day, exit_day)
-    assert result.trades[0].exit_reason == "stop_loss"
-    assert result.trades[0].exit_date == exit_day
-    assert abs(result.trades[0].exit_price - 10.0 * 0.975) < 1e-9
-    assert result.metrics.sl_exit_count == 1
+    trade = result.trades[0]
+    assert trade.exit_reason == "stop_loss"
+    assert abs(trade.exit_price - 9.0) < 1e-9
+    assert trade.exit_price < 9.75

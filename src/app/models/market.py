@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -12,6 +12,9 @@ class Instrument(BaseModel):
     listing_date: date
     is_index: bool = False
     is_global: bool = False
+    market: str = "CN"
+    timezone: str = "Asia/Shanghai"
+    session_close: str = "15:00"
 
 
 class DailyBar(BaseModel):
@@ -33,6 +36,9 @@ class GlobalBar(BaseModel):
     date: date
     close: float
     ret_1d: float = 0.0
+    market: str = "US"
+    timezone: str = "America/New_York"
+    available_at: datetime
 
 
 class MarketBundle(BaseModel):
@@ -43,3 +49,4 @@ class MarketBundle(BaseModel):
     index_bars: list[DailyBar]
     global_bars: list[GlobalBar]
     calendar: list[date] = Field(default_factory=list)
+    adjustment: str = "forward"

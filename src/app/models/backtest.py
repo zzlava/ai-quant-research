@@ -31,6 +31,13 @@ class EquityPoint(BaseModel):
     equity: float
 
 
+class BacktestWindow(BaseModel):
+    start: date
+    signal_end: date | None
+    entry_end: date
+    valuation_end: date
+
+
 class BacktestMetrics(BaseModel):
     initial_capital: float
     final_equity: float
@@ -56,6 +63,8 @@ class BacktestResult(BaseModel):
     strategy_config_hash: str
     start: date
     end: date
+    window: BacktestWindow
     metrics: BacktestMetrics
     trades: list[TradeFill] = Field(default_factory=list)
     equity_curve: list[EquityPoint] = Field(default_factory=list)
+    open_positions_at_end: int = 0

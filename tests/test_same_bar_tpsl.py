@@ -24,7 +24,7 @@ def test_same_bar_tp_and_sl_uses_stop_loss_first() -> None:
     def signals(as_of: date):
         return constant_signal(["AAA"], 80.0, as_of) if as_of == signal_day else []
 
-    result = BacktestEngine(store, zero_cost_config(), signal_fn=signals).run(signal_day, signal_day)
+    result = BacktestEngine(store, zero_cost_config(), signal_fn=signals).run(signal_day, exit_day)
     trade = result.trades[0]
     assert trade.exit_reason == "stop_loss"
     assert abs(trade.exit_price - 9.75) < 1e-9

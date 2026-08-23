@@ -7,8 +7,9 @@ from datetime import date
 import polars as pl
 
 from app.backtest.costs import apply_slippage, buy_cost, sell_cost, shares_affordable
+from app.backtest.limits import is_one_word_limit
 from app.backtest.metrics import compute_metrics
-from app.models.backtest import BacktestResult, EquityPoint, ExitReason, TradeFill
+from app.models.backtest import BacktestResult, BacktestWindow, EquityPoint, ExitReason, TradeFill
 from app.models.config import StrategyConfig
 from app.models.scores import ScoreResult
 from app.scoring.engine import ScoringEngine
@@ -45,10 +46,8 @@ class BacktestEngine:
         self.signal_fn = signal_fn or ScoringEngine(store, config).run
 
     def run(self, start: date, end: date) -> BacktestResult:
-        extra = self.config.trade.max_holding_days + 5
-        last_needed = self.store.trading_days_after(end, extra)
-        calendar_end = last_needed[-1] if last_needed else end
-        calendar = self.store.get_calendar(start, calendar_end)
+        window = self._window(start, end)
+        calendar = self.store.get_calendar(start, window.valuation_end)
         if not calendar:
             raise ValueError("no trading days in backtest window")
 
@@ -59,7 +58,10 @@ class BacktestEngine:
         equity_curve: list[EquityPoint] = []
         bought_today: set[str] = set()
 
-        daily_all = self.store.get_daily_bars(as_of=calendar[-1], start=calendar[0])
+        daily_all = self.store.get_daily_bars(as_of=window.valuation_end, start=calendar[0])
+        daily_all = daily_all.sort(["symbol", "date"]).with_columns(
+            pl.col("close").shift(1).over("symbol").alias("prev_close")
+        )
 
         for day in calendar:
             bought_today.clear()
@@ -76,26 +78,42 @@ class BacktestEngine:
             cash += proceeds
             trades.extend(closed)
 
-            if start <= day <= end:
+            if window.signal_end is not None and day <= window.signal_end:
                 pending = self._generate_orders(day, positions, pending)
 
             mtm = self._mark_to_market(positions, bar_map)
-            equity_curve.append(
-                EquityPoint(date=day, cash=cash, market_value=mtm, equity=cash + mtm)
-            )
+            equity_curve.append(EquityPoint(date=day, cash=cash, market_value=mtm, equity=cash + mtm))
 
-        metrics = compute_metrics(
-            self.config.portfolio.initial_cash, trades, equity_curve, start, end
-        )
+        metrics = compute_metrics(self.config.portfolio.initial_cash, trades, equity_curve, start, end)
         return BacktestResult(
             strategy_name=self.config.name,
             strategy_version=self.config.version,
             strategy_config_hash=self.config.config_hash(),
             start=start,
             end=end,
+            window=window,
             metrics=metrics,
             trades=trades,
             equity_curve=equity_curve,
+            open_positions_at_end=len(positions),
+        )
+
+    def _window(self, start: date, end: date) -> BacktestWindow:
+        calendar = self.store.get_calendar(start, end)
+        if not calendar:
+            raise ValueError("no trading days in backtest window")
+        valuation_end = calendar[-1]
+        entry_end = valuation_end
+        signal_end: date | None = None
+        for day in calendar:
+            nxt = self.store.next_trading_day(day)
+            if nxt is not None and nxt <= entry_end:
+                signal_end = day
+        return BacktestWindow(
+            start=calendar[0],
+            signal_end=signal_end,
+            entry_end=entry_end,
+            valuation_end=valuation_end,
         )
 
     def _execute_pending(
@@ -116,6 +134,9 @@ class BacktestEngine:
         for order in candidates[:slots]:
             bar = bar_map[order.symbol]
             if bool(bar.get("is_suspended")):
+                continue
+            prev_close = _optional_float(bar.get("prev_close"))
+            if is_one_word_limit(bar, prev_close, self.config.trade, "up"):
                 continue
             raw_open = float(bar["open"])  # type: ignore[arg-type]
             allocation = min(cash, target)
@@ -147,7 +168,6 @@ class BacktestEngine:
         bar_map: dict[str, dict[str, object]],
         bought_today: set[str],
     ) -> tuple[float, list[TradeFill]]:
-        # cash is handled by caller via return; we return proceeds.
         proceeds = 0.0
         closed: list[TradeFill] = []
         to_delete: list[str] = []
@@ -158,6 +178,11 @@ class BacktestEngine:
             if bar is None:
                 continue
             pos.exit_eligible_days += 1
+            if bool(bar.get("is_suspended")):
+                continue
+            prev_close = _optional_float(bar.get("prev_close"))
+            if is_one_word_limit(bar, prev_close, self.config.trade, "down"):
+                continue
             decision = self._exit_decision(pos, bar)
             if decision is None:
                 continue
@@ -194,11 +219,16 @@ class BacktestEngine:
         pos: OpenPosition,
         bar: dict[str, object],
     ) -> tuple[ExitReason, float] | None:
+        open_ = float(bar["open"])  # type: ignore[arg-type]
         high = float(bar["high"])  # type: ignore[arg-type]
         low = float(bar["low"])  # type: ignore[arg-type]
         close = float(bar["close"])  # type: ignore[arg-type]
         tp_price = pos.entry_price * (1.0 + self.config.trade.take_profit)
         sl_price = pos.entry_price * (1.0 + self.config.trade.stop_loss)
+        if open_ <= sl_price:
+            return "stop_loss", open_
+        if open_ >= tp_price:
+            return "take_profit", open_
         hit_tp = high >= tp_price
         hit_sl = low <= sl_price
         if hit_tp and hit_sl:
@@ -247,3 +277,9 @@ class BacktestEngine:
             price = float(bar["close"]) if bar is not None else pos.entry_price  # type: ignore[arg-type]
             value += price * pos.shares
         return value
+
+
+def _optional_float(value: object) -> float | None:
+    if isinstance(value, int | float):
+        return float(value)
+    return None
