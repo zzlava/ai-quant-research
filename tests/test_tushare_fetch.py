@@ -113,6 +113,12 @@ def test_fake_tushare_builds_five_tables_and_imports(tmp_path: Path) -> None:
     factor_calls = [params for name, params in client.call_params if name == "adj_factor"]
     assert len(factor_calls) == len(STOCKS)
     assert all(isinstance(params.get("ts_code"), str) and "," not in str(params["ts_code"]) for params in factor_calls)
+    suspend_calls = [params for name, params in client.call_params if name == "suspend_d"]
+    assert len(suspend_calls) == len(STOCKS)
+    assert all(
+        isinstance(params.get("ts_code"), str) and "," not in str(params["ts_code"])
+        for params in suspend_calls
+    )
     if len(expected_globals) >= 2:
         assert set(global_codes) == set(expected_globals)
 

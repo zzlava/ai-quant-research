@@ -23,13 +23,14 @@ from app.providers.tushare_normalize import (
 from app.universe.membership import assert_membership_covers_calendar
 
 _CODE_BATCH = 80
-# Fetch long-history security data one security at a time.  `daily` and
+# Fetch selected security data one security at a time.  `daily` and
 # `daily_basic` cap each response at 6,000 rows, so a multi-security request
 # can truncate silently; `adj_factor` can likewise return an incomplete
-# result set for a comma-separated security list.  A missing row must never
-# be mistaken for a genuine market-data gap.
+# result set for a comma-separated security list.  Querying `suspend_d` by
+# selected security also ensures that full-day halts correspond to the daily
+# inputs.  A missing row must never be mistaken for a genuine market-data gap.
 _SINGLE_CODE_APIS = frozenset(
-    {"adj_factor", "daily", "daily_basic", "index_daily", "index_global", "stk_limit"}
+    {"adj_factor", "daily", "daily_basic", "index_daily", "index_global", "stk_limit", "suspend_d"}
 )
 _STOCK_BASIC_FIELDS = "ts_code,name,industry,list_date,delist_date,market,exchange,list_status"
 # Official stock_basic list_status values. Default is L, so D/P/G must be queried separately.
@@ -162,7 +163,14 @@ class TushareProvider(MarketDataProvider):
             end_s,
             extra={"fields": "ts_code,trade_date,pre_close,up_limit,down_limit"},
         )
-        suspend_d = client.query("suspend_d", start_date=start_s, end_date=end_s, suspend_type="S")
+        suspend_d = self._query_codes(
+            client,
+            "suspend_d",
+            stocks,
+            start_s,
+            end_s,
+            extra={"suspend_type": "S"},
+        )
         namechange = self._query_codes(client, "namechange", stocks, None, None)
         index_daily = self._query_codes(client, "index_daily", indices, start_s, end_s)
         index_global = self._query_codes(client, "index_global", globals_, start_s, end_s)
