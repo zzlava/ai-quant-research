@@ -19,7 +19,7 @@ from app.providers._frames import (
     filter_dates,
 )
 from app.providers.base import MarketDataProvider
-from app.storage.quality import validate_global, validate_ohlcv
+from app.storage.quality import normalize_available_at, validate_global, validate_ohlcv
 
 
 class CsvProvider(MarketDataProvider):
@@ -85,7 +85,8 @@ class CsvProvider(MarketDataProvider):
         path = self.root / name
         if not path.exists():
             return empty()
-        frame = pl.read_csv(path, try_parse_dates=True)
+        overrides = {"available_at": pl.String} if name == "global_bars.csv" else None
+        frame = pl.read_csv(path, try_parse_dates=True, schema_overrides=overrides)
         if name == "global_bars.csv":
             if "ret_1d" not in frame.columns:
                 frame = frame.with_columns(pl.lit(0.0).alias("ret_1d"))
@@ -93,6 +94,8 @@ class CsvProvider(MarketDataProvider):
                 frame = frame.with_columns(pl.lit("US").alias("market"))
             if "timezone" not in frame.columns:
                 frame = frame.with_columns(pl.lit("America/New_York").alias("timezone"))
+            if "available_at" in frame.columns:
+                frame = normalize_available_at(frame, name)
         missing = [col for col in schema if col not in frame.columns]
         if missing:
             raise DataQualityError(f"{name} missing required columns: {missing}")

@@ -15,6 +15,7 @@ from app.providers._frames import DAILY_SCHEMA, INSTRUMENT_SCHEMA
 from app.storage.hashing import build_snapshot
 from app.storage.quality import (
     assert_benchmarks,
+    normalize_available_at,
     validate_calendar,
     validate_global,
     validate_instruments,
@@ -35,7 +36,8 @@ def _read_named_table(source_dir: Path, name: str) -> pl.DataFrame:
     csv_path = source_dir / f"{name}.csv"
     parquet_path = source_dir / f"{name}.parquet"
     if csv_path.exists():
-        return pl.read_csv(csv_path, try_parse_dates=True)
+        overrides = {"available_at": pl.String} if name == "global_bars" else None
+        return pl.read_csv(csv_path, try_parse_dates=True, schema_overrides=overrides)
     if parquet_path.exists():
         return pl.read_parquet(parquet_path)
     raise DataQualityError(f"missing required table {name} (.csv or .parquet)")
@@ -85,6 +87,9 @@ def _prepare_global(frame: pl.DataFrame) -> pl.DataFrame:
         "market": pl.String,
         "timezone": pl.String,
     }
+    if "available_at" not in work.columns:
+        raise DataQualityError("global_bars missing required columns: ['available_at']")
+    work = normalize_available_at(work, "global_bars")
     return _cast_schema(work, schema, "global_bars")
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import polars as pl
@@ -10,7 +10,7 @@ from app.errors import DataQualityError, MissingBenchmarkError
 from app.features.engine import FeatureEngine
 from app.models.config import DataConfig, StrategyConfig
 from app.providers.csv_provider import CsvProvider
-from app.storage.quality import validate_global, validate_ohlcv
+from app.storage.quality import normalize_available_at, parse_available_at_utc, validate_global, validate_ohlcv
 from app.strategies.loader import load_strategy_config
 from tests.helpers import CONFIG_DIR, fill_quiet_bars, store_from_rows, weekdays
 
@@ -127,3 +127,33 @@ def test_ohlcv_rejects_non_finite_and_inconsistent_bounds() -> None:
         validate_ohlcv(frame(high=[9.0]), "daily_bars")
     with pytest.raises(DataQualityError, match="invalid OHLC"):
         validate_ohlcv(frame(low=[10.5]), "daily_bars")
+
+
+def test_minus_five_offset_available_at_is_rejected() -> None:
+    with pytest.raises(DataQualityError, match="non-zero offsets"):
+        parse_available_at_utc("2024-01-02T16:00:00-05:00")
+    aware = datetime(2024, 1, 2, 16, 0, 0, tzinfo=timezone(timedelta(hours=-5)))
+    with pytest.raises(DataQualityError, match="non-zero offsets"):
+        parse_available_at_utc(aware)
+    frame = pl.DataFrame(
+        {
+            "symbol": ["GLB_SPX"],
+            "date": [date(2024, 1, 2)],
+            "close": [100.0],
+            "available_at": ["2024-01-02T16:00:00-05:00"],
+        }
+    )
+    with pytest.raises(DataQualityError, match="non-zero offsets"):
+        normalize_available_at(frame)
+    with pytest.raises(DataQualityError, match="non-zero offsets"):
+        validate_global(frame)
+
+
+def test_zulu_and_naive_available_at_are_utc() -> None:
+    naive = parse_available_at_utc("2024-01-02T21:00:00")
+    zulu = parse_available_at_utc("2024-01-02T21:00:00Z")
+    plus_zero = parse_available_at_utc("2024-01-02T21:00:00+00:00")
+    assert naive == datetime(2024, 1, 2, 21, 0, 0)
+    assert zulu == naive
+    assert plus_zero == naive
+    assert zulu.tzinfo is None

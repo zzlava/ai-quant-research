@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Any
 
 import polars as pl
 
@@ -83,17 +84,56 @@ def validate_global(frame: pl.DataFrame, name: str = "global_bars") -> None:
     _assert_available_at_utc(frame, name)
 
 
+def parse_available_at_utc(value: Any, name: str = "global_bars") -> datetime:
+    """Accept naive UTC or Z/+00:00. Reject missing values and non-zero offsets."""
+    if value is None:
+        raise DataQualityError(f"{name} has missing available_at")
+    if isinstance(value, datetime):
+        return _require_utc_datetime(value, name)
+    text = str(value).strip()
+    if not text or text in {"null", "None", "NA"}:
+        raise DataQualityError(f"{name} has missing available_at")
+    normalized = text.replace("z", "Z")
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise DataQualityError(f"{name} available_at is not a comparable UTC datetime") from exc
+    return _require_utc_datetime(parsed, name)
+
+
+def normalize_available_at(frame: pl.DataFrame, name: str = "global_bars") -> pl.DataFrame:
+    """Parse available_at before any naive Datetime cast can drop a timezone offset."""
+    if "available_at" not in frame.columns:
+        raise DataQualityError(f"{name} missing available_at")
+    dtype = frame["available_at"].dtype
+    if isinstance(dtype, pl.Datetime):
+        tz = dtype.time_zone
+        if tz not in (None, "UTC", "utc"):
+            raise DataQualityError(f"{name} available_at must be UTC; non-zero offsets are rejected")
+        if tz in ("UTC", "utc"):
+            frame = frame.with_columns(pl.col("available_at").dt.replace_time_zone(None))
+    parsed = [parse_available_at_utc(value, name=name) for value in frame["available_at"].to_list()]
+    return frame.with_columns(pl.Series("available_at", parsed, dtype=pl.Datetime("us")))
+
+
+def _require_utc_datetime(value: datetime, name: str) -> datetime:
+    if value.tzinfo is None:
+        return value
+    offset = value.utcoffset()
+    if offset is None or offset.total_seconds() != 0:
+        raise DataQualityError(f"{name} available_at must be UTC; non-zero offsets are rejected")
+    return value.astimezone(UTC).replace(tzinfo=None)
+
+
 def _assert_available_at_utc(frame: pl.DataFrame, name: str) -> None:
+    dtype = frame["available_at"].dtype
+    if isinstance(dtype, pl.Datetime) and dtype.time_zone not in (None, "UTC", "utc"):
+        raise DataQualityError(f"{name} available_at must be UTC; non-zero offsets are rejected")
     values = frame["available_at"].to_list()
     for value in values:
-        if value is None:
-            raise DataQualityError(f"{name} has missing available_at")
-        if not isinstance(value, datetime):
-            raise DataQualityError(f"{name} available_at is not a comparable UTC datetime")
-        if value.tzinfo is not None:
-            offset = value.utcoffset()
-            if offset is not None and offset.total_seconds() != 0:
-                raise DataQualityError(f"{name} available_at must be UTC")
+        parse_available_at_utc(value, name=name)
 
 
 def validate_instruments(frame: pl.DataFrame, name: str = "instruments") -> None:

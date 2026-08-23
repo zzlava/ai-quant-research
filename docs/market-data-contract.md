@@ -38,7 +38,7 @@ python -m app.cli import-market-data \
 
 - **symbol**：导入数据、策略 YAML `data.market_index` / `data.global_symbol`、以及 `data.sessions` 的键必须使用同一套代码。系统不改写、不猜测交易所后缀。
 - **date**：日历日，`YYYY-MM-DD`。
-- **available_at**：该根 K 线在决策时点已经可知的时刻，必须是 **UTC**。推荐写成 `YYYY-MM-DDTHH:MM:SS`（naive UTC）或带 `Z` 的 UTC。带非零偏移的本地时区会被拒绝。
+- **available_at**：该根 K 线在决策时点已经可知的时刻，必须是 **UTC**。只接受 naive UTC（`YYYY-MM-DDTHH:MM:SS`）或 `Z` / `+00:00`。带非零偏移的值（例如 `2024-01-02T16:00:00-05:00`）在导入时会被拒绝，不会被剥掉时区后当成 16:00 UTC。
 - A 股 T 日评分的默认决策时点是 **T 日 15:00 Asia/Shanghai**。只使用 `available_at <= 决策时点` 的全球数据。美股 T 日收盘通常晚于该时点，因此 T 日评分通常只能用到美股 T-1。
 
 ## 字段

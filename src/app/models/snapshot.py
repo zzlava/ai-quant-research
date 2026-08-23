@@ -4,7 +4,7 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 
 TABLE_NAMES = ("daily_bars", "index_bars", "global_bars", "instruments", "calendar")
 

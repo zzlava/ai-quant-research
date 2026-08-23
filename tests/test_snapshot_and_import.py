@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import date
 from pathlib import Path
 
@@ -242,3 +243,39 @@ def test_write_demo_parquet_is_verifiable(tmp_path: Path) -> None:
     snapshot = write_demo_parquet(_bundle(), tmp_path / "parquet")
     loaded = load_verified_snapshot(tmp_path / "parquet")
     assert loaded.snapshot_id == snapshot.snapshot_id
+
+
+def test_one_ulp_price_change_changes_snapshot_id() -> None:
+    tables = _tables_from_bundle(_bundle())
+    daily = tables["daily_bars"]
+    original = float(daily["close"][0])
+    ulp = math.nextafter(original, math.inf)
+    assert ulp != original
+    changed = daily.with_columns(
+        pl.when(pl.int_range(0, pl.len()) == 0).then(pl.lit(ulp)).otherwise(pl.col("close")).alias("close")
+    )
+    base = build_snapshot(tables, adjustment="forward", source_name="demo")
+    other = build_snapshot({**tables, "daily_bars": changed}, adjustment="forward", source_name="demo")
+    assert other.snapshot_id != base.snapshot_id
+    assert other.table_hashes["daily_bars"] != base.table_hashes["daily_bars"]
+
+
+def test_import_rejects_minus_five_offset_available_at(tmp_path: Path) -> None:
+    tables = _tables_from_bundle(_bundle())
+    offset = tables["global_bars"].with_columns(pl.lit("2024-01-02T16:00:00-05:00").alias("available_at"))
+    src = _write_source(tmp_path / "src", {**tables, "global_bars": offset})
+    with pytest.raises(DataQualityError, match="non-zero offsets"):
+        import_market_data(src, tmp_path / "out", source_name="local", adjustment="forward")
+
+
+def test_import_accepts_zulu_available_at_as_utc(tmp_path: Path) -> None:
+    tables = _tables_from_bundle(_bundle())
+    zulu = tables["global_bars"].with_columns(
+        pl.col("available_at").dt.strftime("%Y-%m-%dT%H:%M:%SZ").alias("available_at")
+    )
+    src = _write_source(tmp_path / "src", {**tables, "global_bars": zulu})
+    snapshot = import_market_data(src, tmp_path / "out", source_name="local", adjustment="forward")
+    stored = pl.read_parquet(tmp_path / "out" / "global_bars.parquet")
+    first = stored["available_at"][0]
+    assert first.tzinfo is None
+    assert snapshot.snapshot_id

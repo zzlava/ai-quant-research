@@ -77,8 +77,8 @@ def canonicalize_table(frame: pl.DataFrame, table: str) -> str:
         work = work.sort(sort_cols)
     lines: list[str] = []
     for row in work.iter_rows(named=True):
-        parts = [_canon_cell(row.get(col), col) for col in columns]
-        lines.append("|".join(parts))
+        parts = [_encode_field(_canon_cell(row.get(col), col)) for col in columns]
+        lines.append("".join(parts))
     return "\n".join(lines) + "\n"
 
 
@@ -147,8 +147,12 @@ def _canon_cell(value: Any, column: str) -> str:
     if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, int | float):
-        return format(float(value), ".15g")
+        return float(value).hex()
     return str(value)
+
+
+def _encode_field(text: str) -> str:
+    return f"{len(text.encode('utf-8'))}:{text}"
 
 
 def _canon_datetime(value: Any) -> str:
