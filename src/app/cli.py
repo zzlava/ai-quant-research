@@ -228,6 +228,7 @@ def verify_universe_source_cmd(
     except Exception as exc:  # noqa: BLE001
         typer.echo(sanitize_error_message(exc), err=True)
         raise typer.Exit(code=1) from None
+    typer.echo(f"provenance_schema_version={result.schema_version}")
     typer.echo(f"universe_id={result.universe_id}")
     typer.echo(f"source_name={result.source_name}")
     typer.echo(f"snapshots_file_sha256={result.snapshots_file_sha256}")
@@ -237,6 +238,9 @@ def verify_universe_source_cmd(
     )
     typer.echo(f"snapshot_count={result.snapshot_count}")
     typer.echo(f"expected_constituents={result.expected_constituents}")
+    if result.event_evidence_count is not None:
+        typer.echo(f"event_evidence_count={result.event_evidence_count}")
+        typer.echo(f"event_evidence_ledger_sha256={result.event_evidence_ledger_sha256}")
     typer.echo("来源清单由用户/可信来源提供，本命令只验证，不下载/不生成/不把下载时间当 available_at")
 
 

@@ -23,7 +23,7 @@ from app.providers.tushare_normalize import (
 from app.universe.membership import assert_membership_covers_calendar
 
 _CODE_BATCH = 80
-_SINGLE_CODE_APIS = frozenset({"index_daily", "index_global"})
+_SINGLE_CODE_APIS = frozenset({"index_daily", "index_global", "stk_limit"})
 _STOCK_BASIC_FIELDS = "ts_code,name,industry,list_date,delist_date,market,exchange,list_status"
 # Official stock_basic list_status values. Default is L, so D/P/G must be queried separately.
 _STOCK_BASIC_STATUSES = ("L", "D", "P", "G")
@@ -145,7 +145,16 @@ class TushareProvider(MarketDataProvider):
             extra={"fields": "ts_code,trade_date,turnover_rate"},
         )
         adj_factor = self._query_codes(client, "adj_factor", stocks, start_s, end_s)
-        stk_limit = self._query_codes(client, "stk_limit", stocks, start_s, end_s)
+        # Tushare stk_limit accepts one ts_code per request. Request pre_close explicitly because
+        # the provider's default payload omits it, and we must not guess price_limit_pct.
+        stk_limit = self._query_codes(
+            client,
+            "stk_limit",
+            stocks,
+            start_s,
+            end_s,
+            extra={"fields": "ts_code,trade_date,pre_close,up_limit,down_limit"},
+        )
         suspend_d = client.query("suspend_d", start_date=start_s, end_date=end_s, suspend_type="S")
         namechange = self._query_codes(client, "namechange", stocks, None, None)
         index_daily = self._query_codes(client, "index_daily", indices, start_s, end_s)

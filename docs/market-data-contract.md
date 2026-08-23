@@ -131,15 +131,15 @@ ST0002.SZ,2024-01-02,5.00,5.10,4.90,5.02,3000000,15060000,0.02,true,false,0.05
 
 原始成分快照 CSV（`universe_id,effective_from,symbol,available_at,weight`）与每日成员 CSV 是两种格式。前者是可信来源的完整截面序列；`build-universe-membership` 只做保守前向物化，不会联网、不会下载指数成分，也不会把“当前成员”写成历史成员。输出必须截断到请求窗口内的交易日历日。`baseline_csi300_pit_v1` 只有在输入完整的 300 成分历史快照时才能用于指数历史研究；两成员或小样本文件只可用于管道验证，不能描述成 CSI300 回测。
 
-来源清单由用户/可信来源提供。`verify-universe-source` 只验证 provenance JSON 与原始快照文件的精确字节 SHA-256、`universe_id`、覆盖区间和完整截面人数；不下载、不生成成员，也不把 `file_obtained_at` 或下载时间写回/推导为 `available_at`。行内 `available_at` 仍只来自 CSV，并走既有严格 UTC 解析。
+来源清单由用户/可信来源提供。`verify-universe-source` 只验证 provenance JSON 与原始快照文件的精确字节 SHA-256、`universe_id`、覆盖区间和完整截面人数；不下载、不生成成员，也不把 `file_obtained_at` 或下载时间写回/推导为 `available_at`。行内 `available_at` 仍只来自 CSV，并走既有严格 UTC 解析。对于公开重建数据，它还会验证逐次调样的证据账本、账本 SHA-256、每份本地来源文件的 SHA-256，以及该账本与每个 `effective_from` 截面的 `available_at` 一一对应。
 
-用户提交的 `membership_source_manifest.json` 必须是下面这个对象（禁止未知字段）。`source_url`、`announcement_id`、`source_note` 至少填写一项，可只留一项并删掉其余两项：
+用户提交的 `membership_source_manifest.json` 必须是下面这个对象（禁止未知字段）。`source_url`、`announcement_id`、`source_note` 至少填写一项，可只留一项并删掉其余两项。历史兼容的 `schema_version: "1"` 仍可验证基本契约；新建的公开重建数据必须用 `schema_version: "2"`，且必须有逐事件账本：
 
 ```json
 {
-  "schema_version": "1",
+  "schema_version": "2",
   "universe_id": "csi300",
-  "source_name": "your-source-name",
+  "source_name": "public-reconstruction-not-licensed-pit",
   "snapshots_file_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   "file_obtained_at": "2026-08-23T04:00:00Z",
   "effective_from_coverage": {
@@ -149,13 +149,31 @@ ST0002.SZ,2024-01-02,5.00,5.10,4.90,5.02,3000000,15060000,0.02,true,false,0.05
   "available_at_definition": "How each row's available_at was determined (not the download time).",
   "available_at_evidence": "Where that timestamp can be audited (document, announcement, or notes).",
   "expected_constituents": 300,
-  "source_url": "https://example.invalid/source",
-  "announcement_id": "optional-announcement-id",
-  "source_note": "optional source note"
+  "source_url": "https://www.csindex.com.cn/",
+  "source_note": "公开公告与候选截面重建；不宣称许可级精确 PIT。",
+  "event_evidence_ledger": {
+    "path": "event_evidence.csv",
+    "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+  }
 }
 ```
 
 `snapshots_file_sha256` 必须换成原始快照文件的精确 bytes SHA-256。`file_obtained_at` 必须是带 `T` 的 UTC 时间戳（可 `Z` / `+00:00`），仅为审计，不能写成裸日期，也不能替代任何行的 `available_at`。`effective_from_coverage.start` / `end` 必须等于该文件全部截面 `effective_from` 的最小/最大日期。
+
+`schema_version: "2"` 的 `event_evidence_ledger.path` 必须是相对于 manifest 的 UTF-8 CSV，不能使用绝对路径、`..` 或符号链接逃逸。字段顺序必须完全如下，每个 `effective_from` 只能一行，且必须刚好覆盖原始快照的每个完整截面：
+
+```text
+effective_from,available_at,availability_basis,source_published_on,evidence_type,source_url,source_document,source_document_sha256
+```
+
+- `source_document`：相对于 manifest 的本地原始公告、API 响应或重建产物；它必须存在，精确 bytes SHA-256 必须等于 `source_document_sha256`。
+- `source_published_on`：来源文件可审计的发布日期（ISO 日期），不是下载日期。
+- `availability_basis` 只能为 `observed_source_timestamp`、`conservative_next_cn_decision_after_notice_date` 或 `licensed_delivery_timestamp`。保守公开规则下，`available_at` 必须晚于公告日期；它表达“公告日后下一个中国决策时点可用”，不把网站下载时间伪装成历史可用时间。
+- `evidence_type` 只能为 `official_constituent_list`、`official_adjustment_notice`、`public_media_report`、`public_api_response` 或 `reconstruction_artifact`。若来源只是媒体报道、公开 API 或重建产物，必须如实标记，不能写成官方完整成分表。
+
+账本验证保证的是文件、日期和可用时间的可追溯一致性；它不能单独证明公开来源已经完整覆盖每一只成分股。只有所有调样事件都有可核验来源、每日成员数为 300、预检通过，才可称为“公开重建 CSI300 历史研究数据”。它仍不得称为授权/许可级精确 PIT 数据。
+
+若只为端到端测试使用 2-5 只股票，策略配置必须显式写 `research_scope: controlled_sample`。即使它采用 `historical_membership` 以验证 PIT 管道，预检也会显示“受控历史成员样本，非完整指数研究”，不会把结果描述为历史指数回测。
 
 ## 快照
 

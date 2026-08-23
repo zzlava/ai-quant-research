@@ -17,6 +17,7 @@ from app.models.config import StrategyConfig
 from app.models.market import Instrument
 from app.pipeline import run_backtest, run_score
 from app.preflight import (
+    CONTROLLED_SAMPLE_MODE_LABEL,
     HISTORICAL_MODE_LABEL,
     MANUAL_STATIC_MODE_LABEL,
     SECTOR_DISABLED_LABEL,
@@ -202,6 +203,13 @@ def test_qualified_window_emits_signal_ready_start() -> None:
     assert hist_result.research_mode == HISTORICAL_MODE_LABEL
     assert hist_result.sector_status == SECTOR_DISABLED_LABEL
     assert hist_result.signal_ready_start == calendar[READY_OFFSET]
+
+    controlled_config = _hist_config(2)
+    controlled_config.research_scope = "controlled_sample"
+    controlled_result = preflight_research(
+        store=hist, config=controlled_config, start=calendar[READY_OFFSET], end=calendar[-1]
+    )
+    assert controlled_result.research_mode == CONTROLLED_SAMPLE_MODE_LABEL
 
 
 def test_bar_59_rejected_bar_60_produces_features_not_empty_warmup(

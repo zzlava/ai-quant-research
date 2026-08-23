@@ -12,6 +12,7 @@ from app.storage.protocol import MarketStore
 from app.universe.membership import membership_lookup_options
 
 MANUAL_STATIC_MODE_LABEL = "受控样本，非全市场/指数研究"
+CONTROLLED_SAMPLE_MODE_LABEL = "受控历史成员样本，非完整指数研究"
 HISTORICAL_MODE_LABEL = "历史指数研究（数据通过点时校验）"
 SECTOR_DISABLED_LABEL = "行业因子未启用"
 
@@ -31,7 +32,9 @@ class PreflightResult:
     trading_days: int
 
 
-def research_mode_label(mode: str) -> str:
+def research_mode_label(mode: str, research_scope: str) -> str:
+    if research_scope == "controlled_sample":
+        return CONTROLLED_SAMPLE_MODE_LABEL
     if mode == "historical_membership":
         return HISTORICAL_MODE_LABEL
     return MANUAL_STATIC_MODE_LABEL
@@ -255,7 +258,7 @@ def preflight_research(
     return PreflightResult(
         universe_id=config.universe.id,
         universe_mode=config.universe.mode,
-        research_mode=research_mode_label(config.universe.mode),
+        research_mode=research_mode_label(config.universe.mode, config.research_scope),
         sector_status=sector_status,
         signal_ready_start=ready,
         coverage_start=coverage_start,

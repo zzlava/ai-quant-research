@@ -108,7 +108,7 @@ python -m app.cli build-universe-membership \
 
 该命令不联网、不读 Token。原始快照 CSV 与每日成员 CSV 格式不同；工具只把已经生效且已知的完整截面前向延续到下一份可用快照。`baseline_csi300_pit_v1` 需要完整的 300 成分历史快照才谈得上指数研究；小样本文件只能验证管道。
 
-来源清单由用户/可信来源提供。`verify-universe-source` 只核对清单与原始快照文件的精确字节，不下载、不生成成分，也不把 `file_obtained_at` 或下载时间当成行内 `available_at`。JSON 字段模板见 `docs/market-data-contract.md`：
+来源清单由用户/可信来源提供。`verify-universe-source` 只核对清单与原始快照文件的精确字节，不下载、不生成成分，也不把 `file_obtained_at` 或下载时间当成行内 `available_at`。公开重建数据还必须使用 schema v2 的逐事件证据账本：它绑定每个调样生效日、可用时间、来源文件及其 SHA-256，且明确标识为非许可级 PIT。JSON/CSV 模板见 `docs/market-data-contract.md`：
 
 ```bash
 python -m app.cli verify-universe-source \

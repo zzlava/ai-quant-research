@@ -78,6 +78,52 @@ def _write_manifest(path: Path, snapshots: Path, **overrides: object) -> Path:
     return path
 
 
+def _write_event_evidence_ledger(
+    root: Path,
+    *,
+    first_available_at: str = "2024-01-01T16:00:00Z",
+    second_available_at: str = "2024-01-07T16:00:00.000001Z",
+    extra_row: str | None = None,
+) -> Path:
+    sources = root / "sources"
+    sources.mkdir(exist_ok=True)
+    first_document = sources / "notice-2024-01-02.txt"
+    second_document = sources / "notice-2024-01-08.txt"
+    first_document.write_text("official notice for fixture 2024-01-02\n", encoding="utf-8")
+    second_document.write_text("official notice for fixture 2024-01-08\n", encoding="utf-8")
+    lines = [
+        (
+            "effective_from,available_at,availability_basis,source_published_on,evidence_type,"
+            "source_url,source_document,source_document_sha256"
+        ),
+        (
+            f"2024-01-02,{first_available_at},conservative_next_cn_decision_after_notice_date,"
+            f"2023-12-29,official_adjustment_notice,https://example.invalid/notice-1,"
+            f"sources/{first_document.name},{_file_sha(first_document)}"
+        ),
+        (
+            f"2024-01-08,{second_available_at},conservative_next_cn_decision_after_notice_date,"
+            f"2024-01-05,official_adjustment_notice,https://example.invalid/notice-2,"
+            f"sources/{second_document.name},{_file_sha(second_document)}"
+        ),
+    ]
+    if extra_row is not None:
+        lines.append(extra_row)
+    ledger = root / "event_evidence.csv"
+    ledger.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return ledger
+
+
+def _write_v2_manifest(path: Path, snapshots: Path, ledger: Path, **overrides: object) -> Path:
+    return _write_manifest(
+        path,
+        snapshots,
+        schema_version="2",
+        event_evidence_ledger={"path": ledger.name, "sha256": _file_sha(ledger)},
+        **overrides,
+    )
+
+
 def _write_hist_yaml(dest: Path, expected: int = 2, mode: str = "historical_membership") -> Path:
     with (CONFIG_DIR / "baseline_v1.yaml").open("r", encoding="utf-8") as handle:
         payload = yaml.safe_load(handle)
@@ -138,6 +184,99 @@ def test_any_byte_change_mismatches_hash(tmp_path: Path) -> None:
     provenance = _write_manifest(tmp_path / "manifest.json", snapshots)
     snapshots.write_bytes(snapshots.read_bytes() + b" ")
     with pytest.raises(DataQualityError, match="does not match the exact bytes"):
+        verify_universe_source(
+            snapshots_file=snapshots,
+            provenance_file=provenance,
+            config=_hist_config(),
+        )
+
+
+def test_schema_v2_binds_each_snapshot_to_hashed_event_evidence(tmp_path: Path) -> None:
+    snapshots = _write_snapshots(tmp_path / "snap.csv", _fixture_rows())
+    ledger = _write_event_evidence_ledger(tmp_path)
+    provenance = _write_v2_manifest(tmp_path / "manifest.json", snapshots, ledger)
+    result = verify_universe_source(
+        snapshots_file=snapshots,
+        provenance_file=provenance,
+        config=_hist_config(),
+    )
+    assert result.schema_version == "2"
+    assert result.event_evidence_count == 2
+    assert result.event_evidence_ledger_sha256 == _file_sha(ledger)
+
+
+def test_schema_v2_requires_event_evidence_ledger(tmp_path: Path) -> None:
+    snapshots = _write_snapshots(tmp_path / "snap.csv", _fixture_rows())
+    provenance = _write_manifest(tmp_path / "manifest.json", snapshots, schema_version="2")
+    with pytest.raises(DataQualityError, match="requires event_evidence_ledger"):
+        load_universe_source_manifest(provenance)
+
+
+def test_schema_v2_rejects_changed_ledger_bytes(tmp_path: Path) -> None:
+    snapshots = _write_snapshots(tmp_path / "snap.csv", _fixture_rows())
+    ledger = _write_event_evidence_ledger(tmp_path)
+    provenance = _write_v2_manifest(tmp_path / "manifest.json", snapshots, ledger)
+    ledger.write_bytes(ledger.read_bytes() + b" ")
+    with pytest.raises(DataQualityError, match="event_evidence_ledger.sha256"):
+        verify_universe_source(
+            snapshots_file=snapshots,
+            provenance_file=provenance,
+            config=_hist_config(),
+        )
+
+
+def test_schema_v2_rejects_snapshot_available_at_that_differs_from_event_evidence(tmp_path: Path) -> None:
+    snapshots = _write_snapshots(tmp_path / "snap.csv", _fixture_rows())
+    ledger = _write_event_evidence_ledger(tmp_path, second_available_at="2024-01-07T16:00:01Z")
+    provenance = _write_v2_manifest(tmp_path / "manifest.json", snapshots, ledger)
+    with pytest.raises(DataQualityError, match="available_at does not match"):
+        verify_universe_source(
+            snapshots_file=snapshots,
+            provenance_file=provenance,
+            config=_hist_config(),
+        )
+
+
+def test_schema_v2_rejects_orphan_event_evidence(tmp_path: Path) -> None:
+    snapshots = _write_snapshots(tmp_path / "snap.csv", _fixture_rows())
+    extra_document = tmp_path / "sources" / "notice-extra.txt"
+    extra_document.parent.mkdir()
+    extra_document.write_text("extra event fixture\n", encoding="utf-8")
+    extra_row = (
+        "2024-01-15,2024-01-14T16:00:00Z,conservative_next_cn_decision_after_notice_date,"
+        "2024-01-12,official_adjustment_notice,https://example.invalid/notice-extra,"
+        f"sources/{extra_document.name},{_file_sha(extra_document)}"
+    )
+    ledger = _write_event_evidence_ledger(tmp_path, extra_row=extra_row)
+    provenance = _write_v2_manifest(tmp_path / "manifest.json", snapshots, ledger)
+    with pytest.raises(DataQualityError, match="orphaned ledger dates"):
+        verify_universe_source(
+            snapshots_file=snapshots,
+            provenance_file=provenance,
+            config=_hist_config(),
+        )
+
+
+def test_schema_v2_rejects_source_document_hash_change_and_path_escape(tmp_path: Path) -> None:
+    snapshots = _write_snapshots(tmp_path / "snap.csv", _fixture_rows())
+    ledger = _write_event_evidence_ledger(tmp_path)
+    provenance = _write_v2_manifest(tmp_path / "manifest.json", snapshots, ledger)
+    document = tmp_path / "sources" / "notice-2024-01-02.txt"
+    document.write_text("changed notice fixture\n", encoding="utf-8")
+    with pytest.raises(DataQualityError, match="source_document_sha256"):
+        verify_universe_source(
+            snapshots_file=snapshots,
+            provenance_file=provenance,
+            config=_hist_config(),
+        )
+
+    ledger = _write_event_evidence_ledger(tmp_path)
+    escaped = ledger.read_text(encoding="utf-8").replace(
+        "sources/notice-2024-01-02.txt", "../notice-2024-01-02.txt"
+    )
+    ledger.write_text(escaped, encoding="utf-8")
+    provenance = _write_v2_manifest(tmp_path / "escaped.json", snapshots, ledger)
+    with pytest.raises(DataQualityError, match="relative path inside the provenance directory"):
         verify_universe_source(
             snapshots_file=snapshots,
             provenance_file=provenance,

@@ -95,6 +95,12 @@ def test_fake_tushare_builds_five_tables_and_imports(tmp_path: Path) -> None:
     global_codes = [params.get("ts_code") for name, params in client.call_params if name == "index_global"]
     assert global_codes
     assert all(isinstance(code, str) and "," not in code for code in global_codes)
+    limit_calls = [params for name, params in client.call_params if name == "stk_limit"]
+    assert len(limit_calls) == len(STOCKS)
+    assert all(isinstance(params.get("ts_code"), str) and "," not in str(params["ts_code"]) for params in limit_calls)
+    assert all(
+        params.get("fields") == "ts_code,trade_date,pre_close,up_limit,down_limit" for params in limit_calls
+    )
     if len(expected_globals) >= 2:
         assert set(global_codes) == set(expected_globals)
 
