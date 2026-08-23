@@ -85,6 +85,7 @@ class BacktestEngine:
             equity_curve.append(EquityPoint(date=day, cash=cash, market_value=mtm, equity=cash + mtm))
 
         metrics = compute_metrics(self.config.portfolio.initial_cash, trades, equity_curve, start, end)
+        snap = self.store.snapshot()
         return BacktestResult(
             strategy_name=self.config.name,
             strategy_version=self.config.version,
@@ -96,6 +97,8 @@ class BacktestEngine:
             trades=trades,
             equity_curve=equity_curve,
             open_positions_at_end=len(positions),
+            data_snapshot=snap,
+            data_snapshot_id=snap.snapshot_id,
         )
 
     def _window(self, start: date, end: date) -> BacktestWindow:

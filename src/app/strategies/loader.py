@@ -12,7 +12,7 @@ def load_strategy_config(name: str, config_dir: Path | None = None) -> StrategyC
     root = config_dir or get_settings().strategies_dir
     path = Path(root) / f"{name}.yaml"
     if not path.exists():
-        raise FileNotFoundError(f"strategy config not found: {path}")
+        raise FileNotFoundError(f"strategy config not found: {name}")
     with path.open("r", encoding="utf-8") as handle:
         payload = yaml.safe_load(handle)
     if not isinstance(payload, dict):

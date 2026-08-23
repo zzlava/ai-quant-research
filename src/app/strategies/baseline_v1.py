@@ -49,4 +49,5 @@ class BaselineV1Strategy(BaseStrategy):
             breakdown=breakdown,
             sector=feature.sector,
             feature=feature,
+            data_snapshot_id=context.data_snapshot_id,
         )

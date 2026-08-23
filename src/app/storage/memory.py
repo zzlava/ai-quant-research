@@ -5,6 +5,7 @@ from datetime import date
 import polars as pl
 
 from app.models.market import Instrument
+from app.models.snapshot import DataSnapshot
 from app.providers._frames import (
     empty_daily,
     empty_global,
@@ -13,6 +14,7 @@ from app.providers._frames import (
     instruments_to_frame,
 )
 from app.providers.base import MarketDataProvider
+from app.storage.hashing import build_snapshot
 
 
 class InMemoryStore:
@@ -23,12 +25,18 @@ class InMemoryStore:
         index: pl.DataFrame | None = None,
         global_bars: pl.DataFrame | None = None,
         calendar: list[date] | None = None,
+        snapshot: DataSnapshot | None = None,
+        source_name: str = "memory",
+        adjustment: str = "forward",
     ) -> None:
         self.instruments_frame = instruments if instruments is not None else empty_instruments()
         self.daily = daily if daily is not None else empty_daily()
         self.index = index if index is not None else empty_daily()
         self.global_bars = global_bars if global_bars is not None else empty_global()
         self._calendar = calendar or []
+        self._snapshot = snapshot
+        self._source_name = source_name
+        self._adjustment = adjustment
 
     @classmethod
     def from_provider(cls, provider: MarketDataProvider) -> InMemoryStore:
@@ -51,10 +59,14 @@ class InMemoryStore:
             index=self.index.clone(),
             global_bars=self.global_bars.clone(),
             calendar=list(self._calendar),
+            snapshot=self._snapshot,
+            source_name=self._source_name,
+            adjustment=self._adjustment,
         )
 
     def replace_daily(self, daily: pl.DataFrame) -> None:
         self.daily = daily
+        self._snapshot = None
 
     def get_instruments(self) -> list[Instrument]:
         return [Instrument.model_validate(row) for row in self.instruments_frame.to_dicts()]
@@ -95,3 +107,19 @@ class InMemoryStore:
     def trading_days_after(self, after: date, n: int) -> list[date]:
         days = [d for d in self._calendar if d > after]
         return days[:n]
+
+    def snapshot(self) -> DataSnapshot:
+        if self._snapshot is None:
+            calendar = pl.DataFrame({"date": self._calendar}).with_columns(pl.col("date").cast(pl.Date))
+            self._snapshot = build_snapshot(
+                {
+                    "daily_bars": self.daily,
+                    "index_bars": self.index,
+                    "global_bars": self.global_bars,
+                    "instruments": self.instruments_frame,
+                    "calendar": calendar,
+                },
+                adjustment=self._adjustment,
+                source_name=self._source_name,
+            )
+        return self._snapshot

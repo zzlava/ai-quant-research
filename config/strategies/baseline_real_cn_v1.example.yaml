@@ -1,0 +1,71 @@
+# 真实 A 股历史数据的策略配置示例。
+# 不含账号、Token 或私密 URL。
+# 复制后按「已导入数据」里的标准化 symbol 修改 data: 段。
+# name 必须是已注册策略（当前为 baseline_v1）；文件名可自定，例如 baseline_v1_real.yaml。
+name: baseline_v1
+version: "1.0.0"
+
+weights:
+  market_score: 0.25
+  global_score: 0.15
+  sector_score: 0.20
+  alpha_score: 0.40
+  crowding_risk: 0.10
+  execution_risk: 0.10
+
+universe:
+  exclude_st: true
+  exclude_suspended: true
+  min_listing_days: 120
+  min_avg_turnover_20d: 100000000
+
+market_gate:
+  - { min: 0.0, max: 40.0, max_new_positions: 0 }
+  - { min: 40.0, max: 55.0, max_new_positions: 1 }
+  - { min: 55.0, max: 70.0, max_new_positions: 2 }
+  - { min: 70.0, max: 100.1, max_new_positions: 3 }
+
+trade:
+  take_profit: 0.03
+  stop_loss: -0.025
+  max_holding_days: 10
+  limit_pct: 0.10
+  st_limit_pct: 0.05
+  model_limit_moves: true
+
+portfolio:
+  initial_cash: 80000
+  max_positions: 3
+  weighting: equal_weight
+
+costs:
+  commission_rate: 0.00025
+  min_commission: 5.0
+  stamp_tax_rate: 0.0005
+  slippage_bps: 5.0
+
+# 下列代码必须与 import-market-data 输入中的 symbol 完全一致。
+data:
+  market_index: 000300.SH
+  global_symbol: SPX
+  adjustment: forward
+  decision_timezone: Asia/Shanghai
+  decision_time: "15:00"
+  min_history_bars: 21
+  sessions:
+    000300.SH:
+      market: CN
+      timezone: Asia/Shanghai
+      session_close: "15:00"
+    000001.SH:
+      market: CN
+      timezone: Asia/Shanghai
+      session_close: "15:00"
+    SPX:
+      market: US
+      timezone: America/New_York
+      session_close: "16:00"
+    HSI:
+      market: HK
+      timezone: Asia/Hong_Kong
+      session_close: "16:00"

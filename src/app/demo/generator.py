@@ -10,8 +10,11 @@ import polars as pl
 from app.clock import available_at_utc
 from app.models.config import SessionConfig
 from app.models.market import DailyBar, GlobalBar, Instrument, MarketBundle
+from app.models.snapshot import DataSnapshot
 from app.providers._frames import bars_to_frame, global_to_frame, instruments_to_frame
-from app.storage.quality import snapshot_payload, validate_global, validate_ohlcv, write_snapshot_manifest
+from app.storage.hashing import build_snapshot
+from app.storage.import_market import write_snapshot_atomically
+from app.storage.quality import validate_calendar, validate_global, validate_instruments, validate_ohlcv
 
 DEMO_SEED = 42
 SECTORS = ("bank", "tech", "consumer")
@@ -122,6 +125,7 @@ def generate_demo_market(
                     turnover_rate=round(turnover_rate, 6),
                     is_st=is_st,
                     is_suspended=is_suspended,
+                    price_limit_pct=0.05 if is_st else 0.10,
                 )
             )
 
@@ -177,31 +181,34 @@ def generate_demo_market(
     )
 
 
-def write_demo_parquet(bundle: MarketBundle, parquet_dir: Path) -> None:
-    parquet_dir.mkdir(parents=True, exist_ok=True)
+def write_demo_parquet(bundle: MarketBundle, parquet_dir: Path) -> DataSnapshot:
     daily = bars_to_frame(bundle.daily_bars)
     index = bars_to_frame(bundle.index_bars)
     glob = global_to_frame(bundle.global_bars)
+    instruments = instruments_to_frame(bundle.instruments)
+    calendar = pl.DataFrame({"date": bundle.calendar}).with_columns(pl.col("date").cast(pl.Date))
     validate_ohlcv(daily, "daily_bars")
     validate_ohlcv(index, "index_bars")
     validate_global(glob)
-    daily.write_parquet(parquet_dir / "daily_bars.parquet")
-    index.write_parquet(parquet_dir / "index_bars.parquet")
-    glob.write_parquet(parquet_dir / "global_bars.parquet")
-    instruments_to_frame(bundle.instruments).write_parquet(parquet_dir / "instruments.parquet")
-    pl.DataFrame({"date": bundle.calendar}).with_columns(pl.col("date").cast(pl.Date)).write_parquet(
-        parquet_dir / "calendar.parquet"
+    validate_instruments(instruments)
+    validate_calendar(calendar)
+    tables = {
+        "daily_bars": daily,
+        "index_bars": index,
+        "global_bars": glob,
+        "instruments": instruments,
+        "calendar": calendar,
+    }
+    snapshot = build_snapshot(
+        tables,
+        adjustment=bundle.adjustment,
+        source_name="demo",
+        source_version=f"seed-{DEMO_SEED}",
+        market_index=INDEX_CSI300,
+        global_symbol=GLOBAL_SPX,
     )
-    write_snapshot_manifest(
-        parquet_dir,
-        snapshot_payload(
-            daily,
-            index,
-            glob,
-            bundle.adjustment,
-            extra={"seed": DEMO_SEED, "kind": "demo"},
-        ),
-    )
+    write_snapshot_atomically(Path(parquet_dir), tables, snapshot)
+    return snapshot
 
 
 def _build_index_bars(
@@ -234,6 +241,7 @@ def _build_index_bars(
                     volume=volume,
                     amount=volume * c,
                     turnover_rate=0.01,
+                    price_limit_pct=None,
                 )
             )
     return out

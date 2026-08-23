@@ -29,6 +29,7 @@ class DailyBar(BaseModel):
     turnover_rate: float = 0.0
     is_st: bool = False
     is_suspended: bool = False
+    price_limit_pct: float | None = None
 
 
 class GlobalBar(BaseModel):

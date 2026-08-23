@@ -6,16 +6,19 @@ from pathlib import Path
 import duckdb
 import polars as pl
 
+from app.errors import SnapshotError
 from app.models.market import Instrument
+from app.models.snapshot import DataSnapshot
 from app.providers._frames import empty_daily, empty_global, empty_instruments
 
 
 class DuckDBParquetStore:
     """Historical market access via DuckDB over Parquet files."""
 
-    def __init__(self, parquet_dir: Path) -> None:
+    def __init__(self, parquet_dir: Path, snapshot: DataSnapshot | None = None) -> None:
         self.parquet_dir = Path(parquet_dir)
         self.conn = duckdb.connect(database=":memory:")
+        self._snapshot = snapshot
 
     def available(self) -> bool:
         return (self.parquet_dir / "daily_bars.parquet").exists()
@@ -61,6 +64,11 @@ class DuckDBParquetStore:
     def next_trading_day(self, after: date) -> date | None:
         days = self.trading_days_after(after, 1)
         return days[0] if days else None
+
+    def snapshot(self) -> DataSnapshot:
+        if self._snapshot is None:
+            raise SnapshotError("DuckDB store has no verified data snapshot")
+        return self._snapshot
 
     def trading_days_after(self, after: date, n: int) -> list[date]:
         path = self.parquet_dir / "calendar.parquet"

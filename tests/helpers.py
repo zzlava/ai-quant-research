@@ -60,6 +60,7 @@ def bar(
     close: float,
     volume: float = 12_000_000,
     amount: float = 200_000_000,
+    price_limit_pct: float | None = 0.10,
 ) -> dict[str, object]:
     return {
         "symbol": symbol,
@@ -73,24 +74,29 @@ def bar(
         "turnover_rate": 0.03,
         "is_st": False,
         "is_suspended": False,
+        "price_limit_pct": price_limit_pct,
     }
 
 
 def fill_quiet_bars(
     symbol: str,
     calendar: list[date],
-    overrides: dict[date, dict[str, float]] | None = None,
+    overrides: dict[date, dict[str, object]] | None = None,
 ) -> list[dict[str, object]]:
     rows = []
     price = 10.0
     extras = overrides or {}
     for dt in calendar:
         spec = extras.get(dt, {})
-        o = spec.get("open", price)
-        c = spec.get("close", o)
-        h = spec.get("high", max(o, c) + 0.05)
-        low = spec.get("low", min(o, c) - 0.05)
-        rows.append(bar(symbol, dt, o, h, low, c))
+        o = float(spec.get("open", price))  # type: ignore[arg-type]
+        c = float(spec.get("close", o))  # type: ignore[arg-type]
+        h = float(spec.get("high", max(o, c) + 0.05))  # type: ignore[arg-type]
+        low = float(spec.get("low", min(o, c) - 0.05))  # type: ignore[arg-type]
+        if "price_limit_pct" in spec:
+            limit = spec["price_limit_pct"]
+            rows.append(bar(symbol, dt, o, h, low, c, price_limit_pct=limit if limit is None else float(limit)))
+        else:
+            rows.append(bar(symbol, dt, o, h, low, c))
         price = c
     return rows
 
@@ -105,6 +111,7 @@ def store_from_rows(calendar: list[date], rows: list[dict[str, object]]) -> InMe
             pl.col("date").cast(pl.Date),
             pl.col("is_st").cast(pl.Boolean),
             pl.col("is_suspended").cast(pl.Boolean),
+            pl.col("price_limit_pct").cast(pl.Float64),
         ]
     )
     return InMemoryStore(

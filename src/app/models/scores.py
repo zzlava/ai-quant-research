@@ -27,10 +27,12 @@ class ScoreResult(BaseModel):
     breakdown: ScoreBreakdown
     sector: str | None = None
     feature: StockFeatureVector | None = None
+    data_snapshot_id: str = ""
 
 
 class StrategyContext(BaseModel):
     as_of: date
     market_score: float
     global_score: float
+    data_snapshot_id: str = ""
     extras: dict[str, float] = Field(default_factory=dict)

@@ -86,16 +86,31 @@ class CsvProvider(MarketDataProvider):
         if not path.exists():
             return empty()
         frame = pl.read_csv(path, try_parse_dates=True)
+        if name == "global_bars.csv":
+            if "ret_1d" not in frame.columns:
+                frame = frame.with_columns(pl.lit(0.0).alias("ret_1d"))
+            if "market" not in frame.columns:
+                frame = frame.with_columns(pl.lit("US").alias("market"))
+            if "timezone" not in frame.columns:
+                frame = frame.with_columns(pl.lit("America/New_York").alias("timezone"))
         missing = [col for col in schema if col not in frame.columns]
         if missing:
             raise DataQualityError(f"{name} missing required columns: {missing}")
+        for col in schema:
+            if frame[col].dtype in (pl.Utf8, pl.String):
+                frame = frame.with_columns(
+                    pl.when(pl.col(col).str.strip_chars().is_in(["", "null", "None", "NA"]))
+                    .then(None)
+                    .otherwise(pl.col(col))
+                    .alias(col)
+                )
         casts = []
         for col, dtype in schema.items():
             casts.append(pl.col(col).cast(cast(Any, dtype), strict=True))
         try:
             return frame.with_columns(casts)
         except Exception as exc:
-            raise DataQualityError(f"{name} failed strict type conversion: {exc}") from exc
+            raise DataQualityError(f"{name} failed strict type conversion") from exc
 
     def _read_calendar(self) -> list[date]:
         path = self.root / "calendar.csv"

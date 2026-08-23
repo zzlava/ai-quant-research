@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.errors import is_client_error, sanitize_error_message
 from app.models.backtest import BacktestResult
 from app.models.scores import ScoreResult
 from app.persistence.db import init_db
@@ -35,6 +36,7 @@ class StrategyInfo(BaseModel):
 class RankingResponse(BaseModel):
     date: date
     strategy: str
+    data_snapshot_id: str = ""
     items: list[ScoreResult]
 
 
@@ -42,6 +44,14 @@ class BacktestCreated(BaseModel):
     id: str
     status: str
     result: BacktestResult | None = None
+
+
+def _http_error(exc: BaseException) -> HTTPException:
+    if isinstance(exc, HTTPException):
+        return exc
+    status = 400 if is_client_error(exc) else 500
+    detail = sanitize_error_message(exc) if status < 500 else "internal server error"
+    return HTTPException(status_code=status, detail=detail)
 
 
 @app.get("/health")
@@ -72,9 +82,10 @@ def ranking(
 ) -> RankingResponse:
     try:
         results = run_score(date_, strategy)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return RankingResponse(date=date_, strategy=strategy, items=results[:top])
+    except Exception as exc:  # noqa: BLE001
+        raise _http_error(exc) from exc
+    snapshot_id = results[0].data_snapshot_id if results else ""
+    return RankingResponse(date=date_, strategy=strategy, data_snapshot_id=snapshot_id, items=results[:top])
 
 
 @app.post("/backtests", response_model=BacktestCreated)
@@ -105,11 +116,12 @@ def create_backtest(payload: BacktestRequest) -> BacktestCreated:
         session.commit()
         return BacktestCreated(id=run_id, status="done", result=result)
     except Exception as exc:  # noqa: BLE001
+        http_exc = _http_error(exc)
         row.status = "error"
-        row.error = str(exc)
+        row.error = sanitize_error_message(exc)
         session.add(row)
         session.commit()
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise http_exc from exc
     finally:
         session.close()
 

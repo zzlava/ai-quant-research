@@ -42,6 +42,8 @@ def test_ranking_and_backtest_roundtrip(tmp_path: Path, monkeypatch: pytest.Monk
     assert body["items"]
     assert "final_score" in body["items"][0]
     assert "breakdown" in body["items"][0]
+    assert body["data_snapshot_id"]
+    assert body["items"][0]["data_snapshot_id"] == body["data_snapshot_id"]
 
     created = client.post(
         "/backtests",
@@ -53,6 +55,8 @@ def test_ranking_and_backtest_roundtrip(tmp_path: Path, monkeypatch: pytest.Monk
     result = payload["result"]
     assert result["window"]["valuation_end"] <= "2024-01-31"
     assert result["equity_curve"][-1]["date"] <= "2024-01-31"
+    assert result["data_snapshot_id"] == body["data_snapshot_id"]
+    assert result["data_snapshot"]["snapshot_id"] == body["data_snapshot_id"]
 
     fetched = client.get(f"/backtests/{payload['id']}")
     assert fetched.status_code == 200

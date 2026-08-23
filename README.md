@@ -57,8 +57,33 @@ A 股 `as_of=T` 的决策时点默认是 **T 日 15:00 Asia/Shanghai**。
 
 - Demo 快照声明 `adjustment: forward`（合成前复权价格，无真实除权事件）。
 - 停牌日仍保留 K 线：`is_suspended=true`，OHLC=前收，成交量=0，不可交易。
-- 回测按日线建模涨跌停：一字涨停不可买，一字跌停不可卖。
+- 每条日线带 `price_limit_pct`（可为 `null`）。回测优先用该日幅度，不再仅按 ST / 非 ST 推断。`null` 表示当日不适用普通涨跌停。
+- 一字涨停不可买，一字跌停不可卖。开盘跳空优先于盘中 TP/SL；同一根日线同时触发时先止损。
 - 开盘跳空跌破止损时，按**开盘价**成交，而不是按止损线。
+
+## 导入真实历史数据
+
+先把任意数据源预处理成标准化目录，字段见 `docs/market-data-contract.md`。不要把 Token 或 Cookie 写进仓库。
+
+```bash
+python -m app.cli import-market-data \
+  --source-dir /path/to/normalized-data \
+  --source-name local \
+  --adjustment forward
+```
+
+成功后会打印 `data_snapshot_id`。评分、回测和 API 都会带上同一个快照标识。缺少 manifest、manifest 与内容不一致、或缺表时会直接失败，不会回退 demo 数据。
+
+真实 A 股基准/时区配置示例（无密钥）：
+
+`config/strategies/baseline_real_cn_v1.example.yaml`
+
+复制后把 `data:` 里的代码改成与导入数据完全一致，再：
+
+```bash
+python -m app.cli score --date 2024-01-15 --strategy baseline_v1
+python -m app.cli backtest --strategy baseline_v1 --start 2024-01-02 --end 2024-06-28
+```
 
 ## 要求
 
@@ -91,7 +116,7 @@ API：`http://localhost:8000/health`
 python -m app.cli generate-demo
 ```
 
-数据写入 `data/parquet/`，并带 `manifest.json` 快照版本。
+数据写入 `data/parquet/`，并带基于内容哈希的 `manifest.json`。CLI 会打印 `data_snapshot_id`。
 
 ## 运行评分
 
@@ -139,8 +164,8 @@ GitHub Actions 会在 push / PR 时自动跑上述三项。
 
 ## 已知限制 / TODO
 
-- `TushareProvider` / `AKShareProvider` 只建立了接口，**没有**实现联网拉取。接入时必须带 `available_at`、复权口径和数据质量检查。
+- `TushareProvider` / `AKShareProvider` 只建立了接口，**没有**实现联网拉取。真实数据请先标准化后走 `import-market-data`。
 - 没有分钟级数据。同一根日线盘中同时触发止盈和止损时，按保守原则视为**先止损**；开盘跳空则按开盘价。
-- 涨跌停只按日线一字板规则近似，不是逐笔排队模型。
+- 涨跌停按逐日 `price_limit_pct` + 日线一字板近似，不是逐笔排队模型。
 - 没有组合再平衡、没有融资融券。
 - API 回测是同步执行，不是任务队列。

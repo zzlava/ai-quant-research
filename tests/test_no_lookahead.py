@@ -71,6 +71,9 @@ class LeakyStore:
     def trading_days_after(self, after: date, n: int) -> list[date]:
         return self.inner.trading_days_after(after, n)
 
+    def snapshot(self):
+        return self.inner.snapshot()
+
 
 def _shock_future(frame: pl.DataFrame, as_of: date, factor: float = 7.5) -> pl.DataFrame:
     cols = [c for c in ("open", "high", "low", "close", "volume", "amount") if c in frame.columns]
@@ -116,8 +119,8 @@ def test_features_and_scores_ignore_future_prices() -> None:
     for symbol in before_map:
         assert before_map[symbol] == after_map[symbol]
 
-    score_before = {s.symbol: s.model_dump(exclude={"feature"}) for s in scores_before}
-    score_after = {s.symbol: s.model_dump(exclude={"feature"}) for s in scores_after}
+    score_before = {s.symbol: s.model_dump(exclude={"feature", "data_snapshot_id"}) for s in scores_before}
+    score_after = {s.symbol: s.model_dump(exclude={"feature", "data_snapshot_id"}) for s in scores_after}
     assert score_before == score_after
 
 
@@ -142,6 +145,6 @@ def test_same_day_us_close_does_not_change_a_share_score() -> None:
         .alias("close")
     )
     after = ScoringEngine(LeakyStore(poisoned), config).run(as_of)
-    assert {s.symbol: s.model_dump(exclude={"feature"}) for s in before} == {
-        s.symbol: s.model_dump(exclude={"feature"}) for s in after
+    assert {s.symbol: s.model_dump(exclude={"feature", "data_snapshot_id"}) for s in before} == {
+        s.symbol: s.model_dump(exclude={"feature", "data_snapshot_id"}) for s in after
     }

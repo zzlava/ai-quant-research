@@ -30,7 +30,13 @@ class ScoringEngine:
             return []
         market_score = filtered[0].market_score
         global_score = filtered[0].global_score
-        context = StrategyContext(as_of=as_of, market_score=market_score, global_score=global_score)
+        snapshot_id = self.store.snapshot().snapshot_id
+        context = StrategyContext(
+            as_of=as_of,
+            market_score=market_score,
+            global_score=global_score,
+            data_snapshot_id=snapshot_id,
+        )
         results = [self.strategy.score(feat, context) for feat in filtered]
         return rank_scores(results)
 
@@ -53,6 +59,7 @@ class ScoringEngine:
                 "crowding_risk": r.breakdown.crowding_risk,
                 "execution_risk": r.breakdown.execution_risk,
                 "sector": r.sector,
+                "data_snapshot_id": r.data_snapshot_id,
             }
             for r in results
         ]

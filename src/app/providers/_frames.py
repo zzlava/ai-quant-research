@@ -18,6 +18,7 @@ DAILY_SCHEMA = {
     "turnover_rate": pl.Float64,
     "is_st": pl.Boolean,
     "is_suspended": pl.Boolean,
+    "price_limit_pct": pl.Float64,
 }
 
 GLOBAL_SCHEMA = {

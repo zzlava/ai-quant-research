@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.snapshot import DataSnapshot
+
 ExitReason = Literal["take_profit", "stop_loss", "timeout"]
 
 
@@ -68,3 +70,5 @@ class BacktestResult(BaseModel):
     trades: list[TradeFill] = Field(default_factory=list)
     equity_curve: list[EquityPoint] = Field(default_factory=list)
     open_positions_at_end: int = 0
+    data_snapshot: DataSnapshot | None = None
+    data_snapshot_id: str = ""

@@ -6,6 +6,7 @@ from typing import Protocol
 import polars as pl
 
 from app.models.market import Instrument
+from app.models.snapshot import DataSnapshot
 
 
 class MarketStore(Protocol):
@@ -39,3 +40,5 @@ class MarketStore(Protocol):
     def next_trading_day(self, after: date) -> date | None: ...
 
     def trading_days_after(self, after: date, n: int) -> list[date]: ...
+
+    def snapshot(self) -> DataSnapshot: ...

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, Literal
 
 import typer
 
 from app.demo.generator import DEMO_SEED, generate_demo_market, write_demo_parquet
 from app.pipeline import run_backtest, run_score
 from app.settings import get_settings
+from app.storage.import_market import import_market_data
 from app.strategies.registry import StrategyRegistry
 
 app = typer.Typer(help="A-share research scoring and historical backtest CLI.")
@@ -17,12 +19,38 @@ app = typer.Typer(help="A-share research scoring and historical backtest CLI.")
 def generate_demo() -> None:
     settings = get_settings()
     bundle = generate_demo_market(seed=DEMO_SEED)
-    write_demo_parquet(bundle, settings.parquet_dir)
+    snapshot = write_demo_parquet(bundle, settings.parquet_dir)
     typer.echo(
         f"wrote demo parquet to {settings.parquet_dir} "
         f"({len(bundle.calendar)} trading days, "
         f"{sum(1 for i in bundle.instruments if not i.is_index and not i.is_global)} stocks)"
     )
+    typer.echo(f"data_snapshot_id={snapshot.snapshot_id}")
+
+
+@app.command("import-market-data")
+def import_market_data_cmd(
+    source_dir: Annotated[Path, typer.Option("--source-dir", exists=True, file_okay=False)],
+    source_name: Annotated[str, typer.Option("--source-name")] = "local",
+    adjustment: Annotated[Literal["forward", "backward", "none"], typer.Option("--adjustment")] = "forward",
+    source_version: Annotated[str | None, typer.Option("--source-version")] = None,
+    market_index: Annotated[str | None, typer.Option("--market-index")] = None,
+    global_symbol: Annotated[str | None, typer.Option("--global-symbol")] = None,
+) -> None:
+    settings = get_settings()
+    snapshot = import_market_data(
+        source_dir,
+        settings.parquet_dir,
+        source_name=source_name,
+        adjustment=adjustment,
+        source_version=source_version,
+        market_index=market_index,
+        global_symbol=global_symbol,
+    )
+    typer.echo(f"imported market data from {source_dir}")
+    typer.echo(f"source_name={snapshot.source_name} adjustment={snapshot.adjustment}")
+    typer.echo(f"data_snapshot_id={snapshot.snapshot_id}")
+    typer.echo(f"coverage={snapshot.coverage_start}..{snapshot.coverage_end}")
 
 
 @app.command()
@@ -32,9 +60,11 @@ def score(
 ) -> None:
     as_of = date.fromisoformat(date_)
     results = run_score(as_of, strategy)
+    snapshot_id = results[0].data_snapshot_id if results else ""
     typer.echo(
         f"strategy={strategy} date={as_of} names={len(results)} "
-        f"hash={results[0].strategy_config_hash if results else '-'}"
+        f"hash={results[0].strategy_config_hash if results else '-'} "
+        f"data_snapshot_id={snapshot_id}"
     )
     typer.echo(
         f"{'rank':<6}{'symbol':<10}{'final':>8}{'mkt':>8}{'glb':>8}"
@@ -59,6 +89,7 @@ def backtest(
     m = result.metrics
     typer.echo(f"strategy={result.strategy_name} version={result.strategy_version}")
     typer.echo(f"config_hash={result.strategy_config_hash}")
+    typer.echo(f"data_snapshot_id={result.data_snapshot_id}")
     typer.echo(
         f"window signal_end={result.window.signal_end} "
         f"entry_end={result.window.entry_end} valuation_end={result.window.valuation_end}"
