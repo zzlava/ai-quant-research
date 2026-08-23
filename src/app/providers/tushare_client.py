@@ -5,7 +5,7 @@ from typing import Any, Protocol
 
 import polars as pl
 
-from app.errors import MissingTushareTokenError, TushareFetchError
+from app.errors import MissingTushareTokenError, TushareFetchError, sanitize_error_message
 
 TOKEN_ENV = "AIQ_TUSHARE_TOKEN"
 
@@ -49,10 +49,19 @@ class LiveTushareClient:
             raise TushareFetchError(f"tushare API '{api_name}' is not available")
         try:
             frame = fn(**params)
-        except Exception:
-            raise TushareFetchError(f"tushare {api_name} query failed") from None
+        except Exception as exc:
+            raise TushareFetchError(
+                f"tushare {api_name} query failed: {sanitize_error_message(exc)}"
+            ) from None
         if frame is None:
             return pl.DataFrame()
+        if isinstance(frame, str):
+            raise TushareFetchError(f"tushare {api_name} query failed: {sanitize_error_message(ValueError(frame))}")
         if isinstance(frame, pl.DataFrame):
             return frame
-        return pl.from_pandas(frame)
+        try:
+            return pl.from_pandas(frame)
+        except Exception as exc:
+            raise TushareFetchError(
+                f"tushare {api_name} query failed: {sanitize_error_message(exc)}"
+            ) from None

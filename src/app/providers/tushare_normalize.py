@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Literal
 
@@ -31,6 +31,7 @@ class TushareRaw:
     namechange: pl.DataFrame | None
     index_daily: pl.DataFrame
     index_global: pl.DataFrame
+    stock_basic_status_errors: dict[str, str] = field(default_factory=dict)
 
 
 def ymd(value: date) -> str:
@@ -100,7 +101,14 @@ def normalize_tushare(
     daily = _normalize_daily(raw, config.data.adjustment, stocks, cal_days, start, end)
     index_bars = _normalize_index(raw.index_daily, start, end)
     global_bars = _normalize_global(raw.index_global, config, start, end)
-    instruments = _normalize_instruments(raw.stock_basic, stocks, config, index_bars, global_bars)
+    instruments = _normalize_instruments(
+        raw.stock_basic,
+        stocks,
+        config,
+        index_bars,
+        global_bars,
+        raw.stock_basic_status_errors,
+    )
     _assert_strategy_symbols(config, daily, index_bars, global_bars)
     return {
         "daily_bars": daily.select(list(DAILY_SCHEMA)),
@@ -137,7 +145,7 @@ def _normalize_daily(
     if raw.daily.is_empty():
         raise DataQualityError("daily bars are empty")
     daily = _require_cols(raw.daily, ("ts_code", "trade_date", "open", "high", "low", "close"), "daily")
-    listing_bounds = _listing_bounds(raw.stock_basic, stocks)
+    listing_bounds = _listing_bounds(raw.stock_basic, stocks, raw.stock_basic_status_errors)
     stk_limit = raw.stk_limit
     suspend_d = raw.suspend_d
     namechange = raw.namechange
@@ -345,6 +353,7 @@ def _normalize_instruments(
     config: StrategyConfig,
     index_bars: pl.DataFrame,
     global_bars: pl.DataFrame,
+    status_errors: dict[str, str] | None = None,
 ) -> pl.DataFrame:
     by_code: dict[str, dict[str, object]] = {}
     if not basic.is_empty() and "ts_code" in basic.columns:
@@ -354,7 +363,7 @@ def _normalize_instruments(
     for symbol in stocks:
         item = by_code.get(symbol)
         if item is None:
-            raise DataQualityError(f"stock_basic missing {symbol}")
+            raise DataQualityError(_missing_stock_basic_message(symbol, status_errors))
         list_raw = item.get("list_date")
         if not list_raw:
             raise DataQualityError(f"stock_basic missing list_date for {symbol}")
@@ -598,7 +607,22 @@ def _optional_ymd(value: object) -> date | None:
     return parse_ymd(value)
 
 
-def _listing_bounds(basic: pl.DataFrame, stocks: list[str]) -> dict[str, tuple[date, date | None]]:
+def format_stock_basic_status_failures(errors: dict[str, str]) -> str:
+    return "; ".join(f"{status}: {reason}" for status, reason in errors.items())
+
+
+def _missing_stock_basic_message(symbol: str, errors: dict[str, str] | None = None) -> str:
+    detail = format_stock_basic_status_failures(errors or {})
+    if not detail:
+        return f"stock_basic missing {symbol}"
+    return f"stock_basic missing {symbol}; {detail}"
+
+
+def _listing_bounds(
+    basic: pl.DataFrame,
+    stocks: list[str],
+    status_errors: dict[str, str] | None = None,
+) -> dict[str, tuple[date, date | None]]:
     by_code: dict[str, dict[str, object]] = {}
     if not basic.is_empty() and "ts_code" in basic.columns:
         for item in basic.to_dicts():
@@ -607,7 +631,7 @@ def _listing_bounds(basic: pl.DataFrame, stocks: list[str]) -> dict[str, tuple[d
     for symbol in stocks:
         basic_row = by_code.get(symbol)
         if basic_row is None:
-            raise DataQualityError(f"stock_basic missing {symbol}")
+            raise DataQualityError(_missing_stock_basic_message(symbol, status_errors))
         list_raw = basic_row.get("list_date")
         if not list_raw:
             raise DataQualityError(f"stock_basic missing list_date for {symbol}")

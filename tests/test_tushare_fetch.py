@@ -391,6 +391,105 @@ def test_delisted_stock_basic_is_fetched_by_list_status(tmp_path: Path) -> None:
     assert "000001.SZ" in instruments["symbol"].to_list()
 
 
+def test_stock_basic_continues_when_one_list_status_fails(tmp_path: Path) -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+
+    class RejectGClient(FakeTushareClient):
+        def query(self, api_name: str, **params: object) -> pl.DataFrame:
+            if api_name == "stock_basic" and params.get("list_status") == "G":
+                raise TushareFetchError("tushare stock_basic query failed")
+            return super().query(api_name, **params)
+
+    client = RejectGClient(tables)
+    fetch_tushare_and_import(
+        start=calendar[0],
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "parquet",
+        stocks=list(STOCKS),
+        client=client,
+    )
+    statuses = [params.get("list_status") for name, params in client.call_params if name == "stock_basic"]
+    assert statuses == ["L", "D", "P"]
+    daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
+    assert set(daily["symbol"].to_list()) == set(STOCKS)
+
+
+def test_stock_basic_all_list_status_failures_include_reasons() -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+
+    class RejectAllClient(FakeTushareClient):
+        def query(self, api_name: str, **params: object) -> pl.DataFrame:
+            if api_name == "stock_basic":
+                raise TushareFetchError("rate limit exceeded")
+            return super().query(api_name, **params)
+
+    with pytest.raises(TushareFetchError, match=r"L: rate limit exceeded") as exc_info:
+        fetch_tushare_and_import(
+            start=calendar[0],
+            end=calendar[-1],
+            config=_config(),
+            dest_dir=Path("/unused"),
+            stocks=list(STOCKS),
+            client=RejectAllClient(tables),
+        )
+    message = str(exc_info.value)
+    assert "D: rate limit exceeded" in message
+    assert "P: rate limit exceeded" in message
+    assert "G: rate limit exceeded" in message
+
+
+def test_stock_basic_missing_delisted_stock_includes_d_failure() -> None:
+    delist_on = date(2024, 1, 22)
+    preview = weekdays(date(2023, 10, 2), 80)
+    calendar, tables = build_fake_tushare_api_tables(
+        delist_dates={"000001.SZ": delist_on},
+        skip_daily={("000001.SZ", day) for day in preview if day >= delist_on},
+    )
+
+    class RejectDClient(FakeTushareClient):
+        def query(self, api_name: str, **params: object) -> pl.DataFrame:
+            if api_name == "stock_basic" and params.get("list_status") == "D":
+                raise TushareFetchError("rate limit exceeded")
+            return super().query(api_name, **params)
+
+    with pytest.raises(DataQualityError, match="stock_basic missing 000001.SZ") as exc_info:
+        fetch_tushare_and_import(
+            start=calendar[0],
+            end=calendar[-1],
+            config=_config(),
+            dest_dir=Path("/unused"),
+            stocks=list(STOCKS),
+            client=RejectDClient(tables),
+        )
+    assert "D: rate limit exceeded" in str(exc_info.value)
+
+
+def test_stock_basic_status_failures_redact_token() -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+    secret = "super-secret-tushare-token"
+
+    class LeakTokenClient(FakeTushareClient):
+        def query(self, api_name: str, **params: object) -> pl.DataFrame:
+            if api_name == "stock_basic":
+                raise RuntimeError(f"token={secret} AIQ_TUSHARE_TOKEN={secret}")
+            return super().query(api_name, **params)
+
+    with pytest.raises(TushareFetchError, match=r"L: token=<redacted>") as exc_info:
+        fetch_tushare_and_import(
+            start=calendar[0],
+            end=calendar[-1],
+            config=_config(),
+            dest_dir=Path("/unused"),
+            stocks=list(STOCKS),
+            client=LeakTokenClient(tables),
+        )
+    message = str(exc_info.value)
+    assert secret not in message
+    assert "token=<redacted>" in message
+    assert "AIQ_TUSHARE_TOKEN=<redacted>" in message
+
+
 def test_listed_stock_with_no_daily_rows_is_rejected() -> None:
     preview = weekdays(date(2023, 10, 2), 80)
     calendar, tables = build_fake_tushare_api_tables(

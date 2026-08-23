@@ -5,7 +5,7 @@ from typing import Any
 
 import polars as pl
 
-from app.errors import TushareFetchError
+from app.errors import TushareFetchError, sanitize_error_message
 from app.models.config import StrategyConfig
 from app.models.market import Instrument
 from app.providers._frames import filter_dates
@@ -13,6 +13,7 @@ from app.providers.base import MarketDataProvider
 from app.providers.tushare_client import TushareQueryClient, read_tushare_token
 from app.providers.tushare_normalize import (
     TushareRaw,
+    format_stock_basic_status_failures,
     normalize_tushare,
     require_ts_code,
     split_session_symbols,
@@ -110,7 +111,7 @@ class TushareProvider(MarketDataProvider):
         client = self._client_or_live()
         start_s, end_s = ymd(start), ymd(end)
         trade_cal = client.query("trade_cal", exchange="SSE", start_date=start_s, end_date=end_s, is_open="1")
-        stock_basic = self._query_stock_basic(client)
+        stock_basic, status_errors = self._query_stock_basic(client)
         daily = self._query_codes(client, "daily", stocks, start_s, end_s)
         daily_basic = self._query_codes(
             client,
@@ -137,16 +138,25 @@ class TushareProvider(MarketDataProvider):
             namechange=namechange,
             index_daily=index_daily,
             index_global=index_global,
+            stock_basic_status_errors=status_errors,
         )
 
-    def _query_stock_basic(self, client: TushareQueryClient) -> pl.DataFrame:
+    def _query_stock_basic(self, client: TushareQueryClient) -> tuple[pl.DataFrame, dict[str, str]]:
         frames: list[pl.DataFrame] = []
+        failed: dict[str, str] = {}
         for status in _STOCK_BASIC_STATUSES:
-            frames.append(client.query("stock_basic", list_status=status, fields=_STOCK_BASIC_FIELDS))
-        nonempty = [frame for frame in frames if not frame.is_empty()]
-        if not nonempty:
-            raise TushareFetchError("stock_basic returned no rows")
-        return pl.concat(nonempty, how="diagonal_relaxed")
+            try:
+                frame = client.query("stock_basic", list_status=status, fields=_STOCK_BASIC_FIELDS)
+            except Exception as exc:  # noqa: BLE001
+                failed[status] = sanitize_error_message(exc)
+                continue
+            if not frame.is_empty():
+                frames.append(frame)
+        if not frames:
+            detail = format_stock_basic_status_failures(failed)
+            suffix = f"; {detail}" if detail else ""
+            raise TushareFetchError(f"stock_basic returned no rows{suffix}")
+        return pl.concat(frames, how="diagonal_relaxed"), failed
 
     def _query_codes(
         self,
