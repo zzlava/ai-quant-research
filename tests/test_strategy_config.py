@@ -142,3 +142,38 @@ def test_same_day_scores_from_different_runs_do_not_overwrite(tmp_path: Path) ->
     assert demo_row["final_score"] == 11.0
     assert real_row["final_score"] == 70.0
     assert set(stored["config_id"].to_list()) == {"baseline_v1", "baseline_real_cn_v1"}
+
+
+def test_legacy_scores_parquet_without_config_id_can_upgrade(tmp_path: Path) -> None:
+    dest = tmp_path / "scores.parquet"
+    pl.DataFrame(
+        {
+            "symbol": ["AAA"],
+            "score_date": [date(2024, 1, 14)],
+            "strategy_name": ["baseline_v1"],
+            "strategy_version": ["1.0.0"],
+            "strategy_config_hash": ["hash-old"],
+            "final_score": [80.0],
+            "market_score": [70.0],
+            "global_score": [60.0],
+            "sector_score": [50.0],
+            "alpha_score": [70.0],
+            "crowding_risk": [10.0],
+            "execution_risk": [10.0],
+            "sector": ["tech"],
+            "data_snapshot_id": ["snap-old"],
+        }
+    ).write_parquet(dest)
+    engine = object.__new__(ScoringEngine)
+    engine.persist(
+        [_score_row(config_hash="hash-new", snapshot_id="snap-new", config_id="baseline_real_cn_v1", final=65.0)],
+        dest,
+    )
+    stored = pl.read_parquet(dest)
+    assert "config_id" in stored.columns
+    assert stored.height == 2
+    old_row = stored.filter(pl.col("strategy_config_hash") == "hash-old").to_dicts()[0]
+    new_row = stored.filter(pl.col("strategy_config_hash") == "hash-new").to_dicts()[0]
+    assert old_row["config_id"] == ""
+    assert new_row["config_id"] == "baseline_real_cn_v1"
+    assert new_row["final_score"] == 65.0

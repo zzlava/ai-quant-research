@@ -17,14 +17,19 @@ class FakeTushareClient:
         self.tables = tables
         self.absent = set(absent or [])
         self.calls: list[str] = []
+        self.call_params: list[tuple[str, dict[str, object]]] = []
 
     def query(self, api_name: str, **params: object) -> pl.DataFrame:
-        del params
         self.calls.append(api_name)
+        self.call_params.append((api_name, dict(params)))
         if api_name in self.absent:
             raise DataQualityError(f"tushare {api_name} records are missing")
         frame = self.tables.get(api_name)
-        return frame if frame is not None else pl.DataFrame()
+        if frame is None:
+            return pl.DataFrame()
+        if api_name == "stock_basic" and "list_status" in params and "list_status" in frame.columns:
+            frame = frame.filter(pl.col("list_status") == str(params["list_status"]))
+        return frame
 
 
 def build_fake_tushare_api_tables(
@@ -65,7 +70,7 @@ def build_fake_tushare_api_tables(
             ],
             "market": ["主板", "主板"],
             "exchange": ["SZSE", "SSE"],
-            "list_status": ["L", "L"],
+            "list_status": ["D" if symbol in delisted else "L" for symbol in STOCKS],
         }
     )
 

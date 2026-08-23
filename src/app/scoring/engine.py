@@ -66,7 +66,7 @@ class ScoringEngine:
         ]
         frame = pl.DataFrame(rows)
         if dest.exists():
-            existing = pl.read_parquet(dest)
+            existing = _align_score_frame(pl.read_parquet(dest), frame)
             first = results[0]
             same_run = pl.col("score_date") == first.score_date
             if "strategy_config_hash" in existing.columns:
@@ -79,3 +79,14 @@ class ScoringEngine:
             frame = pl.concat([keep, frame], how="vertical_relaxed")
         if results:
             frame.write_parquet(dest)
+
+
+def _align_score_frame(existing: pl.DataFrame, template: pl.DataFrame) -> pl.DataFrame:
+    aligned = existing
+    for name, dtype in zip(template.columns, template.dtypes, strict=True):
+        if name in aligned.columns:
+            continue
+        fill: str | None = "" if name == "config_id" else None
+        target = pl.Utf8 if dtype == pl.Null else dtype
+        aligned = aligned.with_columns(pl.lit(fill).cast(target).alias(name))
+    return aligned.select(template.columns)

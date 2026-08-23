@@ -97,7 +97,7 @@ def normalize_tushare(
 
     calendar = _normalize_calendar(raw.trade_cal, start, end)
     cal_days = [day for day in calendar["date"].to_list() if isinstance(day, date)]
-    daily = _normalize_daily(raw, config.data.adjustment, stocks, cal_days)
+    daily = _normalize_daily(raw, config.data.adjustment, stocks, cal_days, start, end)
     index_bars = _normalize_index(raw.index_daily, start, end)
     global_bars = _normalize_global(raw.index_global, config, start, end)
     instruments = _normalize_instruments(raw.stock_basic, stocks, config, index_bars, global_bars)
@@ -129,6 +129,8 @@ def _normalize_daily(
     adjustment: Adjustment,
     stocks: list[str],
     calendar: list[date],
+    start: date,
+    end: date,
 ) -> pl.DataFrame:
     if raw.stk_limit is None or raw.suspend_d is None or raw.namechange is None:
         raise DataQualityError("required Tushare reference tables are missing")
@@ -146,6 +148,8 @@ def _normalize_daily(
         if symbol not in stocks:
             continue
         dt = parse_ymd(item["trade_date"])
+        if dt < start or dt > end:
+            continue
         row = {
             "symbol": symbol,
             "date": dt,

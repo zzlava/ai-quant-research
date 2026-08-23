@@ -43,7 +43,7 @@ python -m app.cli fetch-tushare \
 | 接口 | 用途 |
 | --- | --- |
 | `trade_cal` | A 股交易日历（SSE / `is_open=1`） |
-| `stock_basic` | 证券名称、当前行业、上市日、退市日 |
+| `stock_basic` | 证券名称、当前行业、上市日、退市日；按官方 `list_status` 分别拉取 `L`/`D`/`P`/`G` 后合并（默认只返回 `L`） |
 | `daily` | 未复权个股 OHLCV、昨收 |
 | `daily_basic` | `turnover_rate`（百分比，导入时转为小数） |
 | `adj_factor` | 前复权 / 后复权 |
@@ -52,6 +52,8 @@ python -m app.cli fetch-tushare \
 | `namechange` | 历史名称中的 ST / \*ST 等，生成历史 `is_st` |
 | `index_daily` | A 股指数 |
 | `index_global` | 海外指数（如 `SPX`、`HSI`） |
+
+个股 `daily` 在标准化时按请求的 `start`/`end` 截断，不会把窗口外的日线写入快照。
 
 `daily` 官方说明：停牌期间不提供数据。只有 `suspend_d` 明确为全日停牌时，才会补 `OHLC=前收、volume=0、is_suspended=true`。上市日（含）到退市日（不含）与交易日历的交集里，若既无日线也不是全日停牌，导入会失败，不会静默缺行。上市前、退市后的缺口允许。
 

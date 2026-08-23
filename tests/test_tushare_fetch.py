@@ -82,6 +82,8 @@ def test_fake_tushare_builds_five_tables_and_imports(tmp_path: Path) -> None:
         assert (tmp_path / "parquet" / f"{name}.parquet").exists()
     daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
     assert set(daily["symbol"].to_list()) == set(STOCKS)
+    statuses = [params.get("list_status") for name, params in client.call_params if name == "stock_basic"]
+    assert statuses == ["L", "D", "P", "G"]
 
 
 def test_tushare_snapshot_reaches_score_backtest_and_api(
@@ -342,6 +344,51 @@ def test_pre_listing_gap_is_allowed(tmp_path: Path) -> None:
     listed = daily.filter((pl.col("symbol") == "000001.SZ") & (pl.col("date") >= listed_on))
     assert early.is_empty()
     assert not listed.is_empty()
+
+
+def test_daily_bars_are_clipped_to_requested_range(tmp_path: Path) -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+    start = date(2023, 10, 16)
+    end = date(2024, 1, 5)
+    assert calendar[0] < start
+    assert calendar[-1] > end
+    fetch_tushare_and_import(
+        start=start,
+        end=end,
+        config=_config(),
+        dest_dir=tmp_path / "parquet",
+        stocks=list(STOCKS),
+        client=FakeTushareClient(tables),
+    )
+    daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
+    assert daily["date"].min() >= start
+    assert daily["date"].max() <= end
+    cal = pl.read_parquet(tmp_path / "parquet" / "calendar.parquet")
+    assert cal["date"].min() >= start
+    assert cal["date"].max() <= end
+
+
+def test_delisted_stock_basic_is_fetched_by_list_status(tmp_path: Path) -> None:
+    delist_on = date(2024, 1, 22)
+    preview = weekdays(date(2023, 10, 2), 80)
+    calendar, tables = build_fake_tushare_api_tables(
+        delist_dates={"000001.SZ": delist_on},
+        skip_daily={("000001.SZ", day) for day in preview if day >= delist_on},
+    )
+    assert tables["stock_basic"].filter(pl.col("ts_code") == "000001.SZ")["list_status"].to_list() == ["D"]
+    client = FakeTushareClient(tables)
+    fetch_tushare_and_import(
+        start=calendar[0],
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "parquet",
+        stocks=list(STOCKS),
+        client=client,
+    )
+    statuses = [params.get("list_status") for name, params in client.call_params if name == "stock_basic"]
+    assert statuses == ["L", "D", "P", "G"]
+    instruments = pl.read_parquet(tmp_path / "parquet" / "instruments.parquet")
+    assert "000001.SZ" in instruments["symbol"].to_list()
 
 
 def test_listed_stock_with_no_daily_rows_is_rejected() -> None:

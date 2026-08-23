@@ -20,6 +20,9 @@ from app.providers.tushare_normalize import (
 )
 
 _CODE_BATCH = 80
+_STOCK_BASIC_FIELDS = "ts_code,name,industry,list_date,delist_date,market,exchange,list_status"
+# Official stock_basic list_status values. Default is L, so D/P/G must be queried separately.
+_STOCK_BASIC_STATUSES = ("L", "D", "P", "G")
 
 
 class TushareProvider(MarketDataProvider):
@@ -107,10 +110,7 @@ class TushareProvider(MarketDataProvider):
         client = self._client_or_live()
         start_s, end_s = ymd(start), ymd(end)
         trade_cal = client.query("trade_cal", exchange="SSE", start_date=start_s, end_date=end_s, is_open="1")
-        stock_basic = client.query(
-            "stock_basic",
-            fields="ts_code,name,industry,list_date,delist_date,market,exchange,list_status",
-        )
+        stock_basic = self._query_stock_basic(client)
         daily = self._query_codes(client, "daily", stocks, start_s, end_s)
         daily_basic = self._query_codes(
             client,
@@ -138,6 +138,15 @@ class TushareProvider(MarketDataProvider):
             index_daily=index_daily,
             index_global=index_global,
         )
+
+    def _query_stock_basic(self, client: TushareQueryClient) -> pl.DataFrame:
+        frames: list[pl.DataFrame] = []
+        for status in _STOCK_BASIC_STATUSES:
+            frames.append(client.query("stock_basic", list_status=status, fields=_STOCK_BASIC_FIELDS))
+        nonempty = [frame for frame in frames if not frame.is_empty()]
+        if not nonempty:
+            raise TushareFetchError("stock_basic returned no rows")
+        return pl.concat(nonempty, how="diagonal_relaxed")
 
     def _query_codes(
         self,
