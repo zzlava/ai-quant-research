@@ -21,6 +21,7 @@ def test_health_and_strategies() -> None:
     names = {item["name"] for item in listed.json()}
     assert "baseline_v1" in names
     assert "controlled_sample_anchor_intersection30_v1" in names
+    assert "all_a_share_latest_v1" in names
     assert "baseline_real_cn_v1.example" not in names
 
 

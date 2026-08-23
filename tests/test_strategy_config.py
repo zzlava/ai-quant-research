@@ -103,6 +103,15 @@ def test_real_config_has_separate_run_id_and_disabled_sector() -> None:
     assert scored.strategy_name == "baseline_v1"
 
 
+def test_latest_all_a_share_config_is_current_snapshot_only() -> None:
+    config = load_strategy_config("all_a_share_latest_v1", CONFIG_DIR)
+    assert config.research_scope == "latest_market_snapshot"
+    assert config.universe.mode == "manual_static"
+    assert config.universe.id == "all_a_share_latest_cn"
+    assert config.universe.expected_constituents is None
+    assert config.weights.sector_score == 0.0
+
+
 def test_attention_weight_is_opt_in_and_applies_a_penalty(tmp_path: Path) -> None:
     original = (CONFIG_DIR / "baseline_v1.yaml").read_text(encoding="utf-8")
     (tmp_path / "baseline_v1.yaml").write_text(

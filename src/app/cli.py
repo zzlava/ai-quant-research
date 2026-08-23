@@ -165,6 +165,58 @@ def fetch_tushare_cmd(
     typer.echo(f"data_snapshot_id={snapshot.snapshot_id}")
 
 
+@app.command("fetch-tushare-latest-all-a-share")
+def fetch_tushare_latest_all_a_share_cmd(
+    as_of: Annotated[str, typer.Option("--as-of", help="Requested YYYY-MM-DD; resolves to the latest open SSE day")],
+    strategy: Annotated[str, typer.Option("--strategy")] = "all_a_share_latest_v1",
+    source_version: Annotated[str | None, typer.Option("--source-version")] = None,
+    replace_existing: Annotated[
+        bool,
+        typer.Option("--replace-existing", help="Explicitly replace a non-empty target parquet directory"),
+    ] = False,
+) -> None:
+    """Build a current listed A-share research snapshot. It cannot create a historical backtest universe."""
+    from app.providers.tushare_client import LiveTushareClient, read_tushare_token
+    from app.providers.tushare_latest_market import fetch_latest_all_a_share_and_import
+
+    typer.echo(
+        "Latest-market research only. This command creates one current all-A-share ranking snapshot; "
+        "it does not trade or create a historical backtest universe."
+    )
+    try:
+        settings = get_settings()
+        config = load_strategy_config(strategy, settings.strategies_dir)
+        if config.research_scope != "latest_market_snapshot":
+            raise ValueError(
+                "fetch-tushare-latest-all-a-share requires research_scope=latest_market_snapshot"
+            )
+        token = read_tushare_token()
+        result = fetch_latest_all_a_share_and_import(
+            requested_as_of=date.fromisoformat(as_of),
+            config=config,
+            dest_dir=settings.parquet_dir,
+            source_version=source_version,
+            replace_existing=replace_existing,
+            client=LiveTushareClient(token),
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    snapshot = result.snapshot
+    typer.echo(f"source_name={snapshot.source_name}")
+    typer.echo(f"research_scope={config.research_scope}")
+    typer.echo(f"universe_id={config.universe.id}")
+    typer.echo(f"requested_as_of={result.requested_as_of}")
+    typer.echo(f"resolved_as_of={result.as_of}")
+    typer.echo(f"current_a_share_candidates={result.candidate_count}")
+    typer.echo(f"coverage={snapshot.coverage_start}..{snapshot.coverage_end}")
+    typer.echo(f"instruments={snapshot.row_counts.get('instruments', 0)}")
+    typer.echo(f"market_index={snapshot.market_index}")
+    typer.echo(f"global_symbol={snapshot.global_symbol}")
+    typer.echo(f"adjustment={snapshot.adjustment}")
+    typer.echo(f"data_snapshot_id={snapshot.snapshot_id}")
+
+
 @app.command("fetch-bigquant-public-membership")
 def fetch_bigquant_public_membership_cmd(
     start: Annotated[str, typer.Option("--start", help="YYYY-MM-DD")],

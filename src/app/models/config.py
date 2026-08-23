@@ -85,7 +85,7 @@ class StrategyConfig(StrictModel):
     name: str
     config_id: str | None = None
     version: str
-    research_scope: Literal["historical_index", "controlled_sample"] = "historical_index"
+    research_scope: Literal["historical_index", "controlled_sample", "latest_market_snapshot"] = "historical_index"
     weights: WeightsConfig
     universe: UniverseConfig
     market_gate: list[MarketGateBand]

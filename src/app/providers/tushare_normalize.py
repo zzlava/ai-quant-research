@@ -32,6 +32,9 @@ class TushareRaw:
     index_daily: pl.DataFrame
     index_global: pl.DataFrame
     stock_basic_status_errors: dict[str, str] = field(default_factory=dict)
+    # For a current-only market snapshot, historical name changes are deliberately
+    # not inferred.  This set applies only on the snapshot as-of date.
+    current_st_symbols: set[str] = field(default_factory=set)
 
 
 def ymd(value: date) -> str:
@@ -98,7 +101,15 @@ def normalize_tushare(
 
     calendar = _normalize_calendar(raw.trade_cal, start, end)
     cal_days = [day for day in calendar["date"].to_list() if isinstance(day, date)]
-    daily = _normalize_daily(raw, config.data.adjustment, stocks, cal_days, start, end)
+    daily = _normalize_daily(
+        raw,
+        config.data.adjustment,
+        stocks,
+        cal_days,
+        start,
+        end,
+        current_st_symbols=raw.current_st_symbols,
+    )
     index_bars = _normalize_index(raw.index_daily, start, end)
     global_bars = _normalize_global(raw.index_global, config, start, end)
     instruments = _normalize_instruments(
@@ -144,6 +155,8 @@ def _normalize_daily(
     calendar: list[date],
     start: date,
     end: date,
+    *,
+    current_st_symbols: set[str] | None = None,
 ) -> pl.DataFrame:
     if raw.stk_limit is None or raw.suspend_d is None or raw.namechange is None:
         raise DataQualityError("required Tushare reference tables are missing")
@@ -156,6 +169,7 @@ def _normalize_daily(
     namechange = raw.namechange
     rows: list[dict[str, object]] = []
     by_symbol: dict[str, list[dict[str, object]]] = {}
+    seen_source_rows: set[tuple[str, date]] = set()
     for item in daily.to_dicts():
         symbol = str(item["ts_code"]).strip()
         if symbol not in stocks:
@@ -163,6 +177,10 @@ def _normalize_daily(
         dt = parse_ymd(item["trade_date"])
         if dt < start or dt > end:
             continue
+        key = (symbol, dt)
+        if key in seen_source_rows:
+            raise DataQualityError(f"daily has duplicate (ts_code, trade_date) row for {symbol} on {dt}")
+        seen_source_rows.add(key)
         row = {
             "symbol": symbol,
             "date": dt,
@@ -182,6 +200,7 @@ def _normalize_daily(
     latest_factor = {symbol: max(vals.items())[1] for symbol, vals in factors.items() if vals}
     st_periods = _st_periods(namechange)
     suspend_days = _full_day_suspends(suspend_d, stocks)
+    current_st = current_st_symbols or set()
 
     for symbol, items in by_symbol.items():
         listed_from, delist_on = listing_bounds[symbol]
@@ -191,6 +210,15 @@ def _normalize_daily(
             if isinstance(row["date"], date) and _in_listing_window(row["date"], listed_from, delist_on)
         ]
         items.sort(key=lambda r: r["date"])  # type: ignore[arg-type, return-value]
+        for row in items:
+            raw_dt = row["date"]
+            if not isinstance(raw_dt, date):
+                raise DataQualityError("daily bar date is invalid")
+            if (symbol, raw_dt) not in turnover:
+                raise DataQualityError(
+                    f"daily_basic missing turnover_rate for {symbol} on {raw_dt}; "
+                    "refusing to treat missing data as zero"
+                )
         last_close = None
         present = {r["date"] for r in items}
         for day in calendar:
@@ -261,7 +289,7 @@ def _normalize_daily(
                     "volume": _as_float(row["volume"]),
                     "amount": _as_float(row["amount"]),
                     "turnover_rate": turnover.get(key, 0.0),
-                    "is_st": _is_st_on(symbol, dt, st_periods),
+                    "is_st": _is_st_on(symbol, dt, st_periods) or (dt == end and symbol in current_st),
                     "is_suspended": key in suspend_days or bool(row.get("_synthesized_suspend")),
                     "price_limit_pct": limit_pct,
                 }
@@ -490,8 +518,9 @@ def _thousand_yuan_to_yuan(value: object) -> float:
 
 def _turnover_map(frame: pl.DataFrame) -> dict[tuple[str, date], float]:
     out: dict[tuple[str, date], float] = {}
-    if frame.is_empty() or "ts_code" not in frame.columns:
+    if frame.is_empty():
         return out
+    _require_cols(frame, ("ts_code", "trade_date", "turnover_rate"), "daily_basic")
     for item in frame.to_dicts():
         rate = _optional_number(item.get("turnover_rate"))
         if rate is None:
@@ -570,14 +599,18 @@ def _st_periods(frame: pl.DataFrame) -> dict[str, list[tuple[date, date | None]]
         return out
     _require_cols(frame, ("ts_code", "name", "start_date"), "namechange")
     for item in frame.to_dicts():
-        name = str(item.get("name") or "")
-        if not ST_NAME.search(name):
+        if not is_st_name(item.get("name")):
             continue
         start = parse_ymd(item["start_date"])
         end_raw = item.get("end_date")
         end = parse_ymd(end_raw) if end_raw not in (None, "", "None") else None
         out.setdefault(str(item["ts_code"]).strip(), []).append((start, end))
     return out
+
+
+def is_st_name(value: object) -> bool:
+    """Identify an explicit ST marker in a currently supplied security name."""
+    return bool(ST_NAME.search(str(value or "")))
 
 
 def _is_st_on(symbol: str, dt: date, periods: dict[str, list[tuple[date, date | None]]]) -> bool:

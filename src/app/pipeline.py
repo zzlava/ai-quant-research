@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 
 from app.backtest.engine import BacktestEngine
+from app.errors import PreflightError
 from app.models.backtest import BacktestResult
 from app.models.scores import ScoreResult
 from app.preflight import preflight_research
@@ -46,6 +47,10 @@ def run_backtest(
 ) -> BacktestResult:
     settings = settings or get_settings()
     config = load_strategy_config(strategy_name, settings.strategies_dir)
+    if config.research_scope == "latest_market_snapshot":
+        raise PreflightError(
+            "latest_market_snapshot is limited to a single current as-of ranking; historical backtests are disabled"
+        )
     market = store or load_store(settings)
     preflight_research(store=market, config=config, start=start, end=end)
     engine = BacktestEngine(market, config)

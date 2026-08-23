@@ -14,6 +14,7 @@ from app.universe.membership import membership_lookup_options
 MANUAL_STATIC_MODE_LABEL = "受控样本，非全市场/指数研究"
 CONTROLLED_SAMPLE_MODE_LABEL = "受控历史成员样本，非完整指数研究"
 HISTORICAL_MODE_LABEL = "历史指数研究（数据通过点时校验）"
+LATEST_MARKET_SNAPSHOT_MODE_LABEL = "当日沪深全市场快照研究，仅可做当日排行，禁止历史回测"
 SECTOR_DISABLED_LABEL = "行业因子未启用"
 
 
@@ -33,6 +34,8 @@ class PreflightResult:
 
 
 def research_mode_label(mode: str, research_scope: str) -> str:
+    if research_scope == "latest_market_snapshot":
+        return LATEST_MARKET_SNAPSHOT_MODE_LABEL
     if research_scope == "controlled_sample":
         return CONTROLLED_SAMPLE_MODE_LABEL
     if mode == "historical_membership":
@@ -186,6 +189,10 @@ def preflight_research(
     start: date,
     end: date,
 ) -> PreflightResult:
+    if config.research_scope == "latest_market_snapshot" and start != end:
+        raise PreflightError(
+            "latest_market_snapshot supports one as-of date only; historical windows and backtests are disabled"
+        )
     coverage_start, coverage_end = _require_coverage(store, start, end)
     calendar = store.get_calendar(coverage_start, coverage_end)
     if not calendar:

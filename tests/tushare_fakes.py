@@ -32,6 +32,22 @@ class FakeTushareClient:
         if "ts_code" in params and "ts_code" in frame.columns:
             wanted = {code.strip() for code in str(params["ts_code"]).split(",") if code.strip()}
             frame = frame.filter(pl.col("ts_code").is_in(list(wanted)))
+        date_column = (
+            "trade_date"
+            if "trade_date" in frame.columns
+            else "cal_date"
+            if "cal_date" in frame.columns
+            else None
+        )
+        if date_column is not None:
+            column = pl.col(date_column).cast(pl.Utf8)
+            if "trade_date" in params:
+                frame = frame.filter(column == str(params["trade_date"]))
+            else:
+                if "start_date" in params:
+                    frame = frame.filter(column >= str(params["start_date"]))
+                if "end_date" in params:
+                    frame = frame.filter(column <= str(params["end_date"]))
         return frame
 
 
