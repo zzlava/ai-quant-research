@@ -37,7 +37,7 @@ python -m app.cli fetch-tushare \
 
 `--symbols-file` 只对应 `universe.mode: manual_static`，导入时会为这些代码生成标记为该模式的每日成员表，**不代表全市场或指数历史成分**。
 
-`--universe-membership-file` 只对应 `historical_membership`。系统从文件提取历史并集代码去拉行情，但每日候选仍按文件里的 `as_of_date` + `available_at` 过滤，不会把并集当作每天的股票池。当前阶段不从 Tushare `index_weight` 联网拉取成分。
+`--universe-membership-file` 只对应 `historical_membership`。系统从文件提取历史并集代码去拉行情，但每日候选仍按文件里的 `as_of_date` + `available_at` 过滤，不会把并集当作每天的股票池。当前阶段不从 Tushare `index_weight` 联网拉取成分。来源清单由用户/可信来源提供；`verify-universe-source` 只验证，不下载、不生成、不把下载时间当 `available_at`。
 
 `--index-universe` 已禁用，传入会报未知选项。按结束日成分铺回历史会造成幸存者偏差。
 

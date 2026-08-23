@@ -207,6 +207,39 @@ def build_universe_membership_cmd(
     typer.echo("仅生成离线研究成员文件，不交易")
 
 
+@app.command("verify-universe-source")
+def verify_universe_source_cmd(
+    snapshots_file: Annotated[Path, typer.Option("--snapshots-file", exists=True, dir_okay=False)],
+    provenance_file: Annotated[Path, typer.Option("--provenance-file", exists=True, dir_okay=False)],
+    strategy: Annotated[str, typer.Option("--strategy")],
+) -> None:
+    """Verify an offline membership-source manifest against snapshot bytes. Research only."""
+    from app.universe.provenance import verify_universe_source
+
+    typer.echo("Offline research only. This command only verifies a user-supplied source manifest.")
+    try:
+        settings = get_settings()
+        config = load_strategy_config(strategy, settings.strategies_dir)
+        result = verify_universe_source(
+            snapshots_file=snapshots_file,
+            provenance_file=provenance_file,
+            config=config,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"universe_id={result.universe_id}")
+    typer.echo(f"source_name={result.source_name}")
+    typer.echo(f"snapshots_file_sha256={result.snapshots_file_sha256}")
+    typer.echo(
+        f"effective_from_coverage={result.effective_from_start.isoformat()}.."
+        f"{result.effective_from_end.isoformat()}"
+    )
+    typer.echo(f"snapshot_count={result.snapshot_count}")
+    typer.echo(f"expected_constituents={result.expected_constituents}")
+    typer.echo("来源清单由用户/可信来源提供，本命令只验证，不下载/不生成/不把下载时间当 available_at")
+
+
 @app.command("list-strategies")
 def list_strategies() -> None:
     typer.echo("\n".join(StrategyRegistry.names()))

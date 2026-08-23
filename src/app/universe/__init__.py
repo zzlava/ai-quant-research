@@ -5,6 +5,7 @@ from app.universe.membership import (
     read_universe_membership_file,
     resolve_fetch_universe,
 )
+from app.universe.provenance import verify_universe_source
 
 __all__ = [
     "UniverseFilter",
@@ -12,4 +13,5 @@ __all__ = [
     "build_universe_membership",
     "read_universe_membership_file",
     "resolve_fetch_universe",
+    "verify_universe_source",
 ]

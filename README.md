@@ -108,6 +108,15 @@ python -m app.cli build-universe-membership \
 
 该命令不联网、不读 Token。原始快照 CSV 与每日成员 CSV 格式不同；工具只把已经生效且已知的完整截面前向延续到下一份可用快照。`baseline_csi300_pit_v1` 需要完整的 300 成分历史快照才谈得上指数研究；小样本文件只能验证管道。
 
+来源清单由用户/可信来源提供。`verify-universe-source` 只核对清单与原始快照文件的精确字节，不下载、不生成成分，也不把 `file_obtained_at` 或下载时间当成行内 `available_at`。JSON 字段模板见 `docs/market-data-contract.md`：
+
+```bash
+python -m app.cli verify-universe-source \
+  --snapshots-file ./csi300_snapshots.csv \
+  --provenance-file ./membership_source_manifest.json \
+  --strategy baseline_csi300_pit_v1
+```
+
 该命令只做历史研究数据导入，不执行交易。`--symbols-file` 对应 `universe.mode: manual_static`；`--universe-membership-file` 对应 `historical_membership`，两者互斥。`--index-universe` 已禁用，避免把结束日成分股铺回历史。API 连通、单股票导入成功或手工股票池回测，都不代表全市场策略有效。
 
 把 `data:` 里的代码保持与导入数据完全一致，再：

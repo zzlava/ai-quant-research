@@ -131,6 +131,32 @@ ST0002.SZ,2024-01-02,5.00,5.10,4.90,5.02,3000000,15060000,0.02,true,false,0.05
 
 原始成分快照 CSV（`universe_id,effective_from,symbol,available_at,weight`）与每日成员 CSV 是两种格式。前者是可信来源的完整截面序列；`build-universe-membership` 只做保守前向物化，不会联网、不会下载指数成分，也不会把“当前成员”写成历史成员。输出必须截断到请求窗口内的交易日历日。`baseline_csi300_pit_v1` 只有在输入完整的 300 成分历史快照时才能用于指数历史研究；两成员或小样本文件只可用于管道验证，不能描述成 CSI300 回测。
 
+来源清单由用户/可信来源提供。`verify-universe-source` 只验证 provenance JSON 与原始快照文件的精确字节 SHA-256、`universe_id`、覆盖区间和完整截面人数；不下载、不生成成员，也不把 `file_obtained_at` 或下载时间写回/推导为 `available_at`。行内 `available_at` 仍只来自 CSV，并走既有严格 UTC 解析。
+
+用户提交的 `membership_source_manifest.json` 必须是下面这个对象（禁止未知字段）。`source_url`、`announcement_id`、`source_note` 至少填写一项，可只留一项并删掉其余两项：
+
+```json
+{
+  "schema_version": "1",
+  "universe_id": "csi300",
+  "source_name": "your-source-name",
+  "snapshots_file_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "file_obtained_at": "2026-08-23T04:00:00Z",
+  "effective_from_coverage": {
+    "start": "2024-01-02",
+    "end": "2024-12-31"
+  },
+  "available_at_definition": "How each row's available_at was determined (not the download time).",
+  "available_at_evidence": "Where that timestamp can be audited (document, announcement, or notes).",
+  "expected_constituents": 300,
+  "source_url": "https://example.invalid/source",
+  "announcement_id": "optional-announcement-id",
+  "source_note": "optional source note"
+}
+```
+
+`snapshots_file_sha256` 必须换成原始快照文件的精确 bytes SHA-256。`file_obtained_at` 必须是带 `T` 的 UTC 时间戳（可 `Z` / `+00:00`），仅为审计，不能写成裸日期，也不能替代任何行的 `available_at`。`effective_from_coverage.start` / `end` 必须等于该文件全部截面 `effective_from` 的最小/最大日期。
+
 ## 快照
 
 导入成功后 `data/parquet/manifest.json` 至少包含：
