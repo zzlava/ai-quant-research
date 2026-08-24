@@ -26,6 +26,11 @@ def read_tushare_token() -> str:
 class LiveTushareClient:
     """Lazy official tushare.pro_api wrapper. Network happens only on query()."""
 
+    # Tushare's single-code endpoints can be rate limited independently.  The
+    # provider uses this marker so test doubles remain fast while real fetches
+    # remain below the service ceiling.
+    requires_single_code_rate_limit = True
+
     def __init__(self, token: str) -> None:
         if not token.strip():
             raise MissingTushareTokenError("Tushare token is not configured")

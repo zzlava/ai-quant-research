@@ -17,6 +17,7 @@ from app.pipeline import run_backtest, run_score
 from app.providers.tushare_client import TOKEN_ENV, read_tushare_token
 from app.providers.tushare_fetch import fetch_tushare_and_import, read_symbols_file
 from app.providers.tushare_normalize import require_ts_code, split_session_symbols
+from app.providers.tushare_provider import TushareProvider
 from app.storage.snapshot_io import load_verified_snapshot
 from app.strategies.loader import load_strategy_config
 from tests.helpers import PROJECT_ROOT, weekdays
@@ -121,6 +122,32 @@ def test_fake_tushare_builds_five_tables_and_imports(tmp_path: Path) -> None:
     )
     if len(expected_globals) >= 2:
         assert set(global_codes) == set(expected_globals)
+
+
+def test_live_style_single_code_queries_are_conservatively_paced() -> None:
+    _, tables = build_fake_tushare_api_tables()
+    client = FakeTushareClient(tables)
+    current_time = 100.0
+    slept: list[float] = []
+
+    def clock() -> float:
+        return current_time
+
+    def fake_sleep(seconds: float) -> None:
+        nonlocal current_time
+        slept.append(seconds)
+        current_time += seconds
+
+    provider = TushareProvider(
+        client=client,
+        pace_single_code_requests=True,
+        monotonic_clock=clock,
+        sleeper=fake_sleep,
+    )
+    provider._query_codes(client, "daily", list(STOCKS), "20240102", "20240131")
+
+    assert slept == pytest.approx([0.31])
+    assert len([name for name in client.calls if name == "daily"]) == len(STOCKS)
 
 
 def test_tushare_snapshot_reaches_score_backtest_and_api(

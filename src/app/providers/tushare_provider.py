@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
+from time import monotonic, sleep
 from typing import Any
 
 import polars as pl
@@ -32,6 +34,11 @@ _CODE_BATCH = 80
 _SINGLE_CODE_APIS = frozenset(
     {"adj_factor", "daily", "daily_basic", "index_daily", "index_global", "stk_limit", "suspend_d"}
 )
+# A live Tushare query has a 300-requests/minute ceiling for endpoints such
+# as `daily`.  Keep a material margin below it instead of making a large
+# universe request fail after several minutes of work.  This is per endpoint:
+# `daily`, `daily_basic`, and so on have independent request streams.
+_SINGLE_CODE_REQUEST_MIN_INTERVAL_SECONDS = 0.31
 _STOCK_BASIC_FIELDS = "ts_code,name,industry,list_date,delist_date,market,exchange,list_status"
 # Official stock_basic list_status values. Default is L, so D/P/G must be queried separately.
 _STOCK_BASIC_STATUSES = ("L", "D", "P", "G")
@@ -44,9 +51,23 @@ class TushareProvider(MarketDataProvider):
     module does not open sockets or read the token.
     """
 
-    def __init__(self, client: TushareQueryClient | None = None) -> None:
+    def __init__(
+        self,
+        client: TushareQueryClient | None = None,
+        *,
+        pace_single_code_requests: bool | None = None,
+        monotonic_clock: Callable[[], float] = monotonic,
+        sleeper: Callable[[float], None] = sleep,
+    ) -> None:
         self._client = client
         self._tables: dict[str, pl.DataFrame] | None = None
+        # `None` means "pace the official live client, but do not make
+        # offline fakes sleep".  Explicit injection keeps the pacing rule
+        # deterministic and unit-testable.
+        self._pace_single_code_requests = pace_single_code_requests
+        self._monotonic_clock = monotonic_clock
+        self._sleeper = sleeper
+        self._next_single_code_request_at: dict[str, float] = {}
 
     def __repr__(self) -> str:
         return "TushareProvider(client=<redacted>)"
@@ -227,8 +248,26 @@ class TushareProvider(MarketDataProvider):
                 params["end_date"] = end_s
             if extra:
                 params.update(extra)
+            if batch == 1:
+                self._pace_single_code_request(client, api_name)
             frames.append(client.query(api_name, **params))
         nonempty = [frame for frame in frames if not frame.is_empty()]
         if not nonempty:
             return frames[0] if frames else pl.DataFrame()
         return pl.concat(nonempty, how="diagonal_relaxed")
+
+    def _pace_single_code_request(self, client: TushareQueryClient, api_name: str) -> None:
+        if self._pace_single_code_requests is None:
+            enabled = bool(getattr(client, "requires_single_code_rate_limit", False))
+        else:
+            enabled = self._pace_single_code_requests
+        if not enabled:
+            return
+        next_request_at = self._next_single_code_request_at.get(api_name)
+        if next_request_at is not None:
+            delay = next_request_at - self._monotonic_clock()
+            if delay > 0:
+                self._sleeper(delay)
+        self._next_single_code_request_at[api_name] = (
+            self._monotonic_clock() + _SINGLE_CODE_REQUEST_MIN_INTERVAL_SECONDS
+        )
