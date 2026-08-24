@@ -72,3 +72,6 @@ class BacktestResult(BaseModel):
     open_positions_at_end: int = 0
     data_snapshot: DataSnapshot | None = None
     data_snapshot_id: str = ""
+    research_scope: str = "historical_index"
+    research_notice: str | None = None
+    reconstruction_data_id: str | None = None

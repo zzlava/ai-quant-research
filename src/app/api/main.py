@@ -14,6 +14,7 @@ from app.models.scores import ScoreResult
 from app.persistence.db import init_db
 from app.persistence.models import BacktestRun
 from app.pipeline import run_backtest, run_score
+from app.research_scope import research_notice
 from app.settings import get_settings
 from app.strategies.loader import load_strategy_config
 from app.strategies.registry import StrategyRegistry
@@ -31,6 +32,8 @@ class StrategyInfo(BaseModel):
     name: str
     version: str | None = None
     config_hash: str | None = None
+    research_scope: str = "historical_index"
+    research_notice: str | None = None
 
 
 class RankingResponse(BaseModel):
@@ -73,7 +76,13 @@ def strategies() -> list[StrategyInfo]:
             if not StrategyRegistry.contains(config.name):
                 continue
             out.append(
-                StrategyInfo(name=config_id, version=config.version, config_hash=config.config_hash())
+                StrategyInfo(
+                    name=config_id,
+                    version=config.version,
+                    config_hash=config.config_hash(),
+                    research_scope=config.research_scope,
+                    research_notice=research_notice(config.research_scope),
+                )
             )
         except FileNotFoundError:
             continue

@@ -231,6 +231,11 @@ def resolve_fetch_universe(
         if not stocks:
             raise TushareFetchError("universe membership file has no symbols")
         return stocks, frame
+    if mode == "public_reconstruction":
+        raise TushareFetchError(
+            "public_reconstruction must use a separately collected base price snapshot; "
+            "do not pass it to fetch-tushare as a PIT membership file"
+        )
     if membership_file is not None:
         raise TushareFetchError("manual_static requires --symbols-file, not --universe-membership-file")
     if symbols_file is None:

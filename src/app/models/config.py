@@ -26,7 +26,7 @@ class UniverseConfig(StrictModel):
     exclude_suspended: bool = True
     min_listing_days: int = Field(default=120, gt=0)
     min_avg_turnover_20d: float = Field(default=100_000_000, ge=0)
-    mode: Literal["manual_static", "historical_membership"] = "manual_static"
+    mode: Literal["manual_static", "historical_membership", "public_reconstruction"] = "manual_static"
     id: str = Field(default="demo", min_length=1)
     expected_constituents: int | None = Field(default=None, gt=0)
 
@@ -85,7 +85,12 @@ class StrategyConfig(StrictModel):
     name: str
     config_id: str | None = None
     version: str
-    research_scope: Literal["historical_index", "controlled_sample", "latest_market_snapshot"] = "historical_index"
+    research_scope: Literal[
+        "historical_index",
+        "controlled_sample",
+        "latest_market_snapshot",
+        "public_reconstruction",
+    ] = "historical_index"
     weights: WeightsConfig
     universe: UniverseConfig
     market_gate: list[MarketGateBand]
@@ -111,6 +116,10 @@ class StrategyConfig(StrictModel):
             raise ValueError(f"data.sessions missing market_index '{self.data.market_index}'")
         if self.data.global_symbol not in self.data.sessions:
             raise ValueError(f"data.sessions missing global_symbol '{self.data.global_symbol}'")
+        if self.research_scope == "public_reconstruction" and self.universe.mode != "public_reconstruction":
+            raise ValueError("public_reconstruction scope requires universe.mode=public_reconstruction")
+        if self.research_scope != "public_reconstruction" and self.universe.mode == "public_reconstruction":
+            raise ValueError("universe.mode=public_reconstruction requires public_reconstruction scope")
         return self
 
     def run_id(self) -> str:

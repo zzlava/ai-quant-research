@@ -68,6 +68,10 @@ def score(
     as_of = date.fromisoformat(date_)
     results = run_score(as_of, strategy)
     snapshot_id = results[0].data_snapshot_id if results else ""
+    if results and results[0].research_notice:
+        typer.echo(f"research_scope={results[0].research_scope}")
+        typer.echo(f"研究限制：{results[0].research_notice}")
+        typer.echo(f"public_reconstruction_id={results[0].reconstruction_data_id}")
     typer.echo(
         f"strategy={strategy} config_id={results[0].config_id if results else '-'} "
         f"date={as_of} names={len(results)} "
@@ -98,6 +102,10 @@ def backtest(
     typer.echo(f"strategy={result.strategy_name} version={result.strategy_version}")
     typer.echo(f"config_hash={result.strategy_config_hash}")
     typer.echo(f"data_snapshot_id={result.data_snapshot_id}")
+    typer.echo(f"research_scope={result.research_scope}")
+    if result.research_notice:
+        typer.echo(f"研究限制：{result.research_notice}")
+        typer.echo(f"public_reconstruction_id={result.reconstruction_data_id}")
     typer.echo(
         f"window signal_end={result.window.signal_end} "
         f"entry_end={result.window.entry_end} valuation_end={result.window.valuation_end}"
@@ -255,6 +263,27 @@ def fetch_bigquant_public_membership_cmd(
         typer.echo(f"candidate_membership={result.candidate_membership_path}")
 
 
+@app.command("export-bigquant-public-symbols")
+def export_bigquant_public_symbols_cmd(
+    collection_dir: Annotated[Path, typer.Option("--collection-dir", exists=True, file_okay=False)],
+    output: Annotated[Path, typer.Option("--output", dir_okay=False)],
+) -> None:
+    """Export unique member codes only for downloading an isolated base price snapshot."""
+    from app.universe.public_replay import export_public_reconstruction_symbols, load_public_reconstruction_pack
+
+    typer.echo("Public reconstruction only. This writes a download symbol list, not a PIT membership file.")
+    try:
+        pack = load_public_reconstruction_pack(collection_dir, expected_constituents=300)
+        path = export_public_reconstruction_symbols(pack, output)
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"collection_id={pack.collection_id}")
+    typer.echo(f"source_date_coverage={pack.coverage_start.isoformat()}..{pack.coverage_end.isoformat()}")
+    typer.echo(f"unique_symbols={len(set(pack.memberships['symbol'].to_list()))}")
+    typer.echo(f"output={path}")
+
+
 @app.command("build-universe-membership")
 def build_universe_membership_cmd(
     snapshots_file: Annotated[Path, typer.Option("--snapshots-file", exists=True, dir_okay=False)],
@@ -341,7 +370,7 @@ def preflight_research_cmd(
     end: Annotated[str, typer.Option("--end", help="YYYY-MM-DD")],
 ) -> None:
     """Read-only research window check. Does not trade or prove strategy returns."""
-    from app.pipeline import load_store
+    from app.pipeline import load_research_store
     from app.preflight import preflight_research
 
     typer.echo("Offline research only. This command is read-only preflight and does not trade.")
@@ -351,7 +380,7 @@ def preflight_research_cmd(
         settings = get_settings()
         config = load_strategy_config(strategy, settings.strategies_dir)
         result = preflight_research(
-            store=load_store(settings),
+            store=load_research_store(settings, strategy),
             config=config,
             start=start_day,
             end=end_day,
@@ -362,6 +391,8 @@ def preflight_research_cmd(
     typer.echo(f"universe_id={result.universe_id}")
     typer.echo(f"universe_mode={result.universe_mode}")
     typer.echo(f"research_mode={result.research_mode}")
+    if result.research_notice:
+        typer.echo(f"研究限制：{result.research_notice}")
     if result.sector_status:
         typer.echo(f"sector_score={result.sector_status}")
     typer.echo(f"signal_ready_start={result.signal_ready_start.isoformat()}")

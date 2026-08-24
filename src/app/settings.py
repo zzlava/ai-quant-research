@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     config_dir: Path = Path("config")
     database_url: str = "sqlite:///data/app.db"
+    public_reconstruction_dir: Path | None = None
 
     @property
     def parquet_dir(self) -> Path:

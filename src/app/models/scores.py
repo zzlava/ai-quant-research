@@ -30,6 +30,9 @@ class ScoreResult(BaseModel):
     sector: str | None = None
     feature: StockFeatureVector | None = None
     data_snapshot_id: str = ""
+    research_scope: str = "historical_index"
+    research_notice: str | None = None
+    reconstruction_data_id: str | None = None
 
 
 class StrategyContext(BaseModel):

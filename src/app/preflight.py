@@ -8,6 +8,7 @@ from app.clock import decision_at_utc
 from app.errors import DataQualityError, PreflightError
 from app.features.engine import required_history_bars
 from app.models.config import StrategyConfig
+from app.research_scope import PUBLIC_RECONSTRUCTION_SCOPE, research_notice
 from app.storage.protocol import MarketStore
 from app.universe.membership import membership_lookup_options
 
@@ -15,6 +16,7 @@ MANUAL_STATIC_MODE_LABEL = "受控样本，非全市场/指数研究"
 CONTROLLED_SAMPLE_MODE_LABEL = "受控历史成员样本，非完整指数研究"
 HISTORICAL_MODE_LABEL = "历史指数研究（数据通过点时校验）"
 LATEST_MARKET_SNAPSHOT_MODE_LABEL = "当日沪深全市场快照研究，仅可做当日排行，禁止历史回测"
+PUBLIC_RECONSTRUCTION_MODE_LABEL = "公开重建 CSI300 说明性模拟，非严格 PIT，不能与正式回测比较"
 SECTOR_DISABLED_LABEL = "行业因子未启用"
 
 
@@ -31,6 +33,7 @@ class PreflightResult:
     min_history_bars: int
     required_history_bars: int
     trading_days: int
+    research_notice: str | None = None
 
 
 def research_mode_label(mode: str, research_scope: str) -> str:
@@ -38,6 +41,8 @@ def research_mode_label(mode: str, research_scope: str) -> str:
         return LATEST_MARKET_SNAPSHOT_MODE_LABEL
     if research_scope == "controlled_sample":
         return CONTROLLED_SAMPLE_MODE_LABEL
+    if research_scope == PUBLIC_RECONSTRUCTION_SCOPE:
+        return PUBLIC_RECONSTRUCTION_MODE_LABEL
     if mode == "historical_membership":
         return HISTORICAL_MODE_LABEL
     return MANUAL_STATIC_MODE_LABEL
@@ -189,6 +194,11 @@ def preflight_research(
     start: date,
     end: date,
 ) -> PreflightResult:
+    if config.research_scope == PUBLIC_RECONSTRUCTION_SCOPE and not hasattr(store, "public_reconstruction_id"):
+        raise PreflightError(
+            "public_reconstruction requires a verified public reconstruction overlay; "
+            "set AIQ_PUBLIC_RECONSTRUCTION_DIR and use the public reconstruction strategy"
+        )
     if config.research_scope == "latest_market_snapshot" and start != end:
         raise PreflightError(
             "latest_market_snapshot supports one as-of date only; historical windows and backtests are disabled"
@@ -274,4 +284,5 @@ def preflight_research(
         min_history_bars=bench_needed,
         required_history_bars=stock_needed,
         trading_days=len(window),
+        research_notice=research_notice(config.research_scope),
     )

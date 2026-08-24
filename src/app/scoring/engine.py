@@ -10,6 +10,7 @@ from app.features.engine import FeatureEngine
 from app.models.config import StrategyConfig
 from app.models.scores import ScoreResult, StrategyContext
 from app.ranking.ranker import rank_scores
+from app.research_scope import PUBLIC_RECONSTRUCTION_SCOPE, research_notice
 from app.storage.protocol import MarketStore
 from app.strategies.base import BaseStrategy
 from app.strategies.registry import StrategyRegistry
@@ -26,6 +27,10 @@ class ScoringEngine:
         self.universe = UniverseFilter(config.universe)
 
     def run(self, as_of: date) -> list[ScoreResult]:
+        if self.config.research_scope == PUBLIC_RECONSTRUCTION_SCOPE and not hasattr(
+            self.store, "public_reconstruction_id"
+        ):
+            raise ValueError("public_reconstruction requires a verified public reconstruction overlay")
         raw = self.features.compute_all(as_of)
         lookup = membership_lookup_options(self.config.universe)
         members = self.store.get_universe_members(
@@ -48,7 +53,17 @@ class ScoringEngine:
             global_score=global_score,
             data_snapshot_id=snapshot_id,
         )
-        results = [self.strategy.score(feat, context) for feat in filtered]
+        reconstruction_id = getattr(self.store, "public_reconstruction_id", None)
+        results = [
+            self.strategy.score(feat, context).model_copy(
+                update={
+                    "research_scope": self.config.research_scope,
+                    "research_notice": research_notice(self.config.research_scope),
+                    "reconstruction_data_id": reconstruction_id,
+                }
+            )
+            for feat in filtered
+        ]
         return rank_scores(results)
 
     def persist(self, results: list[ScoreResult], dest: Path) -> None:
@@ -73,6 +88,9 @@ class ScoringEngine:
                 "attention_risk": r.breakdown.attention_risk,
                 "sector": r.sector,
                 "data_snapshot_id": r.data_snapshot_id,
+                "research_scope": r.research_scope,
+                "research_notice": r.research_notice,
+                "reconstruction_data_id": r.reconstruction_data_id,
             }
             for r in results
         ]

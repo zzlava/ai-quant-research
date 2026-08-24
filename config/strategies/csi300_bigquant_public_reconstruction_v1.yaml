@@ -1,0 +1,66 @@
+# Public reconstruction only: never a licensed or point-in-time CSI300 universe.
+# A verified collection directory must be supplied via AIQ_PUBLIC_RECONSTRUCTION_DIR.
+name: baseline_v1
+config_id: csi300_bigquant_public_reconstruction_v1
+version: "1.0.0"
+research_scope: public_reconstruction
+
+weights:
+  market_score: 0.25
+  global_score: 0.15
+  # Current industry classification is not historical; do not use it in this replay.
+  sector_score: 0.0
+  alpha_score: 0.40
+  crowding_risk: 0.10
+  execution_risk: 0.10
+
+universe:
+  mode: public_reconstruction
+  id: csi300_bigquant_public_reconstruction
+  expected_constituents: 300
+  exclude_st: true
+  exclude_suspended: true
+  min_listing_days: 120
+  min_avg_turnover_20d: 100000000
+
+market_gate:
+  - { min: 0.0, max: 40.0, max_new_positions: 0 }
+  - { min: 40.0, max: 55.0, max_new_positions: 1 }
+  - { min: 55.0, max: 70.0, max_new_positions: 2 }
+  - { min: 70.0, max: 100.1, max_new_positions: 3 }
+
+trade:
+  take_profit: 0.03
+  stop_loss: -0.025
+  max_holding_days: 10
+  limit_pct: 0.10
+  st_limit_pct: 0.05
+  model_limit_moves: true
+
+portfolio:
+  initial_cash: 80000
+  max_positions: 3
+  weighting: equal_weight
+
+costs:
+  commission_rate: 0.00025
+  min_commission: 5.0
+  stamp_tax_rate: 0.0005
+  slippage_bps: 5.0
+
+data:
+  market_index: 000300.SH
+  global_symbol: SPX
+  adjustment: forward
+  decision_timezone: Asia/Shanghai
+  decision_time: "15:00"
+  min_history_bars: 21
+  sessions:
+    000300.SH:
+      market: CN
+      timezone: Asia/Shanghai
+      session_close: "15:00"
+    SPX:
+      market: US
+      timezone: America/New_York
+      session_close: "16:00"

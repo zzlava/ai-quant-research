@@ -13,6 +13,7 @@ from app.clock import decision_at_utc
 from app.models.backtest import BacktestResult, BacktestWindow, EquityPoint, ExitReason, TradeFill
 from app.models.config import StrategyConfig
 from app.models.scores import ScoreResult
+from app.research_scope import PUBLIC_RECONSTRUCTION_SCOPE, research_notice
 from app.scoring.engine import ScoringEngine
 from app.storage.protocol import MarketStore
 from app.universe.membership import membership_lookup_options
@@ -45,6 +46,8 @@ class BacktestEngine:
     ) -> None:
         self.store = store
         self.config = config
+        if config.research_scope == PUBLIC_RECONSTRUCTION_SCOPE and not hasattr(store, "public_reconstruction_id"):
+            raise ValueError("public_reconstruction requires a verified public reconstruction overlay")
         self.signal_fn = signal_fn or ScoringEngine(store, config).run
 
     def run(self, start: date, end: date) -> BacktestResult:
@@ -101,6 +104,9 @@ class BacktestEngine:
             open_positions_at_end=len(positions),
             data_snapshot=snap,
             data_snapshot_id=snap.snapshot_id,
+            research_scope=self.config.research_scope,
+            research_notice=research_notice(self.config.research_scope),
+            reconstruction_data_id=getattr(self.store, "public_reconstruction_id", None),
         )
 
     def _window(self, start: date, end: date) -> BacktestWindow:
