@@ -168,14 +168,21 @@ def _normalize_daily(
     suspend_d = raw.suspend_d
     namechange = raw.namechange
     rows: list[dict[str, object]] = []
-    by_symbol: dict[str, list[dict[str, object]]] = {}
+    by_symbol: dict[str, list[dict[str, object]]] = {symbol: [] for symbol in stocks}
+    preceding_close: dict[str, tuple[date, float]] = {}
     seen_source_rows: set[tuple[str, date]] = set()
     for item in daily.to_dicts():
         symbol = str(item["ts_code"]).strip()
-        if symbol not in stocks:
+        if symbol not in by_symbol:
             continue
         dt = parse_ymd(item["trade_date"])
-        if dt < start or dt > end:
+        if dt < start:
+            close = _finite_number(item.get("close"), "close")
+            previous = preceding_close.get(symbol)
+            if previous is None or dt > previous[0]:
+                preceding_close[symbol] = (dt, close)
+            continue
+        if dt > end:
             continue
         key = (symbol, dt)
         if key in seen_source_rows:
@@ -233,14 +240,18 @@ def _normalize_daily(
                 if prior:
                     last_close = _as_float(prior[-1]["close"])
                 else:
-                    initial_pre_close = limits.get((symbol, day), (None, None, None))[0]
-                    if initial_pre_close is not None and initial_pre_close > 0:
-                        last_close = initial_pre_close
+                    buffered_close = preceding_close.get(symbol)
+                    if buffered_close is not None:
+                        last_close = buffered_close[1]
                     else:
-                        raise DataQualityError(
-                            f"cannot synthesize suspended bar for {symbol} on {day}: "
-                            "no previous close or official pre_close"
-                        )
+                        initial_pre_close = limits.get((symbol, day), (None, None, None))[0]
+                        if initial_pre_close is not None and initial_pre_close > 0:
+                            last_close = initial_pre_close
+                        else:
+                            raise DataQualityError(
+                                f"cannot synthesize suspended bar for {symbol} on {day}: "
+                                "no previous close or official pre_close"
+                            )
             items.append(
                 {
                     "symbol": symbol,

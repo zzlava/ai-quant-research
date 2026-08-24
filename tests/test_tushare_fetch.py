@@ -339,6 +339,24 @@ def test_explicit_suspend_synthesizes_untradeable_bar(tmp_path: Path) -> None:
     assert row["open"] == row["close"]
 
 
+def test_first_requested_suspend_uses_buffered_actual_prior_close(tmp_path: Path) -> None:
+    calendar, tables = build_fake_tushare_api_tables(suspend_days={("000001.SZ", date(2024, 1, 3))})
+    fetch_tushare_and_import(
+        start=date(2024, 1, 3),
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "parquet",
+        stocks=list(STOCKS),
+        client=FakeTushareClient(tables),
+    )
+
+    daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
+    first = daily.filter((pl.col("symbol") == "000001.SZ") & (pl.col("date") == date(2024, 1, 3))).to_dicts()[0]
+    assert first["is_suspended"] is True
+    assert first["close"] == 10.0
+    assert daily["date"].min() == date(2024, 1, 3)
+
+
 def test_symbol_suffix_is_not_inferred(tmp_path: Path) -> None:
     with pytest.raises(DataQualityError, match="suffixes are not inferred"):
         require_ts_code("000001", kind="stock")

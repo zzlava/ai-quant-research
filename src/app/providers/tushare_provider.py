@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import date
+from datetime import date, timedelta
 from time import monotonic, sleep
 from typing import Any
 
@@ -39,6 +39,12 @@ _SINGLE_CODE_APIS = frozenset(
 # universe request fail after several minutes of work.  This is per endpoint:
 # `daily`, `daily_basic`, and so on have independent request streams.
 _SINGLE_CODE_REQUEST_MIN_INTERVAL_SECONDS = 0.31
+# Retain enough source history to seed a first-in-window full-day suspension
+# from an actual preceding close (and its adjustment factor).  These buffered
+# source rows never enter the normalized snapshot, whose coverage remains
+# exactly the caller's requested [start, end] range.  A still-longer halt is
+# deliberately rejected rather than priced from a guess.
+_INITIAL_SUSPEND_LOOKBACK_DAYS = 400
 _STOCK_BASIC_FIELDS = "ts_code,name,industry,list_date,delist_date,market,exchange,list_status"
 # Official stock_basic list_status values. Default is L, so D/P/G must be queried separately.
 _STOCK_BASIC_STATUSES = ("L", "D", "P", "G")
@@ -155,6 +161,7 @@ class TushareProvider(MarketDataProvider):
     ) -> TushareRaw:
         client = self._client_or_live()
         start_s, end_s = ymd(start), ymd(end)
+        initial_suspend_seed_start_s = ymd(start - timedelta(days=_INITIAL_SUSPEND_LOOKBACK_DAYS))
         trade_cal = client.query("trade_cal", exchange="SSE", start_date=start_s, end_date=end_s, is_open="1")
         if membership is not None:
             assert_membership_covers_calendar(
@@ -164,7 +171,7 @@ class TushareProvider(MarketDataProvider):
                 expected_constituents=expected_constituents,
             )
         stock_basic, status_errors = self._query_stock_basic(client)
-        daily = self._query_codes(client, "daily", stocks, start_s, end_s)
+        daily = self._query_codes(client, "daily", stocks, initial_suspend_seed_start_s, end_s)
         daily_basic = self._query_codes(
             client,
             "daily_basic",
@@ -173,7 +180,7 @@ class TushareProvider(MarketDataProvider):
             end_s,
             extra={"fields": "ts_code,trade_date,turnover_rate"},
         )
-        adj_factor = self._query_codes(client, "adj_factor", stocks, start_s, end_s)
+        adj_factor = self._query_codes(client, "adj_factor", stocks, initial_suspend_seed_start_s, end_s)
         # Tushare stk_limit accepts one ts_code per request. Request pre_close explicitly because
         # the provider's default payload omits it, and we must not guess price_limit_pct.
         stk_limit = self._query_codes(
