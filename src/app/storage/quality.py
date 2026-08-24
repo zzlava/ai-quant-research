@@ -61,6 +61,27 @@ def validate_ohlcv(frame: pl.DataFrame, name: str, calendar: list | None = None)
         bad_limit = frame.filter(limit.is_not_null() & (limit.is_nan() | limit.is_infinite() | (limit < 0)))
         if bad_limit.height:
             raise DataQualityError(f"{name} has invalid price_limit_pct")
+    if "adj_factor" in frame.columns:
+        factor = pl.col("adj_factor")
+        bad_factor = frame.filter(factor.is_null() | factor.is_nan() | factor.is_infinite() | (factor <= 0))
+        if bad_factor.height:
+            raise DataQualityError(f"{name} has invalid adj_factor")
+    adjusted = ("adj_open", "adj_high", "adj_low", "adj_close")
+    if all(column in frame.columns for column in adjusted):
+        non_finite_adjusted = _non_finite_mask(frame, adjusted)
+        bad_adjusted = frame.filter(non_finite_adjusted) if non_finite_adjusted is not None else frame.clear()
+        if bad_adjusted.height:
+            raise DataQualityError(f"{name} has non-finite adjusted OHLC")
+        bad_adjusted_bounds = frame.filter(
+            (pl.col("adj_open") <= 0)
+            | (pl.col("adj_high") <= 0)
+            | (pl.col("adj_low") <= 0)
+            | (pl.col("adj_close") <= 0)
+            | (pl.col("adj_high") < pl.max_horizontal("adj_open", "adj_close"))
+            | (pl.col("adj_low") > pl.min_horizontal("adj_open", "adj_close"))
+        )
+        if bad_adjusted_bounds.height:
+            raise DataQualityError(f"{name} has invalid adjusted OHLC")
     if calendar:
         cal = set(calendar)
         present = set(frame["date"].unique().to_list())

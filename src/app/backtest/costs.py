@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from app.models.config import CostConfig
 
 LOT_SIZE = 100
@@ -11,10 +13,25 @@ def commission(notional: float, config: CostConfig) -> float:
     return max(notional * config.commission_rate, config.min_commission)
 
 
-def stamp_tax(notional: float, config: CostConfig) -> float:
+def stamp_tax_rate_for(trade_date: date | None, config: CostConfig) -> float:
+    """Return the seller stamp-tax rate known for the execution date.
+
+    The legacy flat rate remains available for old/demo configurations.  A
+    dated schedule takes precedence whenever its first effective date has
+    begun, so historical runs can model tax policy changes without mutating
+    their other execution assumptions.
+    """
+    if trade_date is not None:
+        effective = [band for band in config.stamp_tax_schedule if band.effective_from <= trade_date]
+        if effective:
+            return effective[-1].rate
+    return config.stamp_tax_rate
+
+
+def stamp_tax(notional: float, config: CostConfig, trade_date: date | None = None) -> float:
     if notional <= 0:
         return 0.0
-    return notional * config.stamp_tax_rate
+    return notional * stamp_tax_rate_for(trade_date, config)
 
 
 def apply_slippage(price: float, config: CostConfig, side: str) -> float:
@@ -30,10 +47,15 @@ def buy_cost(price: float, shares: int, config: CostConfig) -> tuple[float, floa
     return notional + comm, comm
 
 
-def sell_cost(price: float, shares: int, config: CostConfig) -> tuple[float, float, float]:
+def sell_cost(
+    price: float,
+    shares: int,
+    config: CostConfig,
+    trade_date: date | None = None,
+) -> tuple[float, float, float]:
     notional = price * shares
     comm = commission(notional, config)
-    tax = stamp_tax(notional, config)
+    tax = stamp_tax(notional, config, trade_date)
     net = notional - comm - tax
     return net, comm, tax
 

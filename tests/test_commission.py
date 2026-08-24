@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import date
 
-from app.backtest.costs import buy_cost, commission, sell_cost
+import pytest
+
+from app.backtest.costs import buy_cost, commission, sell_cost, stamp_tax_rate_for
 from app.backtest.engine import BacktestEngine
 from app.models.config import CostConfig
 from tests.helpers import (
@@ -24,6 +26,22 @@ def test_commission_formula() -> None:
     assert sell_comm == 10.3
     assert abs(tax - 20.6) < 1e-9
     assert abs(net - (41200 - 10.3 - 20.6)) < 1e-9
+
+
+def test_stamp_tax_schedule_uses_execution_date() -> None:
+    costs = CostConfig(
+        commission_rate=0.00025,
+        min_commission=5.0,
+        stamp_tax_rate=0.0005,
+        stamp_tax_schedule=[
+            {"effective_from": "1900-01-01", "rate": 0.001},
+            {"effective_from": "2023-08-28", "rate": 0.0005},
+        ],
+    )
+    assert stamp_tax_rate_for(date(2023, 8, 25), costs) == 0.001
+    assert stamp_tax_rate_for(date(2023, 8, 28), costs) == 0.0005
+    _net, _commission, tax = sell_cost(10.0, 1000, costs, date(2023, 8, 25))
+    assert tax == 10.0
 
 
 def test_backtest_applies_commission_and_stamp_tax() -> None:
@@ -53,3 +71,9 @@ def test_backtest_applies_commission_and_stamp_tax() -> None:
     assert abs(trade.stamp_tax - 20.6) < 1e-9
     expected_pnl = (10.3 * 4000 - 10.3 - 20.6) - (10.0 * 4000 + 10.0)
     assert abs(trade.pnl - expected_pnl) < 1e-6
+    assert result.attribution.gross_realized_pnl == pytest.approx(1200.0)
+    assert result.attribution.explicit_costs == pytest.approx(40.9)
+    assert result.attribution.estimated_slippage == pytest.approx(0.0)
+    assert result.attribution.net_realized_pnl == pytest.approx(expected_pnl)
+    assert result.attribution.signal.orders_generated == 1
+    assert result.attribution.signal.orders_filled == 1

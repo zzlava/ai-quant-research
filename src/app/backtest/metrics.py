@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from datetime import date
 
-from app.models.backtest import BacktestMetrics, EquityPoint, TradeFill
+from app.models.backtest import BacktestAttribution, BacktestMetrics, EquityPoint, SignalAttribution, TradeFill
 
 TRADING_DAYS_PER_YEAR = 242
 
@@ -63,6 +63,31 @@ def compute_metrics(
         tp_exit_count=sum(1 for t in trades if t.exit_reason == "take_profit"),
         sl_exit_count=sum(1 for t in trades if t.exit_reason == "stop_loss"),
         timeout_exit_count=sum(1 for t in trades if t.exit_reason == "timeout"),
+    )
+
+
+def compute_attribution(trades: list[TradeFill], signal: SignalAttribution) -> BacktestAttribution:
+    buy_commission = sum(trade.buy_commission for trade in trades)
+    sell_commission = sum(trade.sell_commission for trade in trades)
+    stamp_tax = sum(trade.stamp_tax for trade in trades)
+    slippage = sum(trade.buy_slippage + trade.sell_slippage for trade in trades)
+    explicit_costs = buy_commission + sell_commission + stamp_tax
+    gross = sum(
+        trade.gross_pnl
+        if trade.gross_pnl is not None
+        else trade.pnl + trade.buy_commission + trade.sell_commission + trade.stamp_tax
+        for trade in trades
+    )
+    return BacktestAttribution(
+        gross_realized_pnl=gross,
+        net_realized_pnl=sum(trade.pnl for trade in trades),
+        buy_commission=buy_commission,
+        sell_commission=sell_commission,
+        stamp_tax=stamp_tax,
+        estimated_slippage=slippage,
+        explicit_costs=explicit_costs,
+        total_trading_costs=explicit_costs + slippage,
+        signal=signal,
     )
 
 

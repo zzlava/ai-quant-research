@@ -9,7 +9,7 @@ A 股低频、半自动量化**研究**系统 MVP。
 - 券商接口
 - 自动下单
 - 高频交易
-- 前端
+- 券商/自动交易前端（仓库内 `frontend/` 只是本地只读研究仪表盘）
 - LLM 调用
 - 机器学习
 
@@ -96,6 +96,24 @@ python -m app.cli fetch-tushare \
   --strategy baseline_csi300_pit_v1 \
   --universe-membership-file ./csi300_membership_daily.csv
 ```
+
+基本面策略使用与行情六表分离、独立哈希的叠加层。财报按公告日末才可见；同一报告期存在
+`update_flag=0/1` 时只使用初始披露版，禁止把没有修订发布时间的当前修订值回填到历史。
+日估值按交易日 17:00（Asia/Shanghai）才可见，所以 15:00 决策只会使用此前数据：
+
+```bash
+export AIQ_FUNDAMENTAL_DIR=./data/fundamentals-quality-value-v1
+python -m app.cli fetch-tushare-fundamentals \
+  --start 2020-01-01 \
+  --end 2024-12-31 \
+  --symbols-file ./symbols.txt \
+  --output-dir "$AIQ_FUNDAMENTAL_DIR"
+```
+
+`AIQ_FUNDAMENTAL_DIR` 必须与评分、IC、回测进程使用同一个路径；manifest 或任一 Parquet
+内容变化都会失败。接口字段与限制见 Tushare 官方的
+[`fina_indicator`](https://tushare.pro/document/2?doc_id=79) 和
+[`daily_basic`](https://tushare.pro/document/2?doc_id=32) 文档。
 
 历史点时成员文件应由可信来源的完整成分快照离线物化，不要把当前成分当成历史成分：
 
@@ -194,6 +212,14 @@ uvicorn app.api.main:app --reload --port 8000
 - `GET /ranking?date=2024-01-15&strategy=baseline_v1`
 - `POST /backtests`
 - `GET /backtests/{id}`
+
+本地只读研究仪表盘（Vite 把 `/api` 代理到上述 API，不改后端）：见 `frontend/README.md`。
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+严格 PIT / warm-up 状态仍须用 `preflight-research` 复核；当前 HTTP API 不返回该状态。
 
 ## 运行测试
 

@@ -11,6 +11,8 @@ from app.strategies.registry import StrategyRegistry
 class BaselineV1Strategy(BaseStrategy):
     def score(self, feature: StockFeatureVector, context: StrategyContext) -> ScoreResult:
         weights = self.config.weights
+        if weights is None:  # Defensive; StrategyConfig rejects this at load time.
+            raise ValueError("baseline_v1 requires legacy weights")
         market_score = context.market_score
         global_score = context.global_score
         sector_score = scale(feature.sector_relative_strength, -0.08, 0.08)

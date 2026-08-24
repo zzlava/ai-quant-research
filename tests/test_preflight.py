@@ -212,6 +212,16 @@ def test_qualified_window_emits_signal_ready_start() -> None:
     assert controlled_result.research_mode == CONTROLLED_SAMPLE_MODE_LABEL
 
 
+def test_snapshot_adjustment_must_match_the_strategy_price_contract() -> None:
+    calendar = weekdays(date(2024, 1, 2), STOCK_FEATURE_HISTORY_BARS + 10)
+    store = _store(calendar)
+    config = load_test_config()
+    config.data.adjustment = "backward"
+    config.data.require_point_in_time_adjustment = True
+    with pytest.raises(PreflightError, match="snapshot adjustment=forward"):
+        preflight_research(store=store, config=config, start=calendar[READY_OFFSET], end=calendar[-1])
+
+
 def test_bar_59_rejected_bar_60_produces_features_not_empty_warmup(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

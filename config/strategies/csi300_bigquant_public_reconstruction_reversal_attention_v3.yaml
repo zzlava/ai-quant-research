@@ -1,0 +1,84 @@
+# Final experimental candidate; public reconstruction only, never strict PIT.
+# Both signal choices were made from 2022-04-01..2023-06-30 training diagnostics.
+name: baseline_v2
+config_id: csi300_bigquant_public_reconstruction_reversal_attention_v3
+version: "3.1.0-experimental"
+research_scope: public_reconstruction
+
+regime:
+  market_weight: 0.60
+  global_weight: 0.40
+
+ranking:
+  alpha_style: medium_term_reversal
+  sector_weight: 0.0
+  alpha_weight: 1.0
+  crowding_penalty: 0.25
+  execution_penalty: 0.25
+  # Training-only diagnostics found a stable negative relation between
+  # attention stress and later returns. The coefficient is fixed to the
+  # existing risk-penalty scale rather than optimized.
+  attention_penalty: 0.25
+  min_score: 60.0
+
+universe:
+  mode: public_reconstruction
+  id: csi300_bigquant_public_reconstruction
+  expected_constituents: 300
+  exclude_st: true
+  exclude_suspended: true
+  min_listing_days: 120
+  min_avg_turnover_20d: 100000000
+
+market_gate:
+  - { min: 0.0, max: 40.0, max_new_positions: 0 }
+  - { min: 40.0, max: 55.0, max_new_positions: 1 }
+  - { min: 55.0, max: 70.0, max_new_positions: 2 }
+  - { min: 70.0, max: 100.1, max_new_positions: 3 }
+
+trade:
+  take_profit: 0.03
+  stop_loss: -0.025
+  take_profit_atr: 2.0
+  stop_loss_atr: 1.5
+  min_holding_days: 3
+  max_holding_days: 10
+  cooldown_days: 5
+  require_target_lot_affordability: true
+  limit_pct: 0.10
+  st_limit_pct: 0.05
+  model_limit_moves: true
+
+portfolio:
+  initial_cash: 80000
+  max_positions: 3
+  weighting: equal_weight
+
+costs:
+  commission_rate: 0.00025
+  min_commission: 5.0
+  stamp_tax_rate: 0.0005
+  stamp_tax_schedule:
+    - effective_from: 1900-01-01
+      rate: 0.001
+    - effective_from: 2023-08-28
+      rate: 0.0005
+  slippage_bps: 5.0
+
+data:
+  market_index: 000300.SH
+  global_symbol: SPX
+  adjustment: backward
+  require_point_in_time_adjustment: true
+  decision_timezone: Asia/Shanghai
+  decision_time: "15:00"
+  min_history_bars: 21
+  sessions:
+    000300.SH:
+      market: CN
+      timezone: Asia/Shanghai
+      session_close: "15:00"
+    SPX:
+      market: US
+      timezone: America/New_York
+      session_close: "16:00"

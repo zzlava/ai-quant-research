@@ -19,6 +19,14 @@ DAILY_SCHEMA = {
     "is_st": pl.Boolean,
     "is_suspended": pl.Boolean,
     "price_limit_pct": pl.Float64,
+    "adj_open": pl.Float64,
+    "adj_high": pl.Float64,
+    "adj_low": pl.Float64,
+    "adj_close": pl.Float64,
+    "adj_factor": pl.Float64,
+    "pre_close": pl.Float64,
+    "up_limit": pl.Float64,
+    "down_limit": pl.Float64,
 }
 
 GLOBAL_SCHEMA = {

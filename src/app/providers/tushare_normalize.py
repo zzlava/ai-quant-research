@@ -31,6 +31,12 @@ class TushareRaw:
     namechange: pl.DataFrame | None
     index_daily: pl.DataFrame
     index_global: pl.DataFrame
+    # Exact per-trading-day ST list. Historical all-market collection prefers
+    # this over reconstructing state from name-change intervals.
+    stock_st: pl.DataFrame | None = None
+    # Legacy suspension intervals cover exchange-level trading pauses that
+    # suspend_d may stop enumerating after a security becomes P/paused.
+    suspend_intervals: pl.DataFrame | None = None
     stock_basic_status_errors: dict[str, str] = field(default_factory=dict)
     # For a current-only market snapshot, historical name changes are deliberately
     # not inferred.  This set applies only on the snapshot as-of date.
@@ -96,8 +102,8 @@ def normalize_tushare(
         raise DataQualityError("stk_limit records are missing; refusing to invent price_limit_pct")
     if raw.suspend_d is None:
         raise DataQualityError("suspend_d records are missing; refusing to invent trading status")
-    if raw.namechange is None:
-        raise DataQualityError("namechange records are missing; refusing to invent is_st")
+    if raw.namechange is None and raw.stock_st is None:
+        raise DataQualityError("namechange/stock_st records are missing; refusing to invent is_st")
 
     calendar = _normalize_calendar(raw.trade_cal, start, end)
     cal_days = [day for day in calendar["date"].to_list() if isinstance(day, date)]
@@ -158,7 +164,9 @@ def _normalize_daily(
     *,
     current_st_symbols: set[str] | None = None,
 ) -> pl.DataFrame:
-    if raw.stk_limit is None or raw.suspend_d is None or raw.namechange is None:
+    if raw.stk_limit is None or raw.suspend_d is None or (
+        raw.namechange is None and raw.stock_st is None
+    ):
         raise DataQualityError("required Tushare reference tables are missing")
     if raw.daily.is_empty():
         raise DataQualityError("daily bars are empty")
@@ -205,8 +213,10 @@ def _normalize_daily(
     limits = _limit_map(stk_limit)
     factors = _factor_map(raw.adj_factor)
     latest_factor = {symbol: max(vals.items())[1] for symbol, vals in factors.items() if vals}
-    st_periods = _st_periods(namechange)
+    st_periods = _st_periods(namechange) if namechange is not None else {}
+    daily_st = _daily_st_symbols(raw.stock_st) if raw.stock_st is not None else {}
     suspend_days = _full_day_suspends(suspend_d, stocks)
+    suspend_days.update(_interval_suspend_days(raw.suspend_intervals, stocks, calendar))
     current_st = current_st_symbols or set()
 
     for symbol, items in by_symbol.items():
@@ -273,23 +283,29 @@ def _normalize_daily(
                 raise DataQualityError("daily bar date is invalid")
             dt = raw_dt
             key = (symbol, dt)
-            if key not in limits:
+            if key not in limits and not bool(row.get("_synthesized_suspend")):
                 raise DataQualityError(
                     f"stk_limit missing for {symbol} on {dt}; refusing to default price_limit_pct to 10%"
                 )
-            pre_close, up_limit, down_limit = limits[key]
+            pre_close, up_limit, down_limit = limits.get(key, (None, None, None))
             limit_pct = _price_limit_pct(pre_close, up_limit, down_limit)
-            o = _as_float(row["open"])
-            h = _as_float(row["high"])
-            low = _as_float(row["low"])
-            c = _as_float(row["close"])
-            o, h, low, c = _adjust_ohlc(
+            raw_open = _as_float(row["open"])
+            raw_high = _as_float(row["high"])
+            raw_low = _as_float(row["low"])
+            raw_close = _as_float(row["close"])
+            adj_factor = _factor_for_day(
                 symbol,
                 dt,
-                o,
-                h,
-                low,
-                c,
+                factors,
+                allow_previous_factor=bool(row.get("_synthesized_suspend")),
+            )
+            adj_open, adj_high, adj_low, adj_close = _adjust_ohlc(
+                symbol,
+                dt,
+                raw_open,
+                raw_high,
+                raw_low,
+                raw_close,
                 adjustment,
                 factors,
                 latest_factor,
@@ -299,16 +315,26 @@ def _normalize_daily(
                 {
                     "symbol": symbol,
                     "date": dt,
-                    "open": o,
-                    "high": h,
-                    "low": low,
-                    "close": c,
+                    "open": raw_open,
+                    "high": raw_high,
+                    "low": raw_low,
+                    "close": raw_close,
                     "volume": _as_float(row["volume"]),
                     "amount": _as_float(row["amount"]),
                     "turnover_rate": turnover.get(key, 0.0),
-                    "is_st": _is_st_on(symbol, dt, st_periods) or (dt == end and symbol in current_st),
+                    "is_st": symbol in daily_st.get(dt, set())
+                    or _is_st_on(symbol, dt, st_periods)
+                    or (dt == end and symbol in current_st),
                     "is_suspended": key in suspend_days or bool(row.get("_synthesized_suspend")),
                     "price_limit_pct": limit_pct,
+                    "adj_open": adj_open,
+                    "adj_high": adj_high,
+                    "adj_low": adj_low,
+                    "adj_close": adj_close,
+                    "adj_factor": adj_factor,
+                    "pre_close": pre_close,
+                    "up_limit": up_limit,
+                    "down_limit": down_limit,
                 }
             )
             last_close = _as_float(row["close"])
@@ -326,6 +352,14 @@ def _normalize_daily(
             pl.col("is_st").cast(pl.Boolean),
             pl.col("is_suspended").cast(pl.Boolean),
             pl.col("price_limit_pct").cast(pl.Float64),
+            pl.col("adj_open").cast(pl.Float64),
+            pl.col("adj_high").cast(pl.Float64),
+            pl.col("adj_low").cast(pl.Float64),
+            pl.col("adj_close").cast(pl.Float64),
+            pl.col("adj_factor").cast(pl.Float64),
+            pl.col("pre_close").cast(pl.Float64),
+            pl.col("up_limit").cast(pl.Float64),
+            pl.col("down_limit").cast(pl.Float64),
         ]
     )
 
@@ -353,11 +387,32 @@ def _normalize_index(frame: pl.DataFrame, start: date, end: date) -> pl.DataFram
                 "is_st": False,
                 "is_suspended": False,
                 "price_limit_pct": None,
+                "adj_open": _finite_number(item.get("open"), "open"),
+                "adj_high": _finite_number(item.get("high"), "high"),
+                "adj_low": _finite_number(item.get("low"), "low"),
+                "adj_close": _finite_number(item.get("close"), "close"),
+                "adj_factor": 1.0,
+                "pre_close": _optional_number(item.get("pre_close")),
+                "up_limit": None,
+                "down_limit": None,
             }
         )
     if not rows:
         raise DataQualityError("index_daily has no rows in the requested range")
-    return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Date), pl.col("price_limit_pct").cast(pl.Float64))
+    return pl.DataFrame(rows).with_columns(
+        [
+            pl.col("date").cast(pl.Date),
+            pl.col("price_limit_pct").cast(pl.Float64),
+            pl.col("adj_open").cast(pl.Float64),
+            pl.col("adj_high").cast(pl.Float64),
+            pl.col("adj_low").cast(pl.Float64),
+            pl.col("adj_close").cast(pl.Float64),
+            pl.col("adj_factor").cast(pl.Float64),
+            pl.col("pre_close").cast(pl.Float64),
+            pl.col("up_limit").cast(pl.Float64),
+            pl.col("down_limit").cast(pl.Float64),
+        ]
+    )
 
 
 def _normalize_global(frame: pl.DataFrame, config: StrategyConfig, start: date, end: date) -> pl.DataFrame:
@@ -594,12 +649,7 @@ def _adjust_ohlc(
 ) -> tuple[float, float, float, float]:
     if adjustment == "none":
         return open_, high, low, close
-    factor = factors.get(symbol, {}).get(dt)
-    if factor is None and allow_previous_factor:
-        earlier = [day for day in factors.get(symbol, {}) if day < dt]
-        factor = factors[symbol][max(earlier)] if earlier else None
-    if factor is None:
-        raise DataQualityError(f"adj_factor missing for {symbol} on {dt}")
+    factor = _factor_for_day(symbol, dt, factors, allow_previous_factor=allow_previous_factor)
     if adjustment == "backward":
         scale = factor
     else:
@@ -608,6 +658,22 @@ def _adjust_ohlc(
             raise DataQualityError(f"latest adj_factor missing for {symbol}")
         scale = factor / latest
     return open_ * scale, high * scale, low * scale, close * scale
+
+
+def _factor_for_day(
+    symbol: str,
+    dt: date,
+    factors: dict[str, dict[date, float]],
+    *,
+    allow_previous_factor: bool,
+) -> float:
+    factor = factors.get(symbol, {}).get(dt)
+    if factor is None and allow_previous_factor:
+        earlier = [day for day in factors.get(symbol, {}) if day < dt]
+        factor = factors[symbol][max(earlier)] if earlier else None
+    if factor is None:
+        raise DataQualityError(f"adj_factor missing for {symbol} on {dt}")
+    return factor
 
 
 def _st_periods(frame: pl.DataFrame) -> dict[str, list[tuple[date, date | None]]]:
@@ -622,6 +688,17 @@ def _st_periods(frame: pl.DataFrame) -> dict[str, list[tuple[date, date | None]]
         end_raw = item.get("end_date")
         end = parse_ymd(end_raw) if end_raw not in (None, "", "None") else None
         out.setdefault(str(item["ts_code"]).strip(), []).append((start, end))
+    return out
+
+
+def _daily_st_symbols(frame: pl.DataFrame) -> dict[date, set[str]]:
+    out: dict[date, set[str]] = {}
+    if frame.is_empty():
+        return out
+    _require_cols(frame, ("ts_code", "trade_date"), "stock_st")
+    for item in frame.to_dicts():
+        symbol = require_ts_code(str(item.get("ts_code") or ""), kind="stock")
+        out.setdefault(parse_ymd(item["trade_date"]), set()).add(symbol)
     return out
 
 
@@ -653,6 +730,31 @@ def _full_day_suspends(frame: pl.DataFrame, stocks: list[str]) -> set[tuple[str,
         if timing not in (None, "", "None"):
             continue
         out.add((symbol, parse_ymd(item["trade_date"])))
+    return out
+
+
+def _interval_suspend_days(
+    frame: pl.DataFrame | None,
+    stocks: list[str],
+    calendar: list[date],
+) -> set[tuple[str, date]]:
+    out: set[tuple[str, date]] = set()
+    if frame is None or frame.is_empty():
+        return out
+    _require_cols(frame, ("ts_code", "suspend_date", "resume_date"), "suspend")
+    stock_set = set(stocks)
+    for item in frame.to_dicts():
+        symbol = str(item.get("ts_code") or "").strip()
+        if symbol not in stock_set:
+            continue
+        start = parse_ymd(item.get("suspend_date"))
+        resume_raw = item.get("resume_date")
+        resume = parse_ymd(resume_raw) if resume_raw not in (None, "", "None") else None
+        for day in calendar:
+            # resume_date is the first tradable date, so the interval is
+            # [suspend_date, resume_date), not inclusive at the right edge.
+            if day >= start and (resume is None or day < resume):
+                out.add((symbol, day))
     return out
 
 

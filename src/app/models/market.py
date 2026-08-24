@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class Instrument(BaseModel):
@@ -30,6 +30,29 @@ class DailyBar(BaseModel):
     is_st: bool = False
     is_suspended: bool = False
     price_limit_pct: float | None = None
+    # Canonical OHLC is always the exchange's unadjusted price and is the only
+    # price basis the execution engine may use.  These adjusted columns are
+    # derived solely for return/technical-indicator calculations.
+    adj_open: float | None = None
+    adj_high: float | None = None
+    adj_low: float | None = None
+    adj_close: float | None = None
+    adj_factor: float = 1.0
+    pre_close: float | None = None
+    up_limit: float | None = None
+    down_limit: float | None = None
+
+    @model_validator(mode="after")
+    def default_adjusted_prices_to_raw(self) -> DailyBar:
+        if self.adj_open is None:
+            self.adj_open = self.open
+        if self.adj_high is None:
+            self.adj_high = self.high
+        if self.adj_low is None:
+            self.adj_low = self.low
+        if self.adj_close is None:
+            self.adj_close = self.close
+        return self
 
 
 class GlobalBar(BaseModel):

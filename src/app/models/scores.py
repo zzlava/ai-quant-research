@@ -16,6 +16,10 @@ class ScoreBreakdown(BaseModel):
     execution_risk: float
     final_score: float
     attention_risk: float = 0.0
+    regime_score: float | None = None
+    quality_score: float = 0.0
+    improvement_score: float = 0.0
+    value_score: float = 0.0
 
 
 class ScoreResult(BaseModel):

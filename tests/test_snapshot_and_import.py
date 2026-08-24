@@ -267,6 +267,16 @@ def test_one_ulp_price_change_changes_snapshot_id() -> None:
     assert other.table_hashes["daily_bars"] != base.table_hashes["daily_bars"]
 
 
+def test_adjusted_feature_price_change_changes_snapshot_id() -> None:
+    tables = _tables_from_bundle(_bundle())
+    daily = tables["daily_bars"]
+    changed = daily.with_columns((pl.col("adj_close") + 0.01).alias("adj_close"))
+    base = build_snapshot(tables, adjustment="forward", source_name="demo")
+    other = build_snapshot({**tables, "daily_bars": changed}, adjustment="forward", source_name="demo")
+    assert other.snapshot_id != base.snapshot_id
+    assert other.table_hashes["daily_bars"] != base.table_hashes["daily_bars"]
+
+
 def test_import_rejects_minus_five_offset_available_at(tmp_path: Path) -> None:
     tables = _tables_from_bundle(_bundle())
     offset = tables["global_bars"].with_columns(pl.lit("2024-01-02T16:00:00-05:00").alias("available_at"))

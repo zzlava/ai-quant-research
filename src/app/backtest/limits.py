@@ -43,3 +43,21 @@ def is_one_word_limit(
     if direction == "up":
         return _near(close, up)
     return _near(close, down)
+
+
+def is_open_at_limit(bar: dict[str, object], prev_close: float | None, trade: TradeConfig, direction: str) -> bool:
+    """Reject fills that would queue at the opening limit price.
+
+    Prefer exchange-published raw limits.  Older in-memory fixtures retain the
+    previous one-word-limit fallback, but production snapshots must carry raw
+    limit fields.  An open at a limit is not assumed executable merely because
+    intraday prices later moved away from the limit.
+    """
+    if not trade.model_limit_moves:
+        return False
+    key = "up_limit" if direction == "up" else "down_limit"
+    limit = bar.get(key)
+    open_ = bar.get("open")
+    if isinstance(limit, int | float) and not isinstance(limit, bool) and isinstance(open_, int | float):
+        return _near(float(open_), float(limit))
+    return is_one_word_limit(bar, prev_close, trade, direction)

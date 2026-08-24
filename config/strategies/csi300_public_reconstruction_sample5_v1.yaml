@@ -46,6 +46,11 @@ costs:
   commission_rate: 0.00025
   min_commission: 5.0
   stamp_tax_rate: 0.0005
+  stamp_tax_schedule:
+    - effective_from: 1900-01-01
+      rate: 0.001
+    - effective_from: 2023-08-28
+      rate: 0.0005
   slippage_bps: 5.0
 
 data:

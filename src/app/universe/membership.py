@@ -194,7 +194,7 @@ def assert_membership_covers_calendar(
 def membership_lookup_options(universe: UniverseConfig) -> dict[str, int | bool | None]:
     return {
         "expected_constituents": universe.expected_constituents,
-        "require_available_cross_section": universe.mode == "historical_membership",
+        "require_available_cross_section": universe.mode in {"historical_membership", "derived_liquid"},
     }
 
 

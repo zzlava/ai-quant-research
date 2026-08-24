@@ -5,7 +5,7 @@ from pathlib import Path
 import polars as pl
 
 from app.errors import SnapshotError
-from app.models.snapshot import TABLE_NAMES, DataSnapshot
+from app.models.snapshot import RAW_PLUS_ADJUSTED_PRICE_BASIS, SCHEMA_VERSION, TABLE_NAMES, DataSnapshot
 from app.storage.hashing import build_snapshot
 
 PARQUET_NAMES = {name: f"{name}.parquet" for name in TABLE_NAMES}
@@ -42,6 +42,7 @@ def compute_snapshot_from_dir(
     parquet_dir: Path,
     *,
     adjustment: str,
+    price_basis: str = RAW_PLUS_ADJUSTED_PRICE_BASIS,
     source_name: str,
     market_index: str | None = None,
     global_symbol: str | None = None,
@@ -50,6 +51,7 @@ def compute_snapshot_from_dir(
     return build_snapshot(
         read_tables(parquet_dir),
         adjustment=adjustment,
+        price_basis=price_basis,
         source_name=source_name,
         market_index=market_index,
         global_symbol=global_symbol,
@@ -66,9 +68,16 @@ def load_verified_snapshot(parquet_dir: Path) -> DataSnapshot:
         stored = DataSnapshot.model_validate_json(manifest_path.read_text(encoding="utf-8"))
     except Exception as exc:
         raise SnapshotError("manifest.json is invalid") from exc
+    if stored.schema_version != SCHEMA_VERSION:
+        raise SnapshotError(
+            f"snapshot schema version {stored.schema_version} is legacy; "
+            f"re-fetch or re-import under schema {SCHEMA_VERSION}. "
+            "Execution requires raw OHLC plus separately stored adjusted feature prices"
+        )
     recomputed = compute_snapshot_from_dir(
         root,
         adjustment=stored.adjustment,
+        price_basis=stored.price_basis,
         source_name=stored.source_name,
         market_index=stored.market_index,
         global_symbol=stored.global_symbol,

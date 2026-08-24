@@ -34,7 +34,7 @@ class InMemoryStore:
         universe_id: str = "demo",
     ) -> None:
         self.instruments_frame = instruments if instruments is not None else empty_instruments()
-        self.daily = daily if daily is not None else empty_daily()
+        self.daily = _with_adjusted_feature_prices(daily) if daily is not None else empty_daily()
         self.index = index if index is not None else empty_daily()
         self.global_bars = global_bars if global_bars is not None else empty_global()
         self._calendar = calendar or []
@@ -93,7 +93,7 @@ class InMemoryStore:
         )
 
     def replace_daily(self, daily: pl.DataFrame) -> None:
-        self.daily = daily
+        self.daily = _with_adjusted_feature_prices(daily)
         self._snapshot = None
 
     def get_instruments(self) -> list[Instrument]:
@@ -170,3 +170,13 @@ class InMemoryStore:
                 source_name=self._source_name,
             )
         return self._snapshot
+
+
+def _with_adjusted_feature_prices(frame: pl.DataFrame) -> pl.DataFrame:
+    """Keep tiny in-memory fixtures on the same price contract as imports."""
+    additions = [
+        pl.col(raw).cast(pl.Float64).alias(adjusted)
+        for raw, adjusted in (("open", "adj_open"), ("high", "adj_high"), ("low", "adj_low"), ("close", "adj_close"))
+        if adjusted not in frame.columns and raw in frame.columns
+    ]
+    return frame.with_columns(additions) if additions else frame

@@ -24,6 +24,11 @@ class TradeFill(BaseModel):
     buy_commission: float
     sell_commission: float
     stamp_tax: float
+    entry_raw_price: float | None = None
+    exit_raw_price: float | None = None
+    buy_slippage: float = 0.0
+    sell_slippage: float = 0.0
+    gross_pnl: float | None = None
 
 
 class EquityPoint(BaseModel):
@@ -59,6 +64,35 @@ class BacktestMetrics(BaseModel):
     timeout_exit_count: int
 
 
+class SignalAttribution(BaseModel):
+    scoring_days: int = 0
+    names_ranked: int = 0
+    orders_generated: int = 0
+    orders_filled: int = 0
+    orders_deferred: int = 0
+    entry_deferral_days: int = 0
+    orders_filled_after_deferral: int = 0
+    deferred_orders_expired: int = 0
+    rejected_by_regime_gate: int = 0
+    rejected_by_ranking_threshold: int = 0
+    rejected_by_cooldown: int = 0
+    rejected_suspended: int = 0
+    rejected_at_limit: int = 0
+    rejected_unaffordable: int = 0
+
+
+class BacktestAttribution(BaseModel):
+    gross_realized_pnl: float = 0.0
+    net_realized_pnl: float = 0.0
+    buy_commission: float = 0.0
+    sell_commission: float = 0.0
+    stamp_tax: float = 0.0
+    estimated_slippage: float = 0.0
+    explicit_costs: float = 0.0
+    total_trading_costs: float = 0.0
+    signal: SignalAttribution = Field(default_factory=SignalAttribution)
+
+
 class BacktestResult(BaseModel):
     strategy_name: str
     strategy_version: str
@@ -75,3 +109,4 @@ class BacktestResult(BaseModel):
     research_scope: str = "historical_index"
     research_notice: str | None = None
     reconstruction_data_id: str | None = None
+    attribution: BacktestAttribution = Field(default_factory=BacktestAttribution)

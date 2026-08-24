@@ -25,6 +25,7 @@ from app.storage.quality import (
 from app.storage.snapshot_io import write_manifest
 
 Adjustment = Literal["forward", "backward", "none"]
+PriceBasis = Literal["raw_ohlc_plus_adjusted_features"]
 GLOBAL_REQUIRED = {
     "symbol": pl.String,
     "date": pl.Date,
@@ -151,6 +152,7 @@ def import_market_data(
     *,
     source_name: str,
     adjustment: Adjustment,
+    price_basis: PriceBasis = "raw_ohlc_plus_adjusted_features",
     source_version: str | None = None,
     market_index: str | None = None,
     global_symbol: str | None = None,
@@ -166,6 +168,7 @@ def import_market_data(
     snapshot = build_snapshot(
         tables,
         adjustment=adjustment,
+        price_basis=price_basis,
         source_name=source_name,
         fetched_at=datetime.now(UTC).replace(tzinfo=None),
         market_index=market_index,

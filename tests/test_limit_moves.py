@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+
 from app.backtest.engine import BacktestEngine
+from app.models.config import TradeConfig
 from tests.helpers import (
     constant_signal,
     fill_quiet_bars,
@@ -46,6 +49,168 @@ def test_price_limit_pct_20_blocks_buy_on_limit_up() -> None:
     result = BacktestEngine(store, zero_cost_config(), signal_fn=signals).run(signal_day, calendar[3])
     assert result.trades == []
     assert result.open_positions_at_end == 0
+
+
+def test_open_at_published_limit_up_blocks_buy_even_when_not_one_word_board() -> None:
+    calendar = weekdays(date(2024, 1, 2), 8)
+    signal_day, buy_day = calendar[0], calendar[1]
+    overrides = {
+        buy_day: {"open": 11.0, "high": 11.20, "low": 10.80, "close": 11.05},
+    }
+    rows = fill_quiet_bars("AAA", calendar, overrides)
+    for row in rows:
+        if row["date"] == buy_day:
+            row["up_limit"] = 11.0
+    store = store_from_rows(calendar, rows)
+    config = zero_cost_config()
+    config.portfolio.max_positions = 1
+
+    result = BacktestEngine(
+        store,
+        config,
+        signal_fn=lambda as_of: constant_signal(["AAA"], 80.0, as_of) if as_of == signal_day else [],
+    ).run(signal_day, buy_day)
+
+    assert result.open_positions_at_end == 0
+    assert result.attribution.signal.orders_deferred == 0
+
+
+def test_limit_up_entry_can_be_deferred_until_next_tradable_day() -> None:
+    calendar = weekdays(date(2024, 1, 2), 8)
+    signal_day, locked_day, tradable_day = calendar[:3]
+    rows = fill_quiet_bars(
+        "AAA",
+        calendar,
+        {
+            locked_day: {"open": 11.0, "high": 11.20, "low": 10.80, "close": 11.05},
+            tradable_day: {"open": 10.80, "high": 11.0, "low": 10.7, "close": 10.9},
+        },
+    )
+    for row in rows:
+        if row["date"] == locked_day:
+            row["up_limit"] = 11.0
+    store = store_from_rows(calendar, rows)
+    config = zero_cost_config()
+    config.portfolio.max_positions = 1
+    trade = config.trade.model_dump()
+    trade.update({"blocked_entry_policy": "defer", "max_entry_delay_days": 2})
+    config.trade = TradeConfig.model_validate(trade)
+
+    result = BacktestEngine(
+        store,
+        config,
+        signal_fn=lambda as_of: constant_signal(["AAA"], 80.0, as_of)
+        if as_of == signal_day
+        else [],
+    ).run(signal_day, tradable_day)
+
+    assert result.open_positions_at_end == 1
+    assert result.attribution.signal.orders_generated == 1
+    assert result.attribution.signal.orders_deferred == 1
+    assert result.attribution.signal.entry_deferral_days == 1
+    assert result.attribution.signal.orders_filled_after_deferral == 1
+    assert result.attribution.signal.deferred_orders_expired == 0
+
+
+def test_deferred_entry_expires_after_configured_trading_days() -> None:
+    calendar = weekdays(date(2024, 1, 2), 8)
+    signal_day, first_locked_day, second_locked_day, end_day = calendar[:4]
+    rows = fill_quiet_bars("AAA", calendar)
+    for row in rows:
+        if row["date"] in {first_locked_day, second_locked_day}:
+            row.update(
+                {"open": 11.0, "high": 11.0, "low": 11.0, "close": 11.0, "up_limit": 11.0}
+            )
+    store = store_from_rows(calendar, rows)
+    config = zero_cost_config()
+    config.portfolio.max_positions = 1
+    trade = config.trade.model_dump()
+    trade.update({"blocked_entry_policy": "defer", "max_entry_delay_days": 1})
+    config.trade = TradeConfig.model_validate(trade)
+
+    result = BacktestEngine(
+        store,
+        config,
+        signal_fn=lambda as_of: constant_signal(["AAA"], 80.0, as_of)
+        if as_of == signal_day
+        else [],
+    ).run(signal_day, end_day)
+
+    assert result.open_positions_at_end == 0
+    assert result.attribution.signal.orders_deferred == 1
+    assert result.attribution.signal.entry_deferral_days == 1
+    assert result.attribution.signal.orders_filled_after_deferral == 0
+    assert result.attribution.signal.deferred_orders_expired == 1
+
+
+def test_deferred_entry_is_not_replaced_by_a_new_signal_for_same_symbol() -> None:
+    calendar = weekdays(date(2024, 1, 2), 8)
+    signal_day, locked_day, tradable_day = calendar[:3]
+    rows = fill_quiet_bars("AAA", calendar)
+    for row in rows:
+        if row["date"] == locked_day:
+            row.update(
+                {"open": 11.0, "high": 11.0, "low": 11.0, "close": 11.0, "up_limit": 11.0}
+            )
+    store = store_from_rows(calendar, rows)
+    config = zero_cost_config()
+    config.portfolio.max_positions = 1
+    trade = config.trade.model_dump()
+    trade.update({"blocked_entry_policy": "defer", "max_entry_delay_days": 2})
+    config.trade = TradeConfig.model_validate(trade)
+
+    result = BacktestEngine(
+        store,
+        config,
+        signal_fn=lambda as_of: constant_signal(["AAA"], 80.0, as_of),
+    ).run(signal_day, tradable_day)
+
+    assert result.open_positions_at_end == 1
+    assert result.attribution.signal.orders_generated == 1
+    assert result.attribution.signal.orders_filled == 1
+
+
+def test_suspended_entry_can_be_deferred_until_resumption() -> None:
+    calendar = weekdays(date(2024, 1, 2), 8)
+    signal_day, suspended_day, resumed_day = calendar[:3]
+    rows = fill_quiet_bars("AAA", calendar)
+    for row in rows:
+        if row["date"] == suspended_day:
+            row.update({"is_suspended": True, "volume": 0.0, "amount": 0.0})
+    store = store_from_rows(calendar, rows)
+    config = zero_cost_config()
+    config.portfolio.max_positions = 1
+    trade = config.trade.model_dump()
+    trade.update({"blocked_entry_policy": "defer", "max_entry_delay_days": 2})
+    config.trade = TradeConfig.model_validate(trade)
+
+    result = BacktestEngine(
+        store,
+        config,
+        signal_fn=lambda as_of: constant_signal(["AAA"], 80.0, as_of)
+        if as_of == signal_day
+        else [],
+    ).run(signal_day, resumed_day)
+
+    assert result.open_positions_at_end == 1
+    assert result.attribution.signal.rejected_suspended == 1
+    assert result.attribution.signal.orders_filled_after_deferral == 1
+
+
+def test_missing_daily_bar_for_pending_entry_fails_closed() -> None:
+    calendar = weekdays(date(2024, 1, 2), 8)
+    signal_day, missing_day = calendar[:2]
+    rows = [row for row in fill_quiet_bars("AAA", calendar) if row["date"] != missing_day]
+    store = store_from_rows(calendar, rows)
+
+    with pytest.raises(ValueError, match=f"pending entry AAA has no daily bar on {missing_day}"):
+        BacktestEngine(
+            store,
+            zero_cost_config(),
+            signal_fn=lambda as_of: constant_signal(["AAA"], 80.0, as_of)
+            if as_of == signal_day
+            else [],
+        ).run(signal_day, calendar[2])
 
 
 def test_price_limit_pct_20_blocks_sell_on_limit_down() -> None:

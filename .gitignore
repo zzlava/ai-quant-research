@@ -13,3 +13,7 @@ data/
 *.db
 .coverage
 htmlcov/
+frontend/node_modules/
+frontend/dist/
+claude-csi300-full-reconstruction/
+claude-csi300-phase2-direct-sources/

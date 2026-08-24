@@ -8,7 +8,12 @@ from app.clock import decision_at_utc
 from app.errors import DataQualityError, PreflightError
 from app.features.engine import required_history_bars
 from app.models.config import StrategyConfig
-from app.research_scope import PUBLIC_RECONSTRUCTION_SCOPE, research_notice
+from app.models.snapshot import RAW_PLUS_ADJUSTED_PRICE_BASIS
+from app.research_scope import (
+    HISTORICAL_ALL_A_SHARE_SCOPE,
+    PUBLIC_RECONSTRUCTION_SCOPE,
+    research_notice,
+)
 from app.storage.protocol import MarketStore
 from app.universe.membership import membership_lookup_options
 
@@ -17,6 +22,7 @@ CONTROLLED_SAMPLE_MODE_LABEL = "受控历史成员样本，非完整指数研究
 HISTORICAL_MODE_LABEL = "历史指数研究（数据通过点时校验）"
 LATEST_MARKET_SNAPSHOT_MODE_LABEL = "当日沪深全市场快照研究，仅可做当日排行，禁止历史回测"
 PUBLIC_RECONSTRUCTION_MODE_LABEL = "公开重建 CSI300 说明性模拟，非严格 PIT，不能与正式回测比较"
+HISTORICAL_ALL_A_SHARE_MODE_LABEL = "历史沪深普通 A 股点时派生流动性股票池研究"
 SECTOR_DISABLED_LABEL = "行业因子未启用"
 
 
@@ -43,6 +49,8 @@ def research_mode_label(mode: str, research_scope: str) -> str:
         return CONTROLLED_SAMPLE_MODE_LABEL
     if research_scope == PUBLIC_RECONSTRUCTION_SCOPE:
         return PUBLIC_RECONSTRUCTION_MODE_LABEL
+    if research_scope == HISTORICAL_ALL_A_SHARE_SCOPE:
+        return HISTORICAL_ALL_A_SHARE_MODE_LABEL
     if mode == "historical_membership":
         return HISTORICAL_MODE_LABEL
     return MANUAL_STATIC_MODE_LABEL
@@ -62,6 +70,28 @@ def _require_coverage(store: MarketStore, start: date, end: date) -> tuple[date,
             f"is outside snapshot coverage {coverage_start.isoformat()}..{coverage_end.isoformat()}"
         )
     return coverage_start, coverage_end
+
+
+def _require_price_contract(store: MarketStore, config: StrategyConfig) -> None:
+    snap = store.snapshot()
+    if snap.price_basis != RAW_PLUS_ADJUSTED_PRICE_BASIS:
+        raise PreflightError(
+            "snapshot price basis is not raw_ohlc_plus_adjusted_features; "
+            "refusing to use adjusted prices for execution. Re-fetch or re-import the data"
+        )
+    if snap.adjustment != config.data.adjustment:
+        raise PreflightError(
+            f"snapshot adjustment={snap.adjustment} does not match strategy adjustment={config.data.adjustment}; "
+            "re-fetch the snapshot with the matching price-transform contract"
+        )
+
+
+def _require_point_in_time_adjustment(config: StrategyConfig) -> None:
+    if config.data.require_point_in_time_adjustment and config.data.adjustment == "forward":
+        raise PreflightError(
+            "this strategy requires point-in-time adjusted features; forward adjustment is collection-end anchored. "
+            "Use backward adjustment with the raw OHLC plus adjustment-factor snapshot contract"
+        )
 
 
 def _calendar_dates(frame_dates: Iterable[object]) -> list[date]:
@@ -203,6 +233,8 @@ def preflight_research(
         raise PreflightError(
             "latest_market_snapshot supports one as-of date only; historical windows and backtests are disabled"
         )
+    _require_price_contract(store, config)
+    _require_point_in_time_adjustment(config)
     coverage_start, coverage_end = _require_coverage(store, start, end)
     calendar = store.get_calendar(coverage_start, coverage_end)
     if not calendar:
@@ -270,7 +302,30 @@ def preflight_research(
                 f"{reason}; refusing to score a gap or treat it as zero-signal"
             )
 
-    sector_status = SECTOR_DISABLED_LABEL if config.weights.sector_score == 0 else None
+    if config.fundamental is not None:
+        if not hasattr(store, "fundamental_snapshot_id"):
+            raise PreflightError("fundamental strategy requires a verified fundamental overlay")
+        from app.features.engine import FeatureEngine
+
+        for day in dict.fromkeys((window[0], window[-1])):
+            try:
+                feature_count = len(FeatureEngine(store, config).compute_all(day))
+            except ValueError as exc:
+                raise PreflightError(str(exc)) from exc
+            if feature_count == 0:
+                raise PreflightError(
+                    f"fundamental overlay has no complete PIT quality/value cross-section on {day}; "
+                    "refusing to treat missing fundamentals as zero-signal"
+                )
+
+    sector_weight = (
+        config.ranking.sector_weight
+        if config.ranking is not None
+        else config.weights.sector_score
+        if config.weights
+        else 0.0
+    )
+    sector_status = SECTOR_DISABLED_LABEL if sector_weight == 0 else None
     snap = store.snapshot()
     return PreflightResult(
         universe_id=config.universe.id,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from datetime import date
+from datetime import date, timedelta
 
 import polars as pl
 
@@ -39,7 +39,17 @@ class FeatureEngine:
         self.global_symbol = config.data.global_symbol
 
     def compute_all(self, as_of: date) -> list[StockFeatureVector]:
-        daily = self.store.get_daily_bars(as_of=as_of)
+        # Every stock feature below has a maximum 60-session dependency.  Do
+        # not rescan the entire multi-year all-market history for each signal
+        # date; the bounded query is mathematically identical for these
+        # rolling expressions and makes full-market diagnostics tractable.
+        recent_calendar = self.store.get_calendar(as_of - timedelta(days=400), as_of)
+        history_start = (
+            recent_calendar[-STOCK_FEATURE_HISTORY_BARS]
+            if len(recent_calendar) >= STOCK_FEATURE_HISTORY_BARS
+            else None
+        )
+        daily = self.store.get_daily_bars(as_of=as_of, start=history_start)
         if daily.is_empty():
             return []
         daily = daily.filter(pl.col("date") <= as_of)
@@ -130,6 +140,16 @@ class FeatureEngine:
                     global_ret_20d=global_ret_20d,
                 )
             )
+        if self.config.fundamental is not None:
+            from app.features.fundamental import enrich_fundamental_features
+
+            vectors = enrich_fundamental_features(
+                vectors,
+                store=self.store,
+                as_of=as_of,
+                available_by=decision_at_utc(as_of, self.config.data),
+                config=self.config.fundamental,
+            )
         return vectors
 
     def compute_one(self, symbol: str, as_of: date) -> StockFeatureVector | None:
@@ -139,6 +159,16 @@ class FeatureEngine:
         return None
 
     def _stock_features(self, daily: pl.DataFrame) -> pl.DataFrame:
+        # Signals use the point-in-time adjusted series.  The canonical OHLC
+        # columns in the stored snapshot remain unadjusted for order fills,
+        # limit checks, lots, and mark-to-market.
+        adjusted = {raw: f"adj_{raw}" for raw in ("open", "high", "low", "close")}
+        missing = [column for column in adjusted.values() if column not in daily.columns]
+        if missing:
+            raise MissingBenchmarkError(
+                "daily_bars is missing adjusted feature prices; re-import a raw_ohlc_plus_adjusted_features snapshot"
+            )
+        daily = daily.with_columns([pl.col(adjusted[raw]).alias(raw) for raw in adjusted])
         daily = daily.sort(["symbol", "date"])
         prev_close = pl.col("close").shift(1).over("symbol")
         true_range = pl.max_horizontal(

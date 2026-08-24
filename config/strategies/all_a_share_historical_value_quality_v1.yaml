@@ -1,0 +1,98 @@
+# Historical Shanghai/Shenzhen common-A research universe. Membership is
+# derived independently on every trading day from same-day observable fields;
+# it is not a present-day stock list and does not use CSI300 constituents.
+name: quality_value_v1
+config_id: all_a_share_historical_value_quality_v1
+version: "1.0.0"
+research_scope: historical_all_a_share
+
+regime:
+  market_weight: 0.70
+  global_weight: 0.30
+
+fundamental:
+  required: true
+  # Revised rows have no historical revision-publication timestamp in the
+  # source endpoint. Only update_flag=0 initial records are eligible.
+  revision_policy: strict_initial_as_announced
+  max_report_age_days: 550
+  max_valuation_age_days: 10
+  min_quality_components: 3
+  min_improvement_components: 1
+  min_value_components: 2
+
+fundamental_ranking:
+  quality_weight: 0.0
+  improvement_weight: 0.0
+  value_weight: 1.0
+  crowding_penalty: 0.03
+  execution_penalty: 0.10
+  attention_penalty: 0.08
+  min_quality_score: 20.0
+  min_improvement_score: 20.0
+  min_score: 50.0
+
+universe:
+  mode: derived_liquid
+  id: all_a_share_derived_liquid_cn
+  exclude_st: true
+  exclude_suspended: true
+  min_listing_days: 120
+  # Despite the legacy field name, this threshold is 20-day average amount in yuan.
+  min_avg_turnover_20d: 100000000
+
+market_gate:
+  - { min: 0.0, max: 40.0, max_new_positions: 0 }
+  - { min: 40.0, max: 55.0, max_new_positions: 1 }
+  - { min: 55.0, max: 70.0, max_new_positions: 2 }
+  - { min: 70.0, max: 100.1, max_new_positions: 3 }
+
+trade:
+  exit_policy: fixed_horizon
+  take_profit: 0.20
+  stop_loss: -0.20
+  min_holding_days: 20
+  max_holding_days: 20
+  cooldown_days: 0
+  signal_interval_days: 20
+  signal_anchor_date: 2022-01-04
+  require_target_lot_affordability: true
+  limit_pct: 0.10
+  st_limit_pct: 0.05
+  model_limit_moves: true
+
+portfolio:
+  initial_cash: 80000
+  max_positions: 3
+  weighting: equal_weight
+
+costs:
+  commission_rate: 0.00025
+  min_commission: 5.0
+  stamp_tax_rate: 0.0005
+  stamp_tax_schedule:
+    - effective_from: 1900-01-01
+      rate: 0.001
+    - effective_from: 2023-08-28
+      rate: 0.0005
+  slippage_bps: 5.0
+
+data:
+  market_index: 000300.SH
+  global_symbol: SPX
+  adjustment: backward
+  require_point_in_time_adjustment: true
+  decision_timezone: Asia/Shanghai
+  # Conservative post-close cutoff: same-day daily/basic inputs are not assumed
+  # available at the exchange's 15:00 close.
+  decision_time: "17:30"
+  min_history_bars: 21
+  sessions:
+    000300.SH:
+      market: CN
+      timezone: Asia/Shanghai
+      session_close: "15:00"
+    SPX:
+      market: US
+      timezone: America/New_York
+      session_close: "16:00"

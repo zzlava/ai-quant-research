@@ -288,7 +288,19 @@ def _source_with_membership(
 ) -> Path:
     dest.mkdir(parents=True, exist_ok=True)
     rows = fill_quiet_bars(A, calendar) + fill_quiet_bars(B, calendar)
-    daily = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Date))
+    daily = pl.DataFrame(rows).with_columns(
+        [
+            pl.col("date").cast(pl.Date),
+            pl.col("open").alias("adj_open"),
+            pl.col("high").alias("adj_high"),
+            pl.col("low").alias("adj_low"),
+            pl.col("close").alias("adj_close"),
+            pl.lit(1.0).alias("adj_factor"),
+            pl.col("close").alias("pre_close"),
+            (pl.col("close") * 1.1).alias("up_limit"),
+            (pl.col("close") * 0.9).alias("down_limit"),
+        ]
+    )
     instruments = pl.DataFrame(
         [
             {

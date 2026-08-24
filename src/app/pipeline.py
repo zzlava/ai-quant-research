@@ -28,20 +28,37 @@ def load_research_store(settings: Settings, config_name: str, base_store: Market
     """Load the normal verified snapshot and only then apply a declared overlay."""
     config = load_strategy_config(config_name, settings.strategies_dir)
     market = base_store or load_store(settings)
-    if config.research_scope != PUBLIC_RECONSTRUCTION_SCOPE:
-        return market
-    if config.universe.expected_constituents is None:
-        raise PreflightError("public_reconstruction requires universe.expected_constituents")
-    if settings.public_reconstruction_dir is None:
-        raise PreflightError(
-            "public_reconstruction requires AIQ_PUBLIC_RECONSTRUCTION_DIR; "
-            "it must point to a verified BigQuant collection directory"
+    if config.research_scope == PUBLIC_RECONSTRUCTION_SCOPE:
+        if config.universe.expected_constituents is None:
+            raise PreflightError("public_reconstruction requires universe.expected_constituents")
+        if settings.public_reconstruction_dir is None:
+            raise PreflightError(
+                "public_reconstruction requires AIQ_PUBLIC_RECONSTRUCTION_DIR; "
+                "it must point to a verified BigQuant collection directory"
+            )
+        pack = load_public_reconstruction_pack(
+            settings.public_reconstruction_dir,
+            expected_constituents=config.universe.expected_constituents,
         )
-    pack = load_public_reconstruction_pack(
-        settings.public_reconstruction_dir,
-        expected_constituents=config.universe.expected_constituents,
-    )
-    return PublicReconstructionStore(market, pack, universe_id=config.universe.id)
+        market = PublicReconstructionStore(market, pack, universe_id=config.universe.id)
+    if config.fundamental is not None:
+        from app.storage.fundamental_io import load_verified_fundamental_snapshot
+        from app.storage.fundamental_overlay import FundamentalOverlayStore
+
+        if settings.fundamental_dir is None:
+            raise PreflightError(
+                "fundamental strategy requires AIQ_FUNDAMENTAL_DIR pointing to a verified overlay"
+            )
+        fundamental_snapshot, tables = load_verified_fundamental_snapshot(settings.fundamental_dir)
+        if (
+            config.research_scope == "historical_all_a_share"
+            and fundamental_snapshot.base_market_snapshot_id is None
+        ):
+            raise PreflightError(
+                "historical_all_a_share requires a fundamental overlay bound to the exact market snapshot"
+            )
+        market = FundamentalOverlayStore(market, fundamental_snapshot, tables)
+    return market
 
 
 def run_score(

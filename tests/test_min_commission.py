@@ -34,6 +34,7 @@ def test_backtest_charges_minimum_commission_both_sides() -> None:
     config.costs.commission_rate = 0.00025
     config.costs.min_commission = 5.0
     config.costs.stamp_tax_rate = 0.0
+    config.costs.stamp_tax_schedule = []
     config.costs.slippage_bps = 0.0
     config.portfolio.initial_cash = 2_000
     config.portfolio.max_positions = 1

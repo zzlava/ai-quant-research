@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-SCHEMA_VERSION = "3"
+SCHEMA_VERSION = "4"
+RAW_PLUS_ADJUSTED_PRICE_BASIS: Literal["raw_ohlc_plus_adjusted_features"] = (
+    "raw_ohlc_plus_adjusted_features"
+)
+LEGACY_UNKNOWN_PRICE_BASIS: Literal["legacy_unknown"] = "legacy_unknown"
 
 TABLE_NAMES = (
     "daily_bars",
@@ -30,6 +35,11 @@ class DataSnapshot(BaseModel):
     coverage_start: date | None = None
     coverage_end: date | None = None
     adjustment: str
+    # Kept readable so historic backtest JSON can still be displayed.  It is
+    # rejected by current preflight and can never execute a new backtest.
+    price_basis: Literal["raw_ohlc_plus_adjusted_features", "legacy_unknown"] = (
+        LEGACY_UNKNOWN_PRICE_BASIS
+    )
     row_counts: dict[str, int]
     market_index: str | None = None
     global_symbol: str | None = None

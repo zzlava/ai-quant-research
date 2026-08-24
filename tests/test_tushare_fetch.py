@@ -79,6 +79,7 @@ def test_fake_tushare_builds_five_tables_and_imports(tmp_path: Path) -> None:
     assert verified.snapshot_id == snapshot.snapshot_id
     assert snapshot.source_name == "tushare"
     assert snapshot.adjustment == "forward"
+    assert snapshot.price_basis == "raw_ohlc_plus_adjusted_features"
     for name in ("daily_bars", "index_bars", "global_bars", "instruments", "calendar", "universe_membership"):
         assert (tmp_path / "parquet" / f"{name}.parquet").exists()
     membership = pl.read_parquet(tmp_path / "parquet" / "universe_membership.parquet")
@@ -87,6 +88,9 @@ def test_fake_tushare_builds_five_tables_and_imports(tmp_path: Path) -> None:
     assert set(membership["symbol"].to_list()) == set(STOCKS)
     daily = pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
     assert set(daily["symbol"].to_list()) == set(STOCKS)
+    assert {"adj_open", "adj_high", "adj_low", "adj_close", "pre_close", "up_limit", "down_limit"} <= set(
+        daily.columns
+    )
     statuses = [params.get("list_status") for name, params in client.call_params if name == "stock_basic"]
     assert statuses == ["L", "D", "P", "G"]
     daily_calls = [params for name, params in client.call_params if name == "daily"]
@@ -122,6 +126,35 @@ def test_fake_tushare_builds_five_tables_and_imports(tmp_path: Path) -> None:
     )
     if len(expected_globals) >= 2:
         assert set(global_codes) == set(expected_globals)
+
+
+def test_tushare_keeps_raw_execution_prices_separate_from_adjusted_features(tmp_path: Path) -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+    first = calendar[0].strftime("%Y%m%d")
+    tables["adj_factor"] = tables["adj_factor"].with_columns(
+        pl.when((pl.col("ts_code") == "000001.SZ") & (pl.col("trade_date") == first))
+        .then(pl.lit(0.5))
+        .otherwise(pl.col("adj_factor"))
+        .alias("adj_factor")
+    )
+    fetch_tushare_and_import(
+        start=calendar[0],
+        end=calendar[-1],
+        config=_config(),
+        dest_dir=tmp_path / "parquet",
+        stocks=list(STOCKS),
+        client=FakeTushareClient(tables),
+    )
+    row = (
+        pl.read_parquet(tmp_path / "parquet" / "daily_bars.parquet")
+        .filter((pl.col("symbol") == "000001.SZ") & (pl.col("date") == calendar[0]))
+        .to_dicts()[0]
+    )
+    assert row["open"] == pytest.approx(10.0)
+    assert row["close"] == pytest.approx(10.0)
+    assert row["adj_open"] == pytest.approx(5.0)
+    assert row["adj_close"] == pytest.approx(5.0)
+    assert row["adj_factor"] == pytest.approx(0.5)
 
 
 def test_live_style_single_code_queries_are_conservatively_paced() -> None:
