@@ -912,6 +912,80 @@ def verify_a_share_event_candidate_freeze_cmd(
     typer.echo("human_review_required=true")
 
 
+@app.command("verify-all-a-share-portfolio-oos-freeze")
+def verify_all_a_share_portfolio_oos_freeze_cmd(
+    freeze_file: Annotated[
+        Path | None,
+        typer.Option("--freeze-file", dir_okay=False, help="Frozen portfolio OOS protocol JSON"),
+    ] = None,
+    project_root: Annotated[
+        Path | None,
+        typer.Option(
+            "--project-root",
+            file_okay=False,
+            help="Repository root used to resolve relative freeze bindings",
+        ),
+    ] = None,
+) -> None:
+    """Verify the development-only p10_h20 portfolio OOS freeze; never score or trade."""
+    from app.research.portfolio_oos_freeze import (
+        DEFAULT_PORTFOLIO_OOS_FREEZE_PATH,
+        assert_committed_portfolio_oos_freeze_bindings,
+        verify_portfolio_oos_freeze,
+    )
+
+    typer.echo(
+        "Offline portfolio OOS freeze verification only. This command reads the freeze "
+        "contract, development evidence JSON, strategy YAML, four manifests, and two "
+        "calendar Parquet files. It does not read daily/index/global bars, fundamental "
+        "tables, or any 2025+ preflight/score/IC/backtest/return/trade/portfolio result."
+    )
+    try:
+        resolved_freeze = freeze_file or DEFAULT_PORTFOLIO_OOS_FREEZE_PATH
+        contract = verify_portfolio_oos_freeze(
+            freeze_path=resolved_freeze,
+            project_root=project_root,
+        )
+        assert_committed_portfolio_oos_freeze_bindings(contract)
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"freeze_version={contract.freeze_version}")
+    typer.echo(f"freeze_id={contract.freeze_id}")
+    typer.echo(f"candidate_id={contract.bound_strategy.candidate_id}")
+    typer.echo(f"strategy_config_hash={contract.bound_strategy.config_hash}")
+    typer.echo(f"selection_report_sha256={contract.bound_selection.report_sha256}")
+    typer.echo(f"robustness_status={contract.bound_robustness.status}")
+    typer.echo(f"oos_market_snapshot_id={contract.bound_oos_data.market_snapshot_id}")
+    typer.echo(
+        "oos_fundamental_snapshot_id="
+        f"{contract.bound_oos_data.fundamental_snapshot_id}"
+    )
+    typer.echo(
+        "runtime_equivalent_anchor="
+        f"{contract.calendar_equivalence.runtime_equivalent_anchor.isoformat()}"
+    )
+    typer.echo(
+        "first_2025_plus_signal="
+        f"{contract.calendar_equivalence.first_2025_plus_signal.isoformat()}"
+    )
+    typer.echo(
+        "signal_cutoff="
+        f"{contract.evaluation_window.signal_cutoff.isoformat()}"
+    )
+    typer.echo(
+        "last_scheduled_exit="
+        f"{contract.evaluation_window.last_scheduled_exit.isoformat()}"
+    )
+    typer.echo(f"oos_evaluation_mode={contract.oos_policy.evaluation_mode}")
+    typer.echo(f"authorized={str(contract.authorized).lower()}")
+    typer.echo(f"one_shot_required={str(contract.one_shot_required).lower()}")
+    typer.echo("ready_for_scoring=false")
+    typer.echo("ready_for_trading=false")
+    typer.echo("auto_deploy=false")
+    typer.echo("human_review_required=true")
+
+
 @app.command("evaluate-a-share-event-candidate-oos-one-shot")
 def evaluate_a_share_event_candidate_oos_one_shot_cmd(
     strategy: Annotated[str, typer.Option("--strategy")],
