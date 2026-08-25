@@ -19,6 +19,7 @@ from app.research.portfolio_oos_freeze import (
     FROZEN_DEVELOPMENT_FUNDAMENTAL_DIR,
     FROZEN_DEVELOPMENT_MARKET_CALENDAR_TABLE_HASH,
     FROZEN_DEVELOPMENT_MARKET_DIR,
+    FROZEN_HORIZON_DAYS,
     FROZEN_OOS_FUNDAMENTAL_DIR,
     FROZEN_OOS_MARKET_CALENDAR_TABLE_HASH,
     FROZEN_OOS_MARKET_DIR,
@@ -37,6 +38,7 @@ from app.research.portfolio_oos_freeze import (
     build_copy_with_id,
     compute_calendar_equivalence_proof,
     load_verified_portfolio_oos_freeze,
+    scheduled_unblocked_fixed_horizon_liquidation,
     verify_portfolio_oos_freeze,
     write_portfolio_oos_freeze,
 )
@@ -46,7 +48,7 @@ from tests.helpers import PROJECT_ROOT
 COMMITTED_FREEZE = PROJECT_ROOT / DEFAULT_PORTFOLIO_OOS_FREEZE_PATH
 CALENDAR_FIXTURE = PROJECT_ROOT / "tests/fixtures/portfolio_oos_freeze_calendars.json"
 REAL_STRATEGY = PROJECT_ROOT / FROZEN_STRATEGY_PATH
-COMMITTED_FREEZE_ID = "d60f3a5e22044cb2a5793c382153fef9c5dd0caf7330f0023cc27df70354fee1"
+COMMITTED_FREEZE_ID = "e5cdb0ff04e5eb78c331d6e4af77d4f8932a683e3f1558f83945708d48d00cc0"
 
 
 def _sha256(path: Path) -> str:
@@ -121,7 +123,27 @@ def test_calendar_equivalence_proof_matches_frozen_protocol() -> None:
     assert proof.runtime_equivalent_anchor == date(2024, 10, 29)
     assert proof.first_2025_plus_signal == date(2025, 1, 22)
     assert proof.last_complete_signal == date(2026, 7, 22)
-    assert proof.last_scheduled_exit == date(2026, 8, 19)
+    assert proof.last_scheduled_exit == date(2026, 8, 20)
+
+
+def test_scheduled_unblocked_fixed_horizon_follows_engine_lifecycle() -> None:
+    """Signal → next-day entry → horizon eligible sessions; reject naive signal+horizon."""
+    _dev_days, oos_days = _calendar_from_fixture()
+    signal = date(2026, 7, 22)
+    signal_index = oos_days.index(signal)
+    entry = oos_days[signal_index + 1]
+    naive_signal_plus_horizon = oos_days[signal_index + FROZEN_HORIZON_DAYS]
+    scheduled = scheduled_unblocked_fixed_horizon_liquidation(
+        oos_days,
+        signal,
+        horizon_days=FROZEN_HORIZON_DAYS,
+    )
+
+    assert entry == date(2026, 7, 23)
+    assert naive_signal_plus_horizon == date(2026, 8, 19)
+    assert scheduled == date(2026, 8, 20)
+    assert scheduled == oos_days[oos_days.index(entry) + FROZEN_HORIZON_DAYS]
+    assert scheduled != naive_signal_plus_horizon
 
 
 def test_verify_accepts_matching_freeze_and_rejects_tampered_id(tmp_path: Path) -> None:

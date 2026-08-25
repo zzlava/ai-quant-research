@@ -64,15 +64,16 @@
     "runtime_equivalent_anchor": "2024-10-29",
     "first_2025_plus_signal": "2025-01-22",
     "last_complete_signal": "2026-07-22",
-    "last_scheduled_exit": "2026-08-19",
+    "last_scheduled_exit": "2026-08-20",
     "equivalence_scope": "schedule_only",
-    "note": "runtime_equivalent_anchor only authorizes calendar-equivalent signal scheduling because the OOS snapshot lacks the original 2022-01-04 anchor. Every other frozen strategy parameter must remain unchanged."
+    "note": "runtime_equivalent_anchor only authorizes calendar-equivalent signal scheduling because the OOS snapshot lacks the original 2022-01-04 anchor. Every other frozen strategy parameter must remain unchanged. last_scheduled_exit is the scheduled unblocked fixed-horizon liquidation date under BacktestEngine lifecycle: next-trading-day entry after the signal, entry session not exit-eligible, then exit on the horizon-th subsequent eligible session. It is not signal+horizon. Suspended or limit-down sessions may leave positions open past this date; open_positions_at_end!=0 then triggers not_evaluable under the existing gate."
   },
   "evaluation_window": {
     "evaluation_start": "2025-01-02",
     "evaluation_end": "2026-08-21",
     "signal_cutoff": "2026-07-22",
-    "last_scheduled_exit": "2026-08-19"
+    "last_scheduled_exit": "2026-08-20",
+    "last_scheduled_exit_semantics": "last_scheduled_exit is the scheduled unblocked fixed-horizon liquidation date under BacktestEngine lifecycle: next-trading-day entry after the signal, entry session not exit-eligible, then exit on the horizon-th subsequent eligible session. It is not signal+horizon. Suspended or limit-down sessions may leave positions open past this date; open_positions_at_end!=0 then triggers not_evaluable under the existing gate."
   },
   "primary_oos_endpoint": {
     "metric": "total_return_after_declared_and_realized_trading_costs",
@@ -135,7 +136,7 @@
     }
   ],
   "result_semantics": {
-    "not_evaluable": "data, preflight, completeness, closed-trade count, metric finiteness, or P&L reconciliation failure",
+    "not_evaluable": "data, preflight, completeness, closed-trade count, open_positions_at_end!=0 (including positions left open past last_scheduled_exit by suspension or limit-down blocks), metric finiteness, or P&L reconciliation failure",
     "no_go": "evaluable, but primary endpoint or any hard risk / severe cost gate fails",
     "conditional_go": "all predeclared gates pass; human_review_required remains true; never auto promote to scoring, paper trading, or live trading",
     "human_review_required_on_conditional_go": true
@@ -171,6 +172,6 @@
   "authorized": false,
   "one_shot_required": true,
   "development_only": true,
-  "freeze_id": "d60f3a5e22044cb2a5793c382153fef9c5dd0caf7330f0023cc27df70354fee1",
+  "freeze_id": "e5cdb0ff04e5eb78c331d6e4af77d4f8932a683e3f1558f83945708d48d00cc0",
   "research_boundary": "Development-only freeze for the first future authorized 2025+ one-shot OOS evaluation of frozen p10_h20. No preflight, score, IC, backtest, return, trade, portfolio result, authorization, evaluation output, or consumption receipt is created by this freeze. runtime_equivalent_anchor allows schedule equivalence only; every other strategy parameter remains locked. Never auto-promote to scoring, paper trading, or live trading."
 }

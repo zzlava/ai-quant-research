@@ -73,7 +73,7 @@ FROZEN_CALENDAR_OVERLAP_TRADING_DAYS: Literal[61] = 61
 FROZEN_RUNTIME_EQUIVALENT_ANCHOR = date(2024, 10, 29)
 FROZEN_FIRST_2025_PLUS_SIGNAL = date(2025, 1, 22)
 FROZEN_LAST_COMPLETE_SIGNAL = date(2026, 7, 22)
-FROZEN_LAST_SCHEDULED_EXIT = date(2026, 8, 19)
+FROZEN_LAST_SCHEDULED_EXIT = date(2026, 8, 20)
 
 FROZEN_EVALUATION_START = date(2025, 1, 2)
 FROZEN_EVALUATION_END = date(2026, 8, 21)
@@ -151,6 +151,15 @@ class BoundOosDataBinding(_StrictModel):
     fundamental_coverage_end: date
 
 
+LAST_SCHEDULED_EXIT_SEMANTICS = (
+    "last_scheduled_exit is the scheduled unblocked fixed-horizon liquidation date under "
+    "BacktestEngine lifecycle: next-trading-day entry after the signal, entry session not "
+    "exit-eligible, then exit on the horizon-th subsequent eligible session. It is not "
+    "signal+horizon. Suspended or limit-down sessions may leave positions open past this "
+    "date; open_positions_at_end!=0 then triggers not_evaluable under the existing gate."
+)
+
+
 class CalendarEquivalenceProof(_StrictModel):
     overlap_start: date
     overlap_end: date
@@ -165,7 +174,7 @@ class CalendarEquivalenceProof(_StrictModel):
     note: str = (
         "runtime_equivalent_anchor only authorizes calendar-equivalent signal scheduling "
         "because the OOS snapshot lacks the original 2022-01-04 anchor. Every other frozen "
-        "strategy parameter must remain unchanged."
+        "strategy parameter must remain unchanged. " + LAST_SCHEDULED_EXIT_SEMANTICS
     )
 
 
@@ -174,6 +183,7 @@ class EvaluationWindow(_StrictModel):
     evaluation_end: date
     signal_cutoff: date
     last_scheduled_exit: date
+    last_scheduled_exit_semantics: str = LAST_SCHEDULED_EXIT_SEMANTICS
 
 
 class PrimaryOosEndpoint(_StrictModel):
@@ -219,7 +229,9 @@ class DescriptiveEndpoint(_StrictModel):
 
 class ResultSemantics(_StrictModel):
     not_evaluable: str = (
-        "data, preflight, completeness, closed-trade count, metric finiteness, or P&L reconciliation failure"
+        "data, preflight, completeness, closed-trade count, open_positions_at_end!=0 "
+        "(including positions left open past last_scheduled_exit by suspension or "
+        "limit-down blocks), metric finiteness, or P&L reconciliation failure"
     )
     no_go: str = "evaluable, but primary endpoint or any hard risk / severe cost gate fails"
     conditional_go: str = (
@@ -598,10 +610,14 @@ def assert_portfolio_oos_freeze_self_consistent(
         raise ValueError("signal_cutoff drifted")
     if window.last_scheduled_exit != FROZEN_LAST_SCHEDULED_EXIT:
         raise ValueError("evaluation last_scheduled_exit drifted")
+    if window.last_scheduled_exit_semantics != LAST_SCHEDULED_EXIT_SEMANTICS:
+        raise ValueError("last_scheduled_exit_semantics drifted")
     if window.signal_cutoff != proof.last_complete_signal:
         raise ValueError("signal_cutoff must equal last_complete_signal")
     if window.last_scheduled_exit != proof.last_scheduled_exit:
         raise ValueError("evaluation exit must equal calendar last_scheduled_exit")
+    if LAST_SCHEDULED_EXIT_SEMANTICS not in proof.note:
+        raise ValueError("calendar equivalence note missing last_scheduled_exit semantics")
 
 
 def compute_calendar_equivalence_proof(
@@ -637,7 +653,11 @@ def compute_calendar_equivalence_proof(
     last_complete: date | None = None
     last_exit: date | None = None
     for signal in signals:
-        exit_day = _shift_trading_days(merged, signal, FROZEN_HORIZON_DAYS)
+        exit_day = scheduled_unblocked_fixed_horizon_liquidation(
+            merged,
+            signal,
+            horizon_days=FROZEN_HORIZON_DAYS,
+        )
         if exit_day is None:
             break
         if signal >= FROZEN_EVALUATION_START and exit_day <= FROZEN_EVALUATION_END:
@@ -917,16 +937,33 @@ def _signal_schedule(
     return [calendar[offset] for offset in range(index, len(calendar), interval_days)]
 
 
-def _shift_trading_days(
+def scheduled_unblocked_fixed_horizon_liquidation(
     calendar: list[date],
-    start: date,
-    steps: int,
+    signal: date,
+    *,
+    horizon_days: int,
 ) -> date | None:
-    index = calendar.index(start)
-    target = index + steps
-    if target >= len(calendar):
+    """Scheduled unblocked fixed-horizon liquidation matching BacktestEngine.
+
+    Lifecycle: signal day places an order; entry fills on the next trading day;
+    the entry session is skipped for exit eligibility; each later session
+    increments exit_eligible_days; the unblocked timeout exit is the session
+    where that count first reaches ``horizon_days``. Suspension / limit-down
+    may keep the position open past this scheduled date.
+    """
+    if horizon_days < 1:
+        raise ValueError("horizon_days must be >= 1")
+    try:
+        signal_index = calendar.index(signal)
+    except ValueError:
         return None
-    return calendar[target]
+    entry_index = signal_index + 1
+    if entry_index >= len(calendar):
+        return None
+    exit_index = entry_index + horizon_days
+    if exit_index >= len(calendar):
+        return None
+    return calendar[exit_index]
 
 
 def _assert_relative_path(value: str, label: str) -> None:
