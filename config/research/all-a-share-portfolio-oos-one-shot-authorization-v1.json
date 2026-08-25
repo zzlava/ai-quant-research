@@ -1,0 +1,110 @@
+{
+  "schema_version": "1",
+  "authorization_version": "all-a-share-portfolio-oos-one-shot-v1",
+  "authorization_date": "2026-08-25",
+  "authorized": true,
+  "one_shot": true,
+  "consumed": false,
+  "user_authorization_phrase": "我授权按照冻结协议执行 p10_h20 的 2025+ 一次性 OOS 评估",
+  "authorization_basis": "Explicit user authorization on 2026-08-25: 我授权按照冻结协议执行 p10_h20 的 2025+ 一次性 OOS 评估",
+  "freeze_file": "config/research/all-a-share-portfolio-oos-freeze-v1.json",
+  "freeze_id": "e5cdb0ff04e5eb78c331d6e4af77d4f8932a683e3f1558f83945708d48d00cc0",
+  "strategy_path": "config/strategies/all_a_share_historical_value_portfolio_selected_v2.yaml",
+  "strategy_file_sha256": "ba39935d0329f7c2354990f3875e55945a0c348f4eaa829f4e0fe6ae50597e26",
+  "strategy_config_id": "all_a_share_historical_value_quality_v1_portfolio_p10_h20_selected_v2",
+  "frozen_config_hash": "796b793856dcd02a",
+  "runtime_override": {
+    "field": "trade.signal_anchor_date",
+    "frozen_value": "2022-01-04",
+    "runtime_value": "2024-10-29",
+    "expected_runtime_config_hash": "b06e86cac8041f84",
+    "note": "runtime_equivalent_anchor authorizes schedule equivalence only; every other frozen strategy parameter must remain unchanged"
+  },
+  "market_dir": "data/all-a-share-oos-20241001-20260821-v1/parquet",
+  "market_snapshot_id": "b6f664d31d8ffcdabbb655e888467c75dbfa6a7f8bd863d698febb015f5b0427",
+  "fundamental_dir": "data/all-a-share-oos-20241001-20260821-v1/fundamentals-value-quality-v1",
+  "fundamental_snapshot_id": "6ae37b22c6884e81d3ddeb18f47e62911a21d3ea63db4acfb48e22644bc74bd9",
+  "fundamental_base_market_snapshot_id": "b6f664d31d8ffcdabbb655e888467c75dbfa6a7f8bd863d698febb015f5b0427",
+  "expected_composite_store_snapshot_id": "558ca159bba802dcb0c5746c1c7910c4ab1521a3153580469c31ae753d6151a1",
+  "evaluation_window": {
+    "evaluation_start": "2025-01-02",
+    "evaluation_end": "2026-08-21",
+    "first_2025_plus_signal": "2025-01-22",
+    "signal_cutoff": "2026-07-22",
+    "last_scheduled_exit": "2026-08-20"
+  },
+  "primary_oos_endpoint": {
+    "metric": "total_return_after_declared_and_realized_trading_costs",
+    "comparator": ">",
+    "threshold": 0,
+    "decides_oos_result": true,
+    "may_promote_to_scoring": false,
+    "may_promote_to_trading": false
+  },
+  "evaluability_gates": {
+    "require_full_preflight_after_future_authorization": true,
+    "min_closed_trades": 20,
+    "open_positions_at_end": 0,
+    "all_metrics_finite": true,
+    "pnl_reconciliation_abs_tol": 1e-6
+  },
+  "hard_risk_gates": {
+    "baseline_sharpe_gt": 0,
+    "max_drawdown_floor": -0.15,
+    "largest_single_symbol_loss_fraction_of_initial_cash": 0.03,
+    "initial_cash": 80000
+  },
+  "cost_stress_gates": {
+    "severe_scenario_id": "severe_4x_commission_5x_slippage",
+    "severe_total_return_gt": 0,
+    "severe_open_positions_at_end": 0,
+    "moderate_scenario_id": "moderate_2x_commission_2x_slippage",
+    "moderate_is_descriptive_only": true
+  },
+  "descriptive_endpoints": [
+    {
+      "endpoint_id": "csi300_price_index_total_return_sharpe_drawdown",
+      "decides_oos_result": false,
+      "may_promote": false,
+      "reason": "price-index benchmark without dividends; descriptive only"
+    },
+    {
+      "endpoint_id": "strategy_minus_csi300_price_index",
+      "decides_oos_result": false,
+      "may_promote": false,
+      "reason": "not a total-return benchmark; cannot decide the OOS result"
+    },
+    {
+      "endpoint_id": "moderate_2x_commission_2x_slippage",
+      "decides_oos_result": false,
+      "may_promote": false,
+      "reason": "moderate cost stress is descriptive; only severe cost is a hard gate"
+    },
+    {
+      "endpoint_id": "sector_attribution",
+      "decides_oos_result": false,
+      "may_promote": false,
+      "reason": "static sector labels are not point-in-time; never a pass/fail gate"
+    },
+    {
+      "endpoint_id": "invested_capital_fraction",
+      "decides_oos_result": false,
+      "may_promote": false,
+      "reason": "exposure diagnostics only; not a pass/fail gate"
+    }
+  ],
+  "result_semantics": {
+    "not_evaluable": "data, preflight, completeness, closed-trade count, open_positions_at_end!=0 (including positions left open past last_scheduled_exit by suspension or limit-down blocks), metric finiteness, or P&L reconciliation failure",
+    "no_go": "evaluable, but primary endpoint or any hard risk / severe cost gate fails",
+    "conditional_go": "all predeclared gates pass; human_review_required remains true; never auto promote to scoring, paper trading, or live trading",
+    "human_review_required_on_conditional_go": true
+  },
+  "output_dir": "data/all-a-share-oos-20241001-20260821-v1/portfolio-oos-evaluations/one-shot-v1",
+  "consumption_receipt_path": "data/all-a-share-oos-20241001-20260821-v1/portfolio-oos-evaluations/one-shot-v1.consumption-receipt.json",
+  "ready_for_scoring": false,
+  "ready_for_trading": false,
+  "auto_deploy": false,
+  "human_review_required": true,
+  "authorization_id": "f27fcb1fe8b1a3b1f4d2cb02633911fe61f37f00c37fe94301e320a7f79e16c5",
+  "research_boundary": "Authorized one-shot 2025+ portfolio OOS evaluation of frozen p10_h20 only. Runtime may override signal_anchor_date to the calendar-equivalent 2024-10-29 and nothing else. No p-value, IC, parameter search, auto scoring, paper trading, live trading, or automatic promotion."
+}

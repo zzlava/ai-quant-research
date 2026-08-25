@@ -986,6 +986,183 @@ def verify_all_a_share_portfolio_oos_freeze_cmd(
     typer.echo("human_review_required=true")
 
 
+@app.command("evaluate-all-a-share-portfolio-oos-one-shot")
+def evaluate_all_a_share_portfolio_oos_one_shot_cmd(
+    strategy: Annotated[str, typer.Option("--strategy")],
+    authorization_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--authorization-file",
+            dir_okay=False,
+            help="Sealed one-shot portfolio OOS authorization JSON",
+        ),
+    ] = None,
+    freeze_file: Annotated[
+        Path | None,
+        typer.Option("--freeze-file", dir_okay=False, help="Frozen portfolio OOS protocol JSON"),
+    ] = None,
+    market_dir: Annotated[Path | None, typer.Option("--market-dir", file_okay=False)] = None,
+    fundamental_dir: Annotated[Path | None, typer.Option("--fundamental-dir", file_okay=False)] = None,
+) -> None:
+    """Run the authorized one-shot 2025+ p10_h20 portfolio OOS evaluation; never deploy."""
+    from app.research.portfolio_oos_authorization import (
+        DEFAULT_PORTFOLIO_OOS_AUTH_PATH,
+        assert_committed_authorization_bindings,
+        load_verified_portfolio_oos_authorization,
+    )
+    from app.research.portfolio_oos_evaluation import (
+        evaluate_and_write_portfolio_oos_one_shot,
+    )
+    from app.research.portfolio_oos_freeze import (
+        assert_committed_portfolio_oos_freeze_bindings,
+        verify_portfolio_oos_freeze,
+    )
+
+    typer.echo(
+        "Authorized one-shot 2025+ portfolio OOS evaluation only. This command does not "
+        "mutate the authorization contract, does not overwrite prior output/receipt, does "
+        "not connect to a broker or network token, and authorizes no auto scoring, paper "
+        "trading, live trading, p-value, or IC claim."
+    )
+    try:
+        resolved_auth = authorization_file or DEFAULT_PORTFOLIO_OOS_AUTH_PATH
+        authorization = load_verified_portfolio_oos_authorization(resolved_auth)
+        assert_committed_authorization_bindings(authorization)
+        resolved_freeze = freeze_file or Path(authorization.freeze_file)
+        if freeze_file is not None and Path(freeze_file) != Path(authorization.freeze_file):
+            if Path(freeze_file).resolve() != (Path.cwd() / authorization.freeze_file).resolve():
+                raise ValueError("--freeze-file does not match the authorization freeze_file")
+        freeze = verify_portfolio_oos_freeze(freeze_path=resolved_freeze)
+        assert_committed_portfolio_oos_freeze_bindings(freeze)
+        resolved_market = market_dir or Path(authorization.market_dir)
+        if market_dir is not None:
+            expected_market = Path(authorization.market_dir)
+            if (
+                market_dir.resolve() != expected_market.resolve()
+                and market_dir.resolve() != (Path.cwd() / expected_market).resolve()
+            ):
+                raise ValueError("--market-dir does not match the authorization market_dir")
+        resolved_fundamental = fundamental_dir or Path(authorization.fundamental_dir)
+        if fundamental_dir is not None:
+            expected_fundamental = Path(authorization.fundamental_dir)
+            if fundamental_dir.resolve() != expected_fundamental.resolve() and (
+                fundamental_dir.resolve() != (Path.cwd() / expected_fundamental).resolve()
+            ):
+                raise ValueError("--fundamental-dir does not match the authorization fundamental_dir")
+        if strategy != authorization.strategy_config_id:
+            raise ValueError("--strategy does not match the authorization strategy_config_id")
+        strategy_path = Path(authorization.strategy_path)
+        if not strategy_path.is_file():
+            strategy_path = Path.cwd() / authorization.strategy_path
+
+        def progress(stage: str, done: int, total: int) -> None:
+            typer.echo(f"progress={done}/{total} stage={stage}")
+
+        report, receipt, destination = evaluate_and_write_portfolio_oos_one_shot(
+            authorization=authorization,
+            freeze_path=resolved_freeze,
+            strategy_path=strategy_path,
+            market_dir=resolved_market,
+            fundamental_dir=resolved_fundamental,
+            progress=progress,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"evaluation_version={report.evaluation_version}")
+    typer.echo(f"authorization_id={report.authorization_id}")
+    typer.echo(f"freeze_id={report.freeze_id}")
+    typer.echo(f"frozen_config_hash={report.frozen_config_hash}")
+    typer.echo(f"runtime_config_hash={report.runtime_config_hash}")
+    typer.echo(f"market_snapshot_id={report.market_snapshot_id}")
+    typer.echo(f"fundamental_snapshot_id={report.fundamental_snapshot_id}")
+    typer.echo(f"composite_store_snapshot_id={report.composite_store_snapshot_id}")
+    typer.echo(f"evaluation_window={report.evaluation_start}..{report.evaluation_end}")
+    typer.echo(f"signal_cutoff={report.signal_cutoff}")
+    typer.echo(f"preflight_passed={str(report.preflight_passed).lower()}")
+    typer.echo(f"outcome={report.outcome}")
+    typer.echo(f"outcome_reason={report.outcome_reason}")
+    typer.echo(f"report_id={report.report_id}")
+    typer.echo(f"receipt_id={receipt.receipt_id}")
+    typer.echo("one_shot=true")
+    typer.echo("ready_for_scoring=false")
+    typer.echo("ready_for_trading=false")
+    typer.echo("auto_deploy=false")
+    typer.echo("human_review_required=true")
+    typer.echo(f"output={destination}")
+
+
+@app.command("verify-all-a-share-portfolio-oos-one-shot")
+def verify_all_a_share_portfolio_oos_one_shot_cmd(
+    output_dir: Annotated[
+        Path | None,
+        typer.Option("--output-dir", file_okay=False, help="Sealed one-shot evaluation directory"),
+    ] = None,
+    receipt_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--receipt-file",
+            dir_okay=False,
+            help="Sealed one-shot consumption receipt JSON",
+        ),
+    ] = None,
+    authorization_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--authorization-file",
+            dir_okay=False,
+            help="Committed one-shot portfolio OOS authorization JSON",
+        ),
+    ] = None,
+    freeze_file: Annotated[
+        Path | None,
+        typer.Option("--freeze-file", dir_okay=False, help="Committed portfolio OOS freeze JSON"),
+    ] = None,
+) -> None:
+    """Verify a sealed portfolio OOS one-shot report+receipt; never execute evaluation."""
+    from app.research.portfolio_oos_authorization import (
+        AUTHORIZED_OUTPUT_DIR,
+        AUTHORIZED_RECEIPT_PATH,
+        DEFAULT_PORTFOLIO_OOS_AUTH_PATH,
+    )
+    from app.research.portfolio_oos_evaluation import verify_sealed_portfolio_oos_one_shot
+    from app.research.portfolio_oos_freeze import DEFAULT_PORTFOLIO_OOS_FREEZE_PATH
+
+    typer.echo(
+        "Read-only portfolio OOS one-shot verification only. This command loads the "
+        "committed authorization and freeze, may replay preflight read-only against the "
+        "authorized store, recomputes output hashes, rebuilds scenario summaries from "
+        "sealed BacktestResult files, and recomputes the full gate list. It does not run "
+        "score, backtest, or trade."
+    )
+    try:
+        resolved_output = output_dir or Path(AUTHORIZED_OUTPUT_DIR)
+        resolved_receipt = receipt_file or Path(AUTHORIZED_RECEIPT_PATH)
+        resolved_auth = authorization_file or DEFAULT_PORTFOLIO_OOS_AUTH_PATH
+        resolved_freeze = freeze_file or DEFAULT_PORTFOLIO_OOS_FREEZE_PATH
+        report, receipt = verify_sealed_portfolio_oos_one_shot(
+            output_dir=resolved_output,
+            receipt_path=resolved_receipt,
+            authorization_path=resolved_auth,
+            freeze_path=resolved_freeze,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"evaluation_version={report.evaluation_version}")
+    typer.echo(f"authorization_id={report.authorization_id}")
+    typer.echo(f"freeze_id={report.freeze_id}")
+    typer.echo(f"report_id={report.report_id}")
+    typer.echo(f"receipt_id={receipt.receipt_id}")
+    typer.echo(f"outcome={report.outcome}")
+    typer.echo("one_shot=true")
+    typer.echo("ready_for_scoring=false")
+    typer.echo("ready_for_trading=false")
+    typer.echo("auto_deploy=false")
+    typer.echo("human_review_required=true")
+    typer.echo("verified=true")
+
+
 @app.command("evaluate-a-share-event-candidate-oos-one-shot")
 def evaluate_a_share_event_candidate_oos_one_shot_cmd(
     strategy: Annotated[str, typer.Option("--strategy")],

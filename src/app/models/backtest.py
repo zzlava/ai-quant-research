@@ -110,3 +110,9 @@ class BacktestResult(BaseModel):
     research_notice: str | None = None
     reconstruction_data_id: str | None = None
     attribution: BacktestAttribution = Field(default_factory=BacktestAttribution)
+    # Optional one-shot portfolio OOS scenario cost bindings (absent outside that writer).
+    portfolio_oos_scenario_id: str | None = None
+    portfolio_oos_commission_rate: float | None = None
+    portfolio_oos_minimum_commission: float | None = None
+    portfolio_oos_slippage_bps: float | None = None
+    portfolio_oos_stamp_tax_unchanged: bool | None = None
