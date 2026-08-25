@@ -66,37 +66,38 @@ OOS 快照不含原锚点 `2022-01-04`。协议要求：
 
 禁止：p 值、IC、参数搜索、调锚点、重用 2024 调参、事件候选接入。
 
-## 一次性授权（已封存合同；评估未执行）
+## 一次性授权（已执行并封存）
 
 用户已于 2026-08-25 明确授权：`我授权按照冻结协议执行 p10_h20 的 2025+ 一次性 OOS 评估`。
 
 机器可读授权：[`config/research/all-a-share-portfolio-oos-one-shot-authorization-v1.json`](../config/research/all-a-share-portfolio-oos-one-shot-authorization-v1.json)
 
-绑定要点：`authorized=true`、`one_shot=true`、`consumed=false`；冻结 `freeze_id=e5cdb0ff…00cc0`；运行时仅允许 `signal_anchor_date→2024-10-29`（`runtime_config_hash=b06e86cac8041f84`）；OOS 行情/财务/复合 snapshot 与评估窗/信号截断/计划清算日与冻结合同一致；输出目录与消费收据路径已预声明。仍固定 `ready_for_scoring=false`、`ready_for_trading=false`、`auto_deploy=false`、`human_review_required=true`。
+绑定要点：`authorized=true`、`one_shot=true`；冻结 `freeze_id=e5cdb0ff…00cc0`；运行时仅修改 `signal_anchor_date→2024-10-29`（`runtime_config_hash=b06e86cac8041f84`）；OOS 行情/财务/复合 snapshot 与评估窗/信号截断/计划清算日均与冻结合同一致。输出目录和消费回执已存在，因此一次性授权已消费。仍固定 `ready_for_scoring=false`、`ready_for_trading=false`、`auto_deploy=false`、`human_review_required=true`。
 
-### 评估命令（实现期 **NOT RUN**）
+### 评估命令（历史审计；禁止重跑）
 
 ```bash
 cd /Users/janlei/Desktop/quant/ai-quant-research
 
-# NOT RUN during implementation — do not execute the real 2025+ one-shot OOS evaluation yet.
+# 已执行一次；封存输出会拒绝重放。
 .venv/bin/python -m app.cli evaluate-all-a-share-portfolio-oos-one-shot \
   --strategy all_a_share_historical_value_quality_v1_portfolio_p10_h20_selected_v2
 ```
 
 默认读取上述授权与冻结合同；自定义 `--authorization-file` / 路径覆盖若与封存绑定不一致会被拒绝。命令不联网、不读 broker/token，不写持久 score cache / scores 表，不自动晋升。
 
-只读校验（仅在真实输出与收据封存后使用；实现期 **NOT RUN**）：
+封存结果为 `no_go`：`report_id=5e193216…ace53f`，`receipt_id=69761230…e694e96`。主终点收益与严重成本收益门失败；详见 [`docs/all-a-share-portfolio-oos-one-shot-authorization-v1.md`](all-a-share-portfolio-oos-one-shot-authorization-v1.md)。
+
+只读校验（已通过）：
 
 ```bash
-# NOT RUN during implementation — sealed output/receipt do not exist yet.
 .venv/bin/python -m app.cli verify-all-a-share-portfolio-oos-one-shot
 ```
 
-## 本里程碑明确不做
+## 执行后保持的边界
 
-- **不运行、不读取、不计算**任何真实 2025+ preflight / score / IC / backtest / 收益 / 交易 / 组合 / equity 结果
-- **不创建**真实评估输出目录或消费收据
+- 不再执行或覆盖同一 2025+ OOS 窗口的 score / backtest / 组合结果；仅允许校验器只读重放 preflight
+- 不根据本次 `no_go` 回到同一 OOS 窗口调参、换候选组合或重新选择门槛
 - 不修改现有策略 YAML、评分、股票池、行业约束、交易引擎或事件逻辑
 
 ## 冻结合同校验
