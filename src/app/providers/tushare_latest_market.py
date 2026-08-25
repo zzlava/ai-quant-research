@@ -16,6 +16,7 @@ from app.providers.tushare_client import TushareQueryClient
 from app.providers.tushare_fetch import write_normalized_tables
 from app.providers.tushare_normalize import (
     TushareRaw,
+    is_full_day_suspend_timing,
     is_st_name,
     normalize_tushare,
     open_trading_days,
@@ -277,7 +278,7 @@ def _full_day_suspended_symbols(frame: pl.DataFrame, as_of: date) -> set[str]:
             continue
         if str(item.get("suspend_type") or "").upper() != "S":
             continue
-        if item.get("suspend_timing") not in (None, "", "None"):
+        if not is_full_day_suspend_timing(item.get("suspend_timing")):
             continue
         out.add(str(item["ts_code"]).strip())
     return out

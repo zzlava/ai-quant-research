@@ -22,6 +22,7 @@ from app.providers.tushare_client import TushareQueryClient
 from app.providers.tushare_fetch import write_normalized_tables
 from app.providers.tushare_normalize import (
     TushareRaw,
+    is_full_day_suspend_timing,
     normalize_tushare,
     open_trading_days,
     parse_ymd,
@@ -538,8 +539,7 @@ def _liquidity_amount_history(
         symbol = str(item.get("ts_code") or "").strip()
         if symbol not in stock_set or str(item.get("suspend_type") or "").upper() != "S":
             continue
-        timing = item.get("suspend_timing")
-        if timing not in (None, "", "None"):
+        if not is_full_day_suspend_timing(item.get("suspend_timing")):
             continue
         day = parse_ymd(item.get("trade_date"))
         if day in seed_days:
@@ -697,19 +697,19 @@ def _collect_legacy_suspend_fallback(
     interval_path = root / "reference" / "suspend_intervals.parquet"
     seed_path = root / "reference" / "suspend_seed_daily.parquet"
     unknown = _unknown_active_gaps(root, stock_basic=stock_basic, stocks=stocks, days=target_days)
+    empty_intervals = pl.DataFrame(
+        schema={
+            "ts_code": pl.String,
+            "suspend_date": pl.String,
+            "resume_date": pl.String,
+            "suspend_reason": pl.String,
+        }
+    )
     if not unknown:
-        if not interval_path.exists():
-            _write_parquet_atomic(
-                interval_path,
-                pl.DataFrame(
-                    schema={
-                        "ts_code": pl.String,
-                        "suspend_date": pl.String,
-                        "resume_date": pl.String,
-                        "suspend_reason": pl.String,
-                    }
-                ),
-            )
+        # Drop any stale legacy intervals from a prior incomplete attempt. When
+        # suspend_d already explains every gap, retained null-resume rows would
+        # incorrectly mark later trading days as suspended.
+        _write_parquet_atomic(interval_path, empty_intervals)
         return
 
     if interval_path.exists():
@@ -720,18 +720,7 @@ def _collect_legacy_suspend_fallback(
             frame = _paced_query(client, pacer, "suspend", ts_code=symbol)
             if not frame.is_empty():
                 frames.append(frame)
-        intervals = (
-            pl.concat(frames, how="diagonal_relaxed")
-            if frames
-            else pl.DataFrame(
-                schema={
-                    "ts_code": pl.String,
-                    "suspend_date": pl.String,
-                    "resume_date": pl.String,
-                    "suspend_reason": pl.String,
-                }
-            )
-        )
+        intervals = pl.concat(frames, how="diagonal_relaxed") if frames else empty_intervals
         _write_parquet_atomic(interval_path, intervals)
     _assert_intervals_cover_unknown_gaps(intervals, unknown)
 
@@ -801,15 +790,14 @@ def _unknown_active_gaps(
         if path.stem in date_names
     ]
     suspend = pl.scan_parquet([str(path) for path in sorted(suspend_paths)]).collect()
+    known_suspended: set[tuple[str, date]] = set()
     if not suspend.is_empty():
-        suspend = suspend.filter(
-            (pl.col("suspend_type") == "S")
-            & (pl.col("suspend_timing").is_null() | (pl.col("suspend_timing") == ""))
-        )
-    known_suspended = {
-        (str(symbol), parse_ymd(day))
-        for symbol, day in suspend.select(["ts_code", "trade_date"]).iter_rows()
-    }
+        for item in suspend.to_dicts():
+            if str(item.get("suspend_type") or "").upper() != "S":
+                continue
+            if not is_full_day_suspend_timing(item.get("suspend_timing")):
+                continue
+            known_suspended.add((str(item["ts_code"]), parse_ymd(item["trade_date"])))
     stock_set = set(stocks)
     by_code = {
         str(item["ts_code"]): item

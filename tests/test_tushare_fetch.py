@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+import pandas as pd
 import polars as pl
 import pytest
 from fastapi.testclient import TestClient
@@ -14,7 +15,7 @@ from app.clock import available_at_utc
 from app.demo.generator import generate_demo_market, write_demo_parquet
 from app.errors import DataQualityError, MissingTushareTokenError, TushareFetchError, sanitize_error_message
 from app.pipeline import run_backtest, run_score
-from app.providers.tushare_client import TOKEN_ENV, read_tushare_token
+from app.providers.tushare_client import TOKEN_ENV, LiveTushareClient, read_tushare_token
 from app.providers.tushare_fetch import fetch_tushare_and_import, read_symbols_file
 from app.providers.tushare_normalize import require_ts_code, split_session_symbols
 from app.providers.tushare_provider import TushareProvider
@@ -36,6 +37,37 @@ def test_missing_token_fails_without_env_leak(monkeypatch: pytest.MonkeyPatch) -
     message = str(exc_info.value)
     assert "should-not-appear" not in message
     assert "=" not in message
+
+
+def test_live_client_falls_back_to_full_schema_scan_for_mixed_numeric_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ProStub:
+        def share_float(self, **params: object) -> pd.DataFrame:
+            del params
+            return pd.DataFrame(
+                {
+                    "float_ratio": pd.Series(
+                        [1] * 101 + [1.0373],
+                        dtype=object,
+                    )
+                }
+            )
+
+    client = LiveTushareClient("test-token")
+    client._pro = ProStub()  # noqa: SLF001
+
+    def fail_partial_inference(frame: object) -> pl.DataFrame:
+        del frame
+        raise pl.exceptions.ComputeError(
+            "could not append value: 1.0373 of type: f64 to the builder"
+        )
+
+    monkeypatch.setattr(pl, "from_pandas", fail_partial_inference)
+    result = client.query("share_float")
+
+    assert result.schema == {"float_ratio": pl.Float64}
+    assert result["float_ratio"].tail(1).item() == pytest.approx(1.0373)
 
 
 def test_token_is_redacted_from_cli_and_errors(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

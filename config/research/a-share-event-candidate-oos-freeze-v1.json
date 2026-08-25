@@ -1,0 +1,510 @@
+{
+  "schema_version": "1",
+  "freeze_version": "a-share-event-candidate-oos-freeze-v1",
+  "bound_diagnostic": {
+    "artifact_dir": "data/all-a-share-historical-v1/event-candidate-diagnostics/development-2022-2023-v1",
+    "diagnostic_version": "development-2022-2023-v1",
+    "report_id": "782a042d666600a4383cce72ecff27c2599acbde0acd2b0f2100b164d928bd01",
+    "strategy_config_id": "all_a_share_historical_value_portfolio_selected_v2",
+    "strategy_config_hash": "796b793856dcd02a",
+    "market_snapshot_id": "de546fbbf5a6308a76fbfbd077a918cbbedfb3ad0ca361a24212c1bfe3e06857",
+    "event_snapshot_id": "c17c1629c6ed52929846d9e970fb038e0842e2c88d1e950dc4149369d7524d4a",
+    "observation_file_sha256": "60447202f4651075a22d9105afb0fbeee7559690a153c12dffb5062b5e81efa3",
+    "summary_file_sha256": "4060b7b6e4a0e55c6345235704d4b9f376e6aba0ec2f88d6bc392874206dd4a3",
+    "observation_rows": 198376,
+    "summary_rows": 99,
+    "window_start": "2022-01-01",
+    "window_end": "2023-12-31",
+    "label_hard_end": "2023-12-31",
+    "benchmark_symbol": "000300.SH",
+    "forward_horizons": [
+      5,
+      10,
+      20
+    ]
+  },
+  "hypotheses": [
+    {
+      "hypothesis_id": "forecast_bullish_type",
+      "source": "forecast",
+      "signal_kind": "binary_bucket",
+      "threshold_bucket": "bullish_type",
+      "candidate_direction": "positive",
+      "economic_meaning": "业绩预告类型为预增/略增/扭亏/续盈，预期正向收益反应"
+    },
+    {
+      "hypothesis_id": "forecast_bearish_type",
+      "source": "forecast",
+      "signal_kind": "binary_bucket",
+      "threshold_bucket": "bearish_type",
+      "candidate_direction": "negative",
+      "economic_meaning": "业绩预告类型为预减/略减/首亏/续亏，预期负向收益反应"
+    },
+    {
+      "hypothesis_id": "forecast_p_change_midpoint",
+      "source": "forecast",
+      "signal_kind": "continuous",
+      "threshold_bucket": "p_change_midpoint",
+      "candidate_direction": "positive",
+      "economic_meaning": "业绩预告净利润变动中点越高，后续收益可能越好"
+    },
+    {
+      "hypothesis_id": "forecast_upward_revision",
+      "source": "forecast",
+      "signal_kind": "binary_bucket",
+      "threshold_bucket": "upward_revision",
+      "candidate_direction": "positive",
+      "economic_meaning": "同一报告期后续公告上调变动中点，预期正向反应"
+    },
+    {
+      "hypothesis_id": "express_yoy_net_profit_positive",
+      "source": "express",
+      "signal_kind": "binary_bucket",
+      "threshold_bucket": "yoy_net_profit_positive",
+      "candidate_direction": "positive",
+      "economic_meaning": "业绩快报净利润同比为正，预期正向反应"
+    },
+    {
+      "hypothesis_id": "express_yoy_net_profit",
+      "source": "express",
+      "signal_kind": "continuous",
+      "threshold_bucket": "yoy_net_profit",
+      "candidate_direction": "positive",
+      "economic_meaning": "业绩快报净利润同比越高，后续收益可能越好"
+    },
+    {
+      "hypothesis_id": "holder_count_decrease",
+      "source": "stk_holdernumber",
+      "signal_kind": "binary_bucket",
+      "threshold_bucket": "holder_decrease",
+      "candidate_direction": "positive",
+      "economic_meaning": "股东户数下降可能意味着筹码集中，预期正向反应"
+    },
+    {
+      "hypothesis_id": "holder_count_change_pct",
+      "source": "stk_holdernumber",
+      "signal_kind": "continuous",
+      "threshold_bucket": "holder_change_pct",
+      "candidate_direction": "negative",
+      "economic_meaning": "股东户数增幅越高筹码越分散，预期负向反应"
+    },
+    {
+      "hypothesis_id": "unlock_announced_pressure_next_30d",
+      "source": "share_float",
+      "signal_kind": "continuous",
+      "threshold_bucket": "announced_unlock_ratio_sum_30d",
+      "candidate_direction": "negative",
+      "economic_meaning": "已公告且即将解禁的比例合计越高，供给压力越大"
+    },
+    {
+      "hypothesis_id": "unlock_announced_pressure_high",
+      "source": "share_float",
+      "signal_kind": "binary_bucket",
+      "threshold_bucket": "unlock_ratio_sum_ge_5",
+      "candidate_direction": "negative",
+      "economic_meaning": "已公告未来30自然日解禁比例合计>=5，预期负向反应"
+    },
+    {
+      "hypothesis_id": "audit_non_standard_opinion",
+      "source": "fina_audit",
+      "signal_kind": "binary_bucket",
+      "threshold_bucket": "non_standard_opinion",
+      "candidate_direction": "negative",
+      "economic_meaning": "审计意见非精确标准无保留意见，预期负向反应"
+    }
+  ],
+  "nomination_gate": {
+    "primary_horizon_days": 20,
+    "primary_return_kind": "relative_vs_benchmark",
+    "benchmark_symbol": "000300.SH",
+    "years": [
+      "2022",
+      "2023"
+    ],
+    "min_known_coverage": 0.9,
+    "min_labeled": 100,
+    "min_binary_arm_labeled": 20
+  },
+  "hypothesis_nominations": [
+    {
+      "hypothesis_id": "forecast_bullish_type",
+      "passed": false,
+      "reason": "direction_not_supported",
+      "failures": [
+        {
+          "code": "direction_not_supported",
+          "years": [
+            "2022",
+            "2023"
+          ]
+        }
+      ],
+      "candidate_direction_supported_2022_2023_rel_hs300": false,
+      "year_2022": {
+        "known_coverage": 1.0,
+        "labeled": 5270,
+        "labeled_signal_1": 2920,
+        "labeled_signal_0": 2350,
+        "primary_rel_metric_known": true
+      },
+      "year_2023": {
+        "known_coverage": 1.0,
+        "labeled": 5052,
+        "labeled_signal_1": 2248,
+        "labeled_signal_0": 2804,
+        "primary_rel_metric_known": true
+      }
+    },
+    {
+      "hypothesis_id": "forecast_bearish_type",
+      "passed": false,
+      "reason": "direction_not_supported",
+      "failures": [
+        {
+          "code": "direction_not_supported",
+          "years": [
+            "2022",
+            "2023"
+          ]
+        }
+      ],
+      "candidate_direction_supported_2022_2023_rel_hs300": false,
+      "year_2022": {
+        "known_coverage": 1.0,
+        "labeled": 5270,
+        "labeled_signal_1": 2338,
+        "labeled_signal_0": 2932,
+        "primary_rel_metric_known": true
+      },
+      "year_2023": {
+        "known_coverage": 1.0,
+        "labeled": 5052,
+        "labeled_signal_1": 2762,
+        "labeled_signal_0": 2290,
+        "primary_rel_metric_known": true
+      }
+    },
+    {
+      "hypothesis_id": "forecast_p_change_midpoint",
+      "passed": false,
+      "reason": "direction_not_supported",
+      "failures": [
+        {
+          "code": "direction_not_supported",
+          "years": [
+            "2022",
+            "2023"
+          ]
+        }
+      ],
+      "candidate_direction_supported_2022_2023_rel_hs300": false,
+      "year_2022": {
+        "known_coverage": 0.9949757449757449,
+        "labeled": 5251,
+        "labeled_signal_1": null,
+        "labeled_signal_0": null,
+        "primary_rel_metric_known": true
+      },
+      "year_2023": {
+        "known_coverage": 0.9901027077497666,
+        "labeled": 5006,
+        "labeled_signal_1": null,
+        "labeled_signal_0": null,
+        "primary_rel_metric_known": true
+      }
+    },
+    {
+      "hypothesis_id": "forecast_upward_revision",
+      "passed": true,
+      "reason": "passed_primary_20d_rel_hs300_gate",
+      "failures": [],
+      "candidate_direction_supported_2022_2023_rel_hs300": true,
+      "year_2022": {
+        "known_coverage": 0.993421052631579,
+        "labeled": 143,
+        "labeled_signal_1": 25,
+        "labeled_signal_0": 118,
+        "primary_rel_metric_known": true
+      },
+      "year_2023": {
+        "known_coverage": 0.9419354838709677,
+        "labeled": 141,
+        "labeled_signal_1": 26,
+        "labeled_signal_0": 115,
+        "primary_rel_metric_known": true
+      }
+    },
+    {
+      "hypothesis_id": "express_yoy_net_profit_positive",
+      "passed": false,
+      "reason": "direction_not_supported",
+      "failures": [
+        {
+          "code": "direction_not_supported",
+          "years": [
+            "2022",
+            "2023"
+          ]
+        }
+      ],
+      "candidate_direction_supported_2022_2023_rel_hs300": false,
+      "year_2022": {
+        "known_coverage": 0.9966009517335146,
+        "labeled": 1460,
+        "labeled_signal_1": 1371,
+        "labeled_signal_0": 89,
+        "primary_rel_metric_known": true
+      },
+      "year_2023": {
+        "known_coverage": 0.9952418715305313,
+        "labeled": 1252,
+        "labeled_signal_1": 1152,
+        "labeled_signal_0": 100,
+        "primary_rel_metric_known": true
+      }
+    },
+    {
+      "hypothesis_id": "express_yoy_net_profit",
+      "passed": false,
+      "reason": "direction_not_supported",
+      "failures": [
+        {
+          "code": "direction_not_supported",
+          "years": [
+            "2022",
+            "2023"
+          ]
+        }
+      ],
+      "candidate_direction_supported_2022_2023_rel_hs300": false,
+      "year_2022": {
+        "known_coverage": 0.9966009517335146,
+        "labeled": 1460,
+        "labeled_signal_1": null,
+        "labeled_signal_0": null,
+        "primary_rel_metric_known": true
+      },
+      "year_2023": {
+        "known_coverage": 0.9952418715305313,
+        "labeled": 1252,
+        "labeled_signal_1": null,
+        "labeled_signal_0": null,
+        "primary_rel_metric_known": true
+      }
+    },
+    {
+      "hypothesis_id": "holder_count_decrease",
+      "passed": false,
+      "reason": "known_coverage_below_minimum[2022]",
+      "failures": [
+        {
+          "code": "known_coverage_below_minimum",
+          "years": [
+            "2022"
+          ]
+        }
+      ],
+      "candidate_direction_supported_2022_2023_rel_hs300": true,
+      "year_2022": {
+        "known_coverage": 0.8469204597208455,
+        "labeled": 31240,
+        "labeled_signal_1": 18660,
+        "labeled_signal_0": 12580,
+        "primary_rel_metric_known": true
+      },
+      "year_2023": {
+        "known_coverage": 0.9941954004858198,
+        "labeled": 30575,
+        "labeled_signal_1": 17854,
+        "labeled_signal_0": 12721,
+        "primary_rel_metric_known": true
+      }
+    },
+    {
+      "hypothesis_id": "holder_count_change_pct",
+      "passed": false,
+      "reason": "known_coverage_below_minimum[2022]",
+      "failures": [
+        {
+          "code": "known_coverage_below_minimum",
+          "years": [
+            "2022"
+          ]
+        }
+      ],
+      "candidate_direction_supported_2022_2023_rel_hs300": true,
+      "year_2022": {
+        "known_coverage": 0.8469204597208455,
+        "labeled": 31240,
+        "labeled_signal_1": null,
+        "labeled_signal_0": null,
+        "primary_rel_metric_known": true
+      },
+      "year_2023": {
+        "known_coverage": 0.9941954004858198,
+        "labeled": 30575,
+        "labeled_signal_1": null,
+        "labeled_signal_0": null,
+        "primary_rel_metric_known": true
+      }
+    },
+    {
+      "hypothesis_id": "unlock_announced_pressure_next_30d",
+      "passed": false,
+      "reason": "direction_not_supported",
+      "failures": [
+        {
+          "code": "direction_not_supported",
+          "years": [
+            "2022",
+            "2023"
+          ]
+        }
+      ],
+      "candidate_direction_supported_2022_2023_rel_hs300": false,
+      "year_2022": {
+        "known_coverage": 0.9995782370307887,
+        "labeled": 2370,
+        "labeled_signal_1": null,
+        "labeled_signal_0": null,
+        "primary_rel_metric_known": true
+      },
+      "year_2023": {
+        "known_coverage": 0.9995771670190274,
+        "labeled": 2125,
+        "labeled_signal_1": null,
+        "labeled_signal_0": null,
+        "primary_rel_metric_known": true
+      }
+    },
+    {
+      "hypothesis_id": "unlock_announced_pressure_high",
+      "passed": false,
+      "reason": "direction_not_supported",
+      "failures": [
+        {
+          "code": "direction_not_supported",
+          "years": [
+            "2022",
+            "2023"
+          ]
+        }
+      ],
+      "candidate_direction_supported_2022_2023_rel_hs300": false,
+      "year_2022": {
+        "known_coverage": 0.9995782370307887,
+        "labeled": 2370,
+        "labeled_signal_1": 1028,
+        "labeled_signal_0": 1342,
+        "primary_rel_metric_known": true
+      },
+      "year_2023": {
+        "known_coverage": 0.9995771670190274,
+        "labeled": 2125,
+        "labeled_signal_1": 958,
+        "labeled_signal_0": 1167,
+        "primary_rel_metric_known": true
+      }
+    },
+    {
+      "hypothesis_id": "audit_non_standard_opinion",
+      "passed": true,
+      "reason": "passed_primary_20d_rel_hs300_gate",
+      "failures": [],
+      "candidate_direction_supported_2022_2023_rel_hs300": true,
+      "year_2022": {
+        "known_coverage": 1.0,
+        "labeled": 4697,
+        "labeled_signal_1": 255,
+        "labeled_signal_0": 4442,
+        "primary_rel_metric_known": true
+      },
+      "year_2023": {
+        "known_coverage": 1.0,
+        "labeled": 4967,
+        "labeled_signal_1": 206,
+        "labeled_signal_0": 4761,
+        "primary_rel_metric_known": true
+      }
+    }
+  ],
+  "nominated_hypothesis_ids": [
+    "forecast_upward_revision",
+    "audit_non_standard_opinion"
+  ],
+  "nominated_count": 2,
+  "registered_hypothesis_count": 11,
+  "primary_oos_endpoint": {
+    "horizon_days": 20,
+    "return_kind": "relative",
+    "benchmark_symbol": "000300.SH",
+    "observation_field": "fwd_rel_hs300_ret_20d",
+    "decides_oos_result": true,
+    "may_promote_to_scoring": false,
+    "may_promote_to_trading": false
+  },
+  "secondary_descriptive_endpoints": [
+    {
+      "horizon_days": 5,
+      "return_kind": "raw",
+      "observation_field": "fwd_raw_ret_5d",
+      "decides_oos_result": false,
+      "may_promote_candidate": false
+    },
+    {
+      "horizon_days": 10,
+      "return_kind": "raw",
+      "observation_field": "fwd_raw_ret_10d",
+      "decides_oos_result": false,
+      "may_promote_candidate": false
+    },
+    {
+      "horizon_days": 20,
+      "return_kind": "raw",
+      "observation_field": "fwd_raw_ret_20d",
+      "decides_oos_result": false,
+      "may_promote_candidate": false
+    },
+    {
+      "horizon_days": 5,
+      "return_kind": "relative",
+      "observation_field": "fwd_rel_hs300_ret_5d",
+      "decides_oos_result": false,
+      "may_promote_candidate": false
+    },
+    {
+      "horizon_days": 10,
+      "return_kind": "relative",
+      "observation_field": "fwd_rel_hs300_ret_10d",
+      "decides_oos_result": false,
+      "may_promote_candidate": false
+    }
+  ],
+  "oos_policy": {
+    "evaluation_mode": "one_shot",
+    "authorized_oos_window": "future_2025_plus_not_yet_authorized",
+    "forbidden_for_selection": [
+      "2024"
+    ],
+    "must_remain_untouched": [
+      "2025+"
+    ],
+    "preserve_unknown_missingness": true,
+    "lock_parameters": true,
+    "lock_sign": true,
+    "lock_source": true,
+    "lock_availability": true,
+    "lock_thresholds": true,
+    "lock_candidate_list": true,
+    "report_multiplicity": true,
+    "auto_promote_to_scoring": false,
+    "auto_promote_to_trading": false,
+    "auto_deploy": false,
+    "human_review_required": true
+  },
+  "ready_for_scoring": false,
+  "ready_for_trading": false,
+  "development_only": true,
+  "freeze_id": "5d5298f0115f883c29d96cf2a1892ce4de7295c2068cabea96f23db393bad92e",
+  "research_boundary": "Development-only freeze for the first future authorized 2025+ one-shot OOS evaluation. 2024 is already observed and forbidden for selection. No score, IC, exclusion, portfolio, order, trade, or automatic promotion is authorized."
+}

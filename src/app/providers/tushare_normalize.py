@@ -47,6 +47,19 @@ def ymd(value: date) -> str:
     return value.strftime("%Y%m%d")
 
 
+def is_full_day_suspend_timing(timing: object) -> bool:
+    """Return True when suspend_d timing denotes a full-day (no-trade) halt.
+
+    Tushare leaves timing null/empty/literal ``None`` for whole-day suspensions.
+    The only proven non-null full-day code is the Chinese open zero-width window
+    ``09:30-09:30`` (harmless surrounding whitespace allowed). Do not infer
+    broader equal-endpoint or provider semantics.
+    """
+    if timing in (None, "", "None"):
+        return True
+    return str(timing).strip() == "09:30-09:30"
+
+
 def parse_ymd(value: object) -> date:
     if isinstance(value, datetime):
         return value.date()
@@ -726,8 +739,7 @@ def _full_day_suspends(frame: pl.DataFrame, stocks: list[str]) -> set[tuple[str,
             continue
         if str(item.get("suspend_type") or "").upper() != "S":
             continue
-        timing = item.get("suspend_timing")
-        if timing not in (None, "", "None"):
+        if not is_full_day_suspend_timing(item.get("suspend_timing")):
             continue
         out.add((symbol, parse_ymd(item["trade_date"])))
     return out

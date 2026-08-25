@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import date
 from pathlib import Path
 from typing import Annotated, Literal
@@ -596,6 +597,64 @@ def materialize_a_share_event_overlay_cmd(
     typer.echo(f"event_snapshot_id={snapshot.snapshot_id}")
 
 
+@app.command("collect-tushare-all-a-share-events")
+def collect_tushare_all_a_share_events_cmd(
+    start: Annotated[str, typer.Option("--start", help="Announcement coverage YYYY-MM-DD")],
+    end: Annotated[str, typer.Option("--end", help="Announcement coverage YYYY-MM-DD")],
+    staging_dir: Annotated[Path, typer.Option("--staging-dir", file_okay=False)],
+    market_dir: Annotated[Path | None, typer.Option("--market-dir", file_okay=False)] = None,
+    source_version: Annotated[str | None, typer.Option("--source-version")] = None,
+) -> None:
+    """Collect five resumable, market-bound Tushare event sources. Research only."""
+    from app.providers.tushare_client import LiveTushareClient, read_tushare_token
+    from app.providers.tushare_event_collection import collect_tushare_a_share_events
+
+    typer.echo(
+        "Historical research only. Five event endpoints are checkpointed by stock. "
+        "Collection time is provenance, never historical available_at; this command does not score or trade."
+    )
+    try:
+        settings = get_settings()
+        token = read_tushare_token()
+
+        def progress(api_name: str, done: int, total: int, reused: bool) -> None:
+            if done == total or done % 50 == 0:
+                typer.echo(
+                    f"progress={done}/{total} api={api_name} "
+                    f"partition={'reused' if reused else 'fetched'}"
+                )
+
+        def fallback_progress(symbol: str, done: int, total: int, day: date) -> None:
+            if done == 1 or done == total or done % 50 == 0:
+                typer.echo(
+                    f"share_float_fallback={done}/{total} symbol={symbol} "
+                    f"ann_date={day.isoformat()}"
+                )
+
+        result = collect_tushare_a_share_events(
+            client=LiveTushareClient(token),
+            market_dir=market_dir or settings.parquet_dir,
+            start=date.fromisoformat(start),
+            end=date.fromisoformat(end),
+            staging_dir=staging_dir,
+            source_version=source_version,
+            progress=progress,
+            fallback_progress=fallback_progress,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"request_id={result.request_id}")
+    typer.echo(f"base_market_snapshot_id={result.base_market_snapshot_id}")
+    typer.echo(f"coverage={result.coverage_start}..{result.coverage_end}")
+    typer.echo(f"requested_stocks={result.requested_stocks}")
+    typer.echo(f"completed_partitions={result.completed_partitions}")
+    typer.echo(f"reused_partitions={result.reused_partitions}")
+    typer.echo(f"source_manifest={result.source_manifest_path}")
+    typer.echo(f"collection_manifest={result.collection_manifest_path}")
+    typer.echo(f"quality_report={result.quality_report_path}")
+
+
 @app.command("verify-a-share-event-overlay")
 def verify_a_share_event_overlay_cmd(
     event_dir: Annotated[Path | None, typer.Option("--event-dir", file_okay=False)] = None,
@@ -628,6 +687,450 @@ def verify_a_share_event_overlay_cmd(
     typer.echo(f"covered_symbols={snapshot.covered_symbols}")
     for name, count in snapshot.row_counts.items():
         typer.echo(f"{name}_rows={count}")
+
+
+@app.command("diagnose-a-share-event-overlay")
+def diagnose_a_share_event_overlay_cmd(
+    strategy: Annotated[str, typer.Option("--strategy")],
+    as_of: Annotated[str, typer.Option("--as-of", help="decision date YYYY-MM-DD")],
+    event_dir: Annotated[Path | None, typer.Option("--event-dir", file_okay=False)] = None,
+    market_dir: Annotated[Path | None, typer.Option("--market-dir", file_okay=False)] = None,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir", file_okay=False)] = None,
+    replace_existing: Annotated[bool, typer.Option("--replace-existing")] = False,
+) -> None:
+    """Build a read-only PIT event diagnostic snapshot; never score or trade."""
+    from app.models.events import EventSourceManifest
+    from app.research.event_diagnostics import (
+        build_event_diagnostics,
+        write_event_diagnostics_atomically,
+    )
+    from app.storage.event_io import load_verified_event_snapshot
+    from app.storage.snapshot_io import load_verified_snapshot
+
+    typer.echo(
+        "Offline diagnostic only. The output contains PIT event observations, not risk "
+        "thresholds, exclusions, scores, orders, or trades."
+    )
+    try:
+        settings = get_settings()
+        decision_day = date.fromisoformat(as_of)
+        resolved_market = market_dir or settings.parquet_dir
+        resolved_event = event_dir or settings.event_dir
+        if resolved_event is None:
+            raise ValueError("set AIQ_EVENT_DIR or pass --event-dir")
+        market = load_verified_snapshot(resolved_market)
+        event_snapshot, tables = load_verified_event_snapshot(
+            resolved_event,
+            expected_market_snapshot_id=market.snapshot_id,
+        )
+        event_source_bytes = (resolved_event / "source_manifest.json").read_bytes()
+        if hashlib.sha256(event_source_bytes).hexdigest() != event_snapshot.source_manifest_sha256:
+            raise ValueError("event source manifest changed during diagnostic loading")
+        event_source_manifest = EventSourceManifest.model_validate_json(event_source_bytes)
+        config = load_strategy_config(strategy, settings.strategies_dir)
+        report, frame = build_event_diagnostics(
+            market_dir=resolved_market,
+            event_snapshot=event_snapshot,
+            event_source_manifest=event_source_manifest,
+            event_tables=tables,
+            config=config,
+            as_of=decision_day,
+        )
+        destination = output_dir or (
+            settings.data_dir / "event-diagnostics" / f"{strategy}-{decision_day.isoformat()}"
+        )
+        report = write_event_diagnostics_atomically(
+            destination,
+            report,
+            frame,
+            replace_existing=replace_existing,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"strategy_config_hash={report.strategy_config_hash}")
+    typer.echo(f"market_snapshot_id={report.market_snapshot_id}")
+    typer.echo(f"event_snapshot_id={report.event_snapshot_id}")
+    typer.echo(f"as_of={report.as_of_date} decision_at_utc={report.decision_at_utc}")
+    typer.echo(f"rows={report.rows}")
+    for name, count in report.visible_event_rows.items():
+        typer.echo(f"visible_{name}_rows={count}")
+    for name, count in report.observed_symbol_counts.items():
+        typer.echo(f"observed_{name}_symbols={count}")
+    typer.echo("ready_for_scoring=false")
+    typer.echo("ready_for_trading=false")
+    typer.echo(f"output={destination}")
+
+
+@app.command("diagnose-a-share-event-candidates")
+def diagnose_a_share_event_candidates_cmd(
+    strategy: Annotated[str, typer.Option("--strategy")],
+    start: Annotated[str, typer.Option("--start", help="inclusive window start YYYY-MM-DD")],
+    end: Annotated[str, typer.Option("--end", help="inclusive window end YYYY-MM-DD")],
+    event_dir: Annotated[Path | None, typer.Option("--event-dir", file_okay=False)] = None,
+    market_dir: Annotated[Path | None, typer.Option("--market-dir", file_okay=False)] = None,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir", file_okay=False)] = None,
+    replace_existing: Annotated[bool, typer.Option("--replace-existing")] = False,
+) -> None:
+    """Measure development-window event-candidate coverage and direction; never score or trade."""
+    from app.models.events import EventSourceManifest
+    from app.research.event_candidate_diagnostics import (
+        DEVELOPMENT_WINDOW_END,
+        DEVELOPMENT_WINDOW_START,
+        build_event_candidate_diagnostics,
+        write_event_candidate_diagnostics_atomically,
+    )
+    from app.storage.event_io import load_verified_event_snapshot
+    from app.storage.snapshot_io import load_verified_snapshot
+
+    typer.echo(
+        "Offline development-window event-candidate diagnostics only. Output is candidate "
+        "evidence for coverage, missingness, direction, and 2022/2023 stability; it "
+        "authorizes no score, IC, exclusion, portfolio, order, trade, or alpha claim. "
+        "Labels stop at 2023-12-31; 2024 is already observed and must not be used for selection."
+    )
+    try:
+        settings = get_settings()
+        window_start = date.fromisoformat(start)
+        window_end = date.fromisoformat(end)
+        if window_start != DEVELOPMENT_WINDOW_START or window_end != DEVELOPMENT_WINDOW_END:
+            raise ValueError(
+                "diagnose-a-share-event-candidates only allows "
+                f"{DEVELOPMENT_WINDOW_START.isoformat()}..{DEVELOPMENT_WINDOW_END.isoformat()}"
+            )
+        resolved_market = market_dir or settings.parquet_dir
+        resolved_event = event_dir or settings.event_dir
+        if resolved_event is None:
+            raise ValueError("set AIQ_EVENT_DIR or pass --event-dir")
+        market = load_verified_snapshot(resolved_market)
+        event_snapshot, tables = load_verified_event_snapshot(
+            resolved_event,
+            expected_market_snapshot_id=market.snapshot_id,
+        )
+        event_source_bytes = (resolved_event / "source_manifest.json").read_bytes()
+        if hashlib.sha256(event_source_bytes).hexdigest() != event_snapshot.source_manifest_sha256:
+            raise ValueError("event source manifest changed during candidate diagnostic loading")
+        event_source_manifest = EventSourceManifest.model_validate_json(event_source_bytes)
+        config = load_strategy_config(strategy, settings.strategies_dir)
+        report, observations, summary = build_event_candidate_diagnostics(
+            market_dir=resolved_market,
+            event_snapshot=event_snapshot,
+            event_source_manifest=event_source_manifest,
+            event_tables=tables,
+            config=config,
+            window_start=window_start,
+            window_end=window_end,
+        )
+        destination = output_dir or (
+            settings.data_dir / "event-candidate-diagnostics" / report.diagnostic_version
+        )
+        report = write_event_candidate_diagnostics_atomically(
+            destination,
+            report,
+            observations,
+            summary,
+            replace_existing=replace_existing,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"diagnostic_version={report.diagnostic_version}")
+    typer.echo(f"strategy_config_hash={report.strategy_config_hash}")
+    typer.echo(f"market_snapshot_id={report.market_snapshot_id}")
+    typer.echo(f"event_snapshot_id={report.event_snapshot_id}")
+    typer.echo(f"window={report.window_start}..{report.window_end}")
+    typer.echo(f"label_hard_end={report.label_hard_end}")
+    typer.echo(f"benchmark_symbol={report.benchmark_symbol}")
+    typer.echo(f"observation_rows={report.observation_rows}")
+    typer.echo(f"summary_rows={report.summary_rows}")
+    typer.echo(f"report_id={report.report_id}")
+    typer.echo("ready_for_scoring=false")
+    typer.echo("ready_for_trading=false")
+    typer.echo("development_only=true")
+    typer.echo(f"output={destination}")
+
+
+@app.command("verify-a-share-event-candidate-freeze")
+def verify_a_share_event_candidate_freeze_cmd(
+    freeze_file: Annotated[
+        Path | None,
+        typer.Option("--freeze-file", dir_okay=False, help="Frozen research protocol JSON"),
+    ] = None,
+    diagnostic_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--diagnostic-dir",
+            file_okay=False,
+            help="Sealed development-window event-candidate diagnostic directory",
+        ),
+    ] = None,
+) -> None:
+    """Verify the development-only event-candidate OOS freeze; never score or trade."""
+    from app.research.event_candidate_freeze import (
+        DEFAULT_EVENT_CANDIDATE_OOS_FREEZE_PATH,
+        load_verified_event_candidate_oos_freeze,
+        verify_event_candidate_oos_freeze,
+    )
+
+    typer.echo(
+        "Offline freeze verification only. This command does not inspect 2024/2025+ returns, "
+        "run preflight, score, analyze-ic, backtest, or trade."
+    )
+    try:
+        resolved_freeze = freeze_file or DEFAULT_EVENT_CANDIDATE_OOS_FREEZE_PATH
+        contract = load_verified_event_candidate_oos_freeze(resolved_freeze)
+        resolved_diagnostic = diagnostic_dir or Path(contract.bound_diagnostic.artifact_dir)
+        contract = verify_event_candidate_oos_freeze(
+            freeze_path=resolved_freeze,
+            diagnostic_dir=resolved_diagnostic,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    nominated = ",".join(contract.nominated_hypothesis_ids) or "(none)"
+    typer.echo(f"freeze_version={contract.freeze_version}")
+    typer.echo(f"freeze_id={contract.freeze_id}")
+    typer.echo(f"bound_report_id={contract.bound_diagnostic.report_id}")
+    typer.echo(f"market_snapshot_id={contract.bound_diagnostic.market_snapshot_id}")
+    typer.echo(f"event_snapshot_id={contract.bound_diagnostic.event_snapshot_id}")
+    typer.echo(f"strategy_config_hash={contract.bound_diagnostic.strategy_config_hash}")
+    typer.echo(
+        "primary_oos_endpoint="
+        f"{contract.primary_oos_endpoint.observation_field} vs "
+        f"{contract.primary_oos_endpoint.benchmark_symbol}"
+    )
+    typer.echo(f"nominated_hypothesis_ids={nominated}")
+    typer.echo(f"nominated_count={contract.nominated_count}")
+    typer.echo("multiplicity_reported=true")
+    for item in contract.hypothesis_nominations:
+        typer.echo(f"hypothesis={item.hypothesis_id} passed={str(item.passed).lower()} reason={item.reason}")
+    typer.echo(f"oos_evaluation_mode={contract.oos_policy.evaluation_mode}")
+    typer.echo(f"authorized_oos_window={contract.oos_policy.authorized_oos_window}")
+    typer.echo("ready_for_scoring=false")
+    typer.echo("ready_for_trading=false")
+    typer.echo("auto_deploy=false")
+    typer.echo("human_review_required=true")
+
+
+@app.command("evaluate-a-share-event-candidate-oos-one-shot")
+def evaluate_a_share_event_candidate_oos_one_shot_cmd(
+    strategy: Annotated[str, typer.Option("--strategy")],
+    authorization_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--authorization-file",
+            dir_okay=False,
+            help="Sealed one-shot OOS authorization JSON",
+        ),
+    ] = None,
+    freeze_file: Annotated[
+        Path | None,
+        typer.Option("--freeze-file", dir_okay=False, help="Frozen research protocol JSON"),
+    ] = None,
+    event_dir: Annotated[Path | None, typer.Option("--event-dir", file_okay=False)] = None,
+    market_dir: Annotated[Path | None, typer.Option("--market-dir", file_okay=False)] = None,
+) -> None:
+    """Run the authorized one-shot 2025+ event-candidate OOS diagnostic; never score or trade."""
+    from app.research.event_candidate_oos_authorization import (
+        DEFAULT_EVENT_CANDIDATE_OOS_AUTH_PATH,
+        assert_committed_authorization_bindings,
+        load_verified_event_candidate_oos_authorization,
+    )
+    from app.research.event_candidate_oos_evaluation import (
+        evaluate_and_write_event_candidate_oos_one_shot,
+    )
+
+    typer.echo(
+        "Authorized one-shot 2025+ OOS directional replication only. This command does not "
+        "mutate the authorization contract, does not overwrite prior output/receipt, and "
+        "authorizes no score, IC, exclusion, portfolio, order, trade, p-value, or alpha claim."
+    )
+    try:
+        settings = get_settings()
+        resolved_auth = authorization_file or DEFAULT_EVENT_CANDIDATE_OOS_AUTH_PATH
+        authorization = load_verified_event_candidate_oos_authorization(resolved_auth)
+        assert_committed_authorization_bindings(authorization)
+        resolved_freeze = freeze_file or Path(authorization.freeze_file)
+        if freeze_file is not None and Path(freeze_file) != Path(authorization.freeze_file):
+            if Path(freeze_file).resolve() != (Path.cwd() / authorization.freeze_file).resolve():
+                raise ValueError("--freeze-file does not match the authorization freeze_file")
+        resolved_market = market_dir or Path(authorization.market_dir)
+        if market_dir is not None:
+            expected_market = Path(authorization.market_dir)
+            if market_dir.resolve() != expected_market.resolve() and market_dir.resolve() != (
+                Path.cwd() / expected_market
+            ).resolve():
+                raise ValueError("--market-dir does not match the authorization market_dir")
+        resolved_event = event_dir or Path(authorization.event_dir)
+        if event_dir is not None:
+            expected_event = Path(authorization.event_dir)
+            if event_dir.resolve() != expected_event.resolve() and event_dir.resolve() != (
+                Path.cwd() / expected_event
+            ).resolve():
+                raise ValueError("--event-dir does not match the authorization event_dir")
+        if strategy != authorization.strategy_config_id:
+            raise ValueError("--strategy does not match the authorization strategy_config_id")
+        config = load_strategy_config(strategy, settings.strategies_dir)
+        report, receipt, destination = evaluate_and_write_event_candidate_oos_one_shot(
+            authorization=authorization,
+            freeze_path=resolved_freeze,
+            market_dir=resolved_market,
+            event_dir=resolved_event,
+            config=config,
+            strategy_config_id=strategy,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"evaluation_version={report.evaluation_version}")
+    typer.echo(f"authorization_id={report.authorization_id}")
+    typer.echo(f"freeze_id={report.freeze_id}")
+    typer.echo(f"market_snapshot_id={report.market_snapshot_id}")
+    typer.echo(f"event_snapshot_id={report.event_snapshot_id}")
+    typer.echo(
+        f"announcement_window={report.announcement_window_start}..{report.announcement_window_end}"
+    )
+    typer.echo(f"label_hard_end={report.label_hard_end}")
+    typer.echo(f"benchmark_symbol={report.benchmark_symbol}")
+    typer.echo(f"candidate_multiplicity={report.candidate_multiplicity}")
+    typer.echo(f"observation_rows={report.observation_rows}")
+    typer.echo(f"candidate_summary_rows={report.candidate_summary_rows}")
+    typer.echo(f"report_id={report.report_id}")
+    typer.echo(f"receipt_id={receipt.receipt_id}")
+    for hypothesis_id, outcome in report.candidate_outcomes.items():
+        typer.echo(f"hypothesis={hypothesis_id} outcome={outcome}")
+    typer.echo("one_shot=true")
+    typer.echo("ready_for_scoring=false")
+    typer.echo("ready_for_trading=false")
+    typer.echo("auto_deploy=false")
+    typer.echo("human_review_required=true")
+    typer.echo(f"output={destination}")
+
+
+@app.command("review-a-share-event-overlay")
+def review_a_share_event_overlay_cmd(
+    strategy: Annotated[str, typer.Option("--strategy")],
+    start: Annotated[str, typer.Option("--start", help="inclusive window start YYYY-MM-DD")],
+    end: Annotated[str, typer.Option("--end", help="inclusive window end YYYY-MM-DD")],
+    source_collection_dir: Annotated[
+        Path,
+        typer.Option(
+            "--source-collection-dir",
+            file_okay=False,
+            help=(
+                "Verified offline collection directory containing collection_manifest.json, "
+                "source_manifest.json, and quality_report.json"
+            ),
+        ),
+    ],
+    event_dir: Annotated[Path | None, typer.Option("--event-dir", file_okay=False)] = None,
+    market_dir: Annotated[Path | None, typer.Option("--market-dir", file_okay=False)] = None,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir", file_okay=False)] = None,
+    replace_existing: Annotated[bool, typer.Option("--replace-existing")] = False,
+) -> None:
+    """Build an offline coverage/PIT review of a verified event overlay; never score or trade."""
+    from app.models.events import EventSourceManifest
+    from app.research.event_overlay_review import (
+        build_event_overlay_review,
+        write_event_overlay_review_atomically,
+    )
+    from app.storage.event_io import load_verified_event_snapshot
+    from app.storage.snapshot_io import load_verified_snapshot
+
+    typer.echo(
+        "Offline event-overlay review only. Output covers coverage, revisions, missingness, "
+        "audit-text distribution, and PIT availability; it authorizes no risk rule, score, "
+        "exclusion, order, trade, or alpha claim. Raw source missingness comes from the "
+        "verified collector quality_report, never inferred from the canonical overlay."
+    )
+    try:
+        settings = get_settings()
+        window_start = date.fromisoformat(start)
+        window_end = date.fromisoformat(end)
+        resolved_market = market_dir or settings.parquet_dir
+        resolved_event = event_dir or settings.event_dir
+        if resolved_event is None:
+            raise ValueError("set AIQ_EVENT_DIR or pass --event-dir")
+        market = load_verified_snapshot(resolved_market)
+        event_snapshot, tables = load_verified_event_snapshot(
+            resolved_event,
+            expected_market_snapshot_id=market.snapshot_id,
+        )
+        event_source_bytes = (resolved_event / "source_manifest.json").read_bytes()
+        if hashlib.sha256(event_source_bytes).hexdigest() != event_snapshot.source_manifest_sha256:
+            raise ValueError("event source manifest changed during review loading")
+        event_source_manifest = EventSourceManifest.model_validate_json(event_source_bytes)
+        config = load_strategy_config(strategy, settings.strategies_dir)
+        report, annual = build_event_overlay_review(
+            market_dir=resolved_market,
+            event_snapshot=event_snapshot,
+            event_source_manifest=event_source_manifest,
+            event_tables=tables,
+            config=config,
+            window_start=window_start,
+            window_end=window_end,
+            source_collection_dir=source_collection_dir,
+        )
+        destination = output_dir or (
+            settings.data_dir
+            / "event-overlay-reviews"
+            / f"{strategy}-{window_start.isoformat()}_{window_end.isoformat()}"
+        )
+        report = write_event_overlay_review_atomically(
+            destination,
+            report,
+            annual,
+            replace_existing=replace_existing,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"strategy_config_hash={report.strategy_config_hash}")
+    typer.echo(f"market_snapshot_id={report.market_snapshot_id}")
+    typer.echo(f"event_snapshot_id={report.event_snapshot_id}")
+    typer.echo(f"source_manifest_sha256={report.source_manifest_sha256}")
+    typer.echo(
+        "collection_source_manifest_sha256="
+        f"{report.collection_source_manifest_sha256}"
+    )
+    typer.echo(
+        "collection_quality_report_sha256="
+        f"{report.collection_quality_report_sha256}"
+    )
+    typer.echo(f"window={report.window_start}..{report.window_end}")
+    typer.echo(f"annual_source_rows={len(report.annual_by_source)}")
+    typer.echo(f"pit_probes={len(report.pit_availability_probes)}")
+    typer.echo(
+        "raw_collection_holder_rows="
+        f"{report.holder_count_missingness.raw_collection_holder_rows}"
+    )
+    typer.echo(
+        "raw_collection_holder_num_blank_rows="
+        f"{report.holder_count_missingness.raw_collection_holder_num_blank_rows}"
+    )
+    typer.echo(
+        "canonical_holder_rows_in_window="
+        f"{report.holder_count_missingness.canonical_holder_rows_in_window}"
+    )
+    typer.echo(
+        "symbols_with_no_observable_canonical_holder_data="
+        f"{report.holder_count_missingness.symbols_with_no_observable_canonical_holder_data}"
+    )
+    typer.echo(
+        "raw_collection_float_ratio_blank_rows="
+        f"{report.unlock_ratio_coverage.raw_collection_float_ratio_blank_rows}"
+    )
+    typer.echo(
+        "canonical_float_ratio_known_rows="
+        f"{report.unlock_ratio_coverage.canonical_float_ratio_known_rows}"
+    )
+    typer.echo(
+        "canonical_float_ratio_missing_rows="
+        f"{report.unlock_ratio_coverage.canonical_float_ratio_missing_rows}"
+    )
+    typer.echo("ready_for_scoring=false")
+    typer.echo("ready_for_trading=false")
+    typer.echo(f"output={destination}")
 
 
 @app.command("build-universe-membership")

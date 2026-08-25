@@ -125,6 +125,8 @@ LOGICAL_KEYS: dict[str, tuple[str, ...]] = {
         "ann_date",
         "holder_name",
         "share_type",
+        "float_share",
+        "float_ratio",
     ),
     "audit_opinion_events": ("symbol", "report_period", "ann_date"),
 }
@@ -198,8 +200,12 @@ def normalize_earnings_forecast(raw: pl.DataFrame) -> pl.DataFrame:
 
 
 def normalize_earnings_express(raw: pl.DataFrame) -> pl.DataFrame:
-    required = ("ts_code", "ann_date", "end_date", *EXPRESS_NUMERIC, "summary")
+    required = ("ts_code", "ann_date", "end_date", *EXPRESS_NUMERIC)
     _require_source(raw, required, "express")
+    if "perf_summary" not in raw.columns and "summary" not in raw.columns:
+        raise DataQualityError(
+            "express missing required summary column: expected official perf_summary"
+        )
     rows: list[dict[str, object]] = []
     hash_columns = (
         "symbol",
@@ -215,7 +221,7 @@ def normalize_earnings_express(raw: pl.DataFrame) -> pl.DataFrame:
             "report_period": _parse_ymd(item.get("end_date"), "end_date", line),
             "ann_date": ann_date,
             "available_at": _available_at(ann_date),
-            "summary": _optional_text(item.get("summary")),
+            "summary": _express_summary(item, line),
         }
         for name in EXPRESS_NUMERIC:
             row[name] = _optional_number(item.get(name), name, line)
@@ -233,11 +239,26 @@ def normalize_earnings_express(raw: pl.DataFrame) -> pl.DataFrame:
     )
 
 
+def _express_summary(item: dict[str, Any], line: int) -> str | None:
+    official = _optional_text(item.get("perf_summary"))
+    legacy = _optional_text(item.get("summary"))
+    if official is not None and legacy is not None and official != legacy:
+        raise DataQualityError(
+            f"express perf_summary conflicts with legacy summary at source row {line}"
+        )
+    return official if official is not None else legacy
+
+
 def normalize_holder_count(raw: pl.DataFrame) -> pl.DataFrame:
     _require_source(raw, ("ts_code", "ann_date", "end_date", "holder_num"), "stk_holdernumber")
     rows: list[dict[str, object]] = []
     hash_columns = ("symbol", "end_date", "ann_date", "holder_num")
     for line, item in enumerate(raw.iter_rows(named=True), start=1):
+        # Tushare documents holder_num as int, but historical source rows can
+        # contain a blank value. Preserve those rows in the raw export and
+        # quality report; they cannot form a canonical holder-count event.
+        if _is_missing_source_value(item.get("holder_num")):
+            continue
         ann_date = _parse_ymd(item.get("ann_date"), "ann_date", line)
         holder_num = _required_int(item.get("holder_num"), "holder_num", line)
         if holder_num <= 0:
@@ -251,6 +272,17 @@ def normalize_holder_count(raw: pl.DataFrame) -> pl.DataFrame:
         }
         row["source_row_hash"] = source_row_hash(row, hash_columns)
         rows.append(row)
+    if not rows:
+        return pl.DataFrame(
+            schema={
+                "symbol": pl.String,
+                "end_date": pl.Date,
+                "ann_date": pl.Date,
+                "available_at": pl.Datetime("us"),
+                "holder_num": pl.Int64,
+                "source_row_hash": pl.String,
+            }
+        ).select(EVENT_COLUMNS["holder_count_events"])
     frame = _cast_frame(
         rows,
         date_columns=("end_date", "ann_date"),
@@ -311,7 +343,19 @@ def normalize_share_unlock(raw: pl.DataFrame) -> pl.DataFrame:
     ).select(EVENT_COLUMNS["share_unlock_events"])
     return require_no_conflicting_duplicates(
         frame,
-        key=["symbol", "float_date", "ann_date", "holder_name", "share_type"],
+        # Tushare can publish multiple unlock tranches for the same holder,
+        # type, announcement date, and unlock date. It provides no tranche ID;
+        # the announced amount is therefore part of the source-grain identity.
+        # Preserve both instead of silently choosing one amount.
+        key=[
+            "symbol",
+            "float_date",
+            "ann_date",
+            "holder_name",
+            "share_type",
+            "float_share",
+            "float_ratio",
+        ],
         table="share_unlock_events",
     )
 
@@ -478,7 +522,7 @@ def _cast_frame(
     numeric_columns: tuple[str, ...] = (),
     integer_columns: tuple[str, ...] = (),
 ) -> pl.DataFrame:
-    return pl.DataFrame(rows).with_columns(
+    return pl.DataFrame(rows, infer_schema_length=None).with_columns(
         [
             *[pl.col(name).cast(pl.Date) for name in date_columns],
             pl.col("available_at").cast(pl.Datetime("us")),
@@ -522,7 +566,7 @@ def _optional_text(value: object) -> str | None:
 
 
 def _optional_number(value: object, name: str, line: int) -> float | None:
-    if value is None or str(value).strip() in {"", "nan", "None", "null"}:
+    if _is_missing_source_value(value):
         return None
     return _required_number(value, name, line)
 
@@ -542,3 +586,7 @@ def _required_int(value: object, name: str, line: int) -> int:
     if not number.is_integer():
         raise DataQualityError(f"{name} is not an integer at source row {line}")
     return int(number)
+
+
+def _is_missing_source_value(value: object) -> bool:
+    return value is None or str(value).strip().lower() in {"", "nan", "none", "null"}

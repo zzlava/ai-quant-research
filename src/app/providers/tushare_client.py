@@ -66,7 +66,18 @@ class LiveTushareClient:
             return frame
         try:
             return pl.from_pandas(frame)
-        except Exception as exc:
-            raise TushareFetchError(
-                f"tushare {api_name} query failed: {sanitize_error_message(exc)}"
-            ) from None
+        except Exception:
+            # Some Tushare pages arrive with object columns whose early rows
+            # look integral but later rows contain decimals. Fall back to a
+            # full-row schema scan instead of trusting a partial inference.
+            try:
+                records = (
+                    frame.astype(object)
+                    .where(frame.notna(), None)
+                    .to_dict(orient="records")
+                )
+                return pl.from_dicts(records, infer_schema_length=None)
+            except Exception as exc:
+                raise TushareFetchError(
+                    f"tushare {api_name} query failed: {sanitize_error_message(exc)}"
+                ) from None

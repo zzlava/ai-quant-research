@@ -16,6 +16,8 @@ from app.providers.tushare_events import (
     EXPRESS_NUMERIC,
     normalize_earnings_forecast,
     normalize_event_sources,
+    normalize_holder_count,
+    normalize_share_unlock,
 )
 from app.storage.event_io import build_event_snapshot, load_verified_event_snapshot
 from app.storage.snapshot_io import load_verified_snapshot
@@ -104,6 +106,104 @@ def test_forecast_rejects_first_announcement_after_revision() -> None:
     )
     with pytest.raises(ValueError, match="first_ann_date exceeds ann_date"):
         normalize_earnings_forecast(raw)
+
+
+def test_materializer_still_rejects_unsanitized_forecast_first_ann_contradiction(
+    tmp_path: Path,
+) -> None:
+    market_dir = _market(tmp_path / "market")
+    source_dir = _source_dir(tmp_path / "source")
+    forecast_path = source_dir / "forecast.csv"
+    raw = pl.read_csv(forecast_path).with_columns(pl.lit("20240206").alias("first_ann_date"))
+    raw.write_csv(forecast_path)
+    manifest_path = source_dir / "source_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["files"]["forecast"]["sha256"] = _sha256(forecast_path)
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+    with pytest.raises(ValueError, match="first_ann_date exceeds ann_date"):
+        materialize_tushare_event_overlay(
+            source_dir=source_dir,
+            market_dir=market_dir,
+            dest_dir=tmp_path / "event-overlay",
+        )
+
+
+def test_holder_count_excludes_documented_blank_but_rejects_non_numeric_value() -> None:
+    blank = pl.DataFrame(
+        {
+            "ts_code": ["000001.SZ", "000001.SZ"],
+            "ann_date": ["20240301", "20240401"],
+            "end_date": ["20240229", "20240331"],
+            "holder_num": [12345, None],
+        }
+    )
+    normalized = normalize_holder_count(blank)
+    assert normalized.height == 1
+    assert normalized["holder_num"].to_list() == [12345]
+
+    invalid = blank.with_columns(
+        pl.when(pl.col("ann_date") == "20240401")
+        .then(pl.lit("not-a-number"))
+        .otherwise(pl.col("holder_num").cast(pl.String))
+        .alias("holder_num")
+    )
+    with pytest.raises(ValueError, match="holder_num is not numeric"):
+        normalize_holder_count(invalid)
+
+
+def test_share_unlock_normalization_handles_a_decimal_after_the_first_100_rows() -> None:
+    raw = pl.DataFrame(
+        [
+            {
+                "ts_code": "000001.SZ",
+                "ann_date": "20231211",
+                "float_date": "20240630",
+                "float_share": 1_000_000.0,
+                "float_ratio": 1 if index < 101 else 1.0373,
+                "holder_name": f"holder-{index:03d}",
+                "share_type": "定向增发机构配售股份",
+            }
+            for index in range(102)
+        ],
+        infer_schema_length=None,
+    )
+
+    normalized = normalize_share_unlock(raw)
+
+    assert normalized.height == 102
+    assert normalized.filter(pl.col("holder_name") == "holder-101")[
+        "float_ratio"
+    ].item() == pytest.approx(1.0373)
+
+
+def test_share_unlock_preserves_distinct_same_day_tranches_for_one_holder() -> None:
+    raw = pl.DataFrame(
+        [
+            {
+                "ts_code": "002167.SZ",
+                "ann_date": "20230424",
+                "float_date": "20230426",
+                "float_share": 800_000.0,
+                "float_ratio": 0.1032,
+                "holder_name": "甘学贤",
+                "share_type": "股权激励限售流通",
+            },
+            {
+                "ts_code": "002167.SZ",
+                "ann_date": "20230424",
+                "float_date": "20230426",
+                "float_share": 1_000_000.0,
+                "float_ratio": 0.129,
+                "holder_name": "甘学贤",
+                "share_type": "股权激励限售流通",
+            },
+        ]
+    )
+
+    normalized = normalize_share_unlock(raw)
+
+    assert normalized.height == 2
+    assert normalized["float_share"].to_list() == [800_000.0, 1_000_000.0]
 
 
 def test_event_hash_is_stable_across_row_order() -> None:

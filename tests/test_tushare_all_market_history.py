@@ -13,6 +13,7 @@ from app.providers.tushare_all_market_history import (
     materialize_tushare_all_a_share_history,
     select_historical_a_share,
 )
+from app.providers.tushare_normalize import is_full_day_suspend_timing
 from app.storage.snapshot_io import load_verified_snapshot
 from app.strategies.loader import load_strategy_config
 from tests.helpers import CONFIG_DIR
@@ -183,6 +184,87 @@ def test_derived_membership_excludes_recent_listing_and_low_liquidity() -> None:
 
     assert set(membership["symbol"].to_list()) == {"000001.SZ"}
     assert membership.group_by("as_of_date").len()["len"].to_list() == [1] * 5
+
+
+def test_is_full_day_suspend_timing_accepts_zero_width_open_window() -> None:
+    assert is_full_day_suspend_timing(None) is True
+    assert is_full_day_suspend_timing("") is True
+    assert is_full_day_suspend_timing("None") is True
+    assert is_full_day_suspend_timing("09:30-09:30") is True
+    assert is_full_day_suspend_timing(" 09:30-09:30 ") is True
+    assert is_full_day_suspend_timing("10:00-10:00") is False
+    assert is_full_day_suspend_timing("10:24-10:34") is False
+    assert is_full_day_suspend_timing("09:30-09:40,10:41-10:51") is False
+    assert is_full_day_suspend_timing("11:30-11:30") is False
+
+
+def test_zero_width_suspend_timing_covers_missing_daily_without_legacy_interval(
+    tmp_path: Path,
+) -> None:
+    calendar, tables = build_fake_tushare_api_tables()
+    halted = calendar[35]
+    calendar, tables = build_fake_tushare_api_tables(
+        skip_daily={("000001.SZ", halted)},
+        drop_limit_keys={("000001.SZ", halted)},
+    )
+    tables["suspend_d"] = pl.DataFrame(
+        {
+            "ts_code": ["000001.SZ"],
+            "trade_date": [halted.strftime("%Y%m%d")],
+            "suspend_type": ["S"],
+            "suspend_timing": ["09:30-09:30"],
+        }
+    )
+    tables["namechange"] = pl.DataFrame(
+        {
+            "ts_code": ["600000.SH"],
+            "name": ["浦发银行"],
+            "start_date": ["19991110"],
+            "end_date": [None],
+            "ann_date": ["19991110"],
+            "change_reason": ["上市"],
+        }
+    )
+    # Stale null-resume interval from a prior incomplete attempt must not poison
+    # later trading days once suspend_d already explains the gap.
+    staging = tmp_path / "staging"
+    (staging / "reference").mkdir(parents=True)
+    pl.DataFrame(
+        {
+            "ts_code": ["000001.SZ"],
+            "suspend_date": [halted.strftime("%Y%m%d")],
+            "resume_date": [None],
+            "suspend_reason": ["stale"],
+        }
+    ).write_parquet(staging / "reference" / "suspend_intervals.parquet")
+
+    collect_tushare_all_a_share_history(
+        client=FakeTushareClient(tables),
+        config=_config(),
+        start=calendar[20],
+        end=calendar[-1],
+        staging_dir=staging,
+    )
+    intervals = pl.read_parquet(staging / "reference" / "suspend_intervals.parquet")
+    assert intervals.is_empty()
+
+    destination = tmp_path / "snapshot"
+    materialize_tushare_all_a_share_history(
+        staging_dir=staging,
+        dest_dir=destination,
+        config=_config(),
+    )
+    daily = pl.read_parquet(destination / "daily_bars.parquet")
+    row = daily.filter(
+        (pl.col("symbol") == "000001.SZ") & (pl.col("date") == halted)
+    ).to_dicts()
+    assert len(row) == 1
+    assert row[0]["is_suspended"] is True
+    assert row[0]["amount"] == 0.0
+    membership = pl.read_parquet(destination / "universe_membership.parquet")
+    assert "000001.SZ" not in set(
+        membership.filter(pl.col("as_of_date") == halted)["symbol"].to_list()
+    )
 
 
 def test_legacy_suspend_interval_covers_paused_listing_gap(tmp_path: Path) -> None:

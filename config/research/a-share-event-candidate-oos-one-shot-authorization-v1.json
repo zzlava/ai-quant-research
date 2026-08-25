@@ -1,0 +1,74 @@
+{
+  "schema_version": "1",
+  "authorization_version": "a-share-event-candidate-oos-one-shot-v1",
+  "authorization_date": "2026-08-25",
+  "one_shot": true,
+  "consumed": false,
+  "freeze_file": "config/research/a-share-event-candidate-oos-freeze-v1.json",
+  "freeze_id": "5d5298f0115f883c29d96cf2a1892ce4de7295c2068cabea96f23db393bad92e",
+  "strategy_config_id": "all_a_share_historical_value_portfolio_selected_v2",
+  "strategy_config_hash": "796b793856dcd02a",
+  "market_dir": "data/all-a-share-oos-20241001-20260821-v1/parquet",
+  "market_snapshot_id": "b6f664d31d8ffcdabbb655e888467c75dbfa6a7f8bd863d698febb015f5b0427",
+  "event_dir": "data/all-a-share-oos-20241001-20260821-v1/events-v1",
+  "event_snapshot_id": "73f1dedf83b0c28d0ba5ae933205e2777b02e27d356d4dd5cf62dcb10155b28f",
+  "base_market_snapshot_id": "b6f664d31d8ffcdabbb655e888467c75dbfa6a7f8bd863d698febb015f5b0427",
+  "windows": {
+    "announcement_start": "2025-01-01",
+    "announcement_end": "2026-07-23",
+    "first_2025_trading_day": "2025-01-02",
+    "last_complete_label_entry_date": "2026-07-24",
+    "label_hard_end": "2026-08-21",
+    "event_source_coverage_start": "2024-10-08",
+    "event_source_coverage_end": "2026-08-21"
+  },
+  "benchmark_symbol": "000300.SH",
+  "primary_endpoint": {
+    "horizon_days": 20,
+    "return_kind": "relative",
+    "benchmark_symbol": "000300.SH",
+    "observation_field": "fwd_rel_hs300_ret_20d",
+    "decides_oos_result": true,
+    "may_promote_to_scoring": false,
+    "may_promote_to_trading": false
+  },
+  "nominated_candidates": [
+    {
+      "hypothesis_id": "forecast_upward_revision",
+      "source": "forecast",
+      "signal_kind": "binary_bucket",
+      "threshold_bucket": "upward_revision",
+      "candidate_direction": "positive",
+      "economic_meaning": "同一报告期后续公告上调变动中点，预期正向反应"
+    },
+    {
+      "hypothesis_id": "audit_non_standard_opinion",
+      "source": "fina_audit",
+      "signal_kind": "binary_bucket",
+      "threshold_bucket": "non_standard_opinion",
+      "candidate_direction": "negative",
+      "economic_meaning": "审计意见非精确标准无保留意见，预期负向反应"
+    }
+  ],
+  "nominated_hypothesis_ids": [
+    "forecast_upward_revision",
+    "audit_non_standard_opinion"
+  ],
+  "candidate_multiplicity": 2,
+  "evaluation_gates": {
+    "min_known_coverage": 0.9,
+    "min_labeled": 100,
+    "min_binary_arm_labeled": 20,
+    "primary_statistic": "mean_rel_hs300_return_spread_1_minus_0",
+    "no_p_value": true,
+    "no_alpha_claim": true
+  },
+  "output_dir": "data/all-a-share-oos-20241001-20260821-v1/event-candidate-oos-evaluations/one-shot-v1",
+  "consumption_receipt_path": "data/all-a-share-oos-20241001-20260821-v1/event-candidate-oos-evaluations/one-shot-v1.consumption-receipt.json",
+  "ready_for_scoring": false,
+  "ready_for_trading": false,
+  "auto_deploy": false,
+  "human_review_required": true,
+  "authorization_id": "efee84f049b6e8590a01bce2f185aacd7d01c5fae6845e9dca5432d8de980439",
+  "research_boundary": "Authorized one-shot 2025+ directional replication diagnostic only. No score, IC, exclusion, portfolio, order, trade, p-value, alpha claim, or automatic promotion."
+}
