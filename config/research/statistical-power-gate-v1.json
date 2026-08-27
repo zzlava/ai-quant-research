@@ -1,0 +1,62 @@
+{
+  "schema_version": "1",
+  "protocol_version": "statistical-power-gate-v1",
+  "planning_role": "prospective_gate_with_retrospective_calibration",
+  "method": {
+    "alternative": "one_sided_positive",
+    "familywise_alpha": 0.05,
+    "target_power": 0.8,
+    "family_size": 4,
+    "alpha_allocation": "bonferroni_worst_case_pretest",
+    "uncertainty_source": "audited_hac_standard_error_only",
+    "approximation": "normal_known_standard_error"
+  },
+  "endpoints": [
+    {
+      "endpoint_id": "quality",
+      "endpoint_type": "mean_spearman_ic",
+      "horizon_market_days": 40,
+      "minimum_effect_of_interest": 0.05,
+      "direction": "positive"
+    },
+    {
+      "endpoint_id": "value",
+      "endpoint_type": "mean_spearman_ic",
+      "horizon_market_days": 40,
+      "minimum_effect_of_interest": 0.05,
+      "direction": "positive"
+    },
+    {
+      "endpoint_id": "medium_momentum_12_1",
+      "endpoint_type": "mean_spearman_ic",
+      "horizon_market_days": 40,
+      "minimum_effect_of_interest": 0.05,
+      "direction": "positive"
+    },
+    {
+      "endpoint_id": "defensive_low_vol",
+      "endpoint_type": "mean_spearman_ic",
+      "horizon_market_days": 40,
+      "minimum_effect_of_interest": 0.05,
+      "direction": "positive"
+    }
+  ],
+  "source_binding": {
+    "diagnostic_report_path": "data/all-a-share-historical-v1/research/layer-two-alpha-diagnostic-v2/report.json",
+    "diagnostic_report_sha256": "842e99d9fca389584a222e2b80a85cf345ced28329fad4073cd4b5254d0c7351",
+    "source_role": "retrospective_variance_calibration_only"
+  },
+  "policies": {
+    "missing_or_invalid_standard_error": "not_evaluable",
+    "mde_above_minimum_effect": "not_evaluable",
+    "family_requires_every_endpoint_powered": true,
+    "retrospective_review_must_not_reinterpret_results": true,
+    "retrospective_review_must_not_select_factors": true,
+    "no_oos_consumption": true
+  },
+  "ready_for_scoring": false,
+  "ready_for_backtest": false,
+  "ready_for_trading": false,
+  "auto_deploy": false,
+  "protocol_id": "25b10aaf70e51198f83808004102eaa4779dff9940c72584922fd6ce6e205bf2"
+}

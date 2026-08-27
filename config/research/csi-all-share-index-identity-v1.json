@@ -1,0 +1,203 @@
+{
+  "schema_version": "1",
+  "contract_version": "csi-all-share-index-identity-v1",
+  "contract_id": "85ef3834da78d3642bfbb7009bbd0c5e1c1c5c2b3af1cf01a6d9e21038f32b22",
+  "confirmation_as_of": "2026-08-27",
+  "observed_at": "2026-08-27T03:25:00Z",
+  "purpose": "factual_index_identity_and_source_coverage_probe_only",
+  "official_family_name": "中证全指指数",
+  "evidence_sources": [
+    {
+      "source_id": "csi_000985_factsheet_20260731",
+      "publisher": "中证指数有限公司",
+      "title": "中证全指指数事实表（2026-07-31）",
+      "url": "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/indices/detail/files/zh_CN/000985factsheet.pdf",
+      "content_sha256_at_access": "66e11b85aa8b62cf6a48e5cc930b04094740d49a7872bf547632e52eac34f92b",
+      "accessed_at": "2026-08-27T03:25:00Z",
+      "evidence_role": "official_index_code_and_derivatives"
+    },
+    {
+      "source_id": "csi_000985_methodology_20231208",
+      "publisher": "中证指数有限公司",
+      "title": "中证全指指数编制方案",
+      "url": "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/indices/detail/files/zh_CN/20231208175438-000985_Index_Methodology_cn.pdf",
+      "content_sha256_at_access": "d6a4d24334f600fe2c80e4f3cbc01cffed931776ec61f7081dffcd72847969d1",
+      "accessed_at": "2026-08-27T03:25:00Z",
+      "evidence_role": "official_index_methodology"
+    },
+    {
+      "source_id": "csi_h00985_history_probe_2005_2024",
+      "publisher": "中证指数有限公司",
+      "title": "中证全指全收益指数 2005-2024 历史响应",
+      "url": "https://www.csindex.com.cn/csindex-home/perf/index-perf?indexCode=H00985&startDate=20050101&endDate=20241231",
+      "content_sha256_at_access": "af84485b6c5f2a864ab2c850cdf9197e3e622a5d9d50e41ec3ad55a37e79b792",
+      "accessed_at": "2026-08-27T03:25:00Z",
+      "evidence_role": "official_total_return_history_recovery"
+    },
+    {
+      "source_id": "tushare_index_basic_doc_94",
+      "publisher": "Tushare",
+      "title": "指数基本信息接口",
+      "url": "https://tushare.pro/document/2?doc_id=94",
+      "content_sha256_at_access": "8b8550dda1d1fb4f65b98458bd277dc2181323ec84833dc2aaeb9c57410517fe",
+      "accessed_at": "2026-08-27T03:25:00Z",
+      "evidence_role": "tushare_index_identity_schema"
+    },
+    {
+      "source_id": "tushare_index_daily_doc_95",
+      "publisher": "Tushare",
+      "title": "指数日线行情接口",
+      "url": "https://tushare.pro/document/2?doc_id=95",
+      "content_sha256_at_access": "368c211b45da5eec7c621f1962ec5d188ab16de052dbbebb0be1a7951b52fe5e",
+      "accessed_at": "2026-08-27T03:25:00Z",
+      "evidence_role": "tushare_index_daily_schema"
+    }
+  ],
+  "identities": [
+    {
+      "role": "market_risk_state",
+      "official_name": "中证全指指数",
+      "official_code": "000985",
+      "tushare_ts_code": "000985.CSI",
+      "return_definition": "price_index",
+      "publisher": "中证指数有限公司",
+      "market": "CSI",
+      "base_date": "2004-12-31",
+      "base_point": 1000.0,
+      "list_date": "2011-08-02",
+      "index_basic_rows": 1,
+      "small_daily_probe_rows": 5,
+      "identity_verified": true
+    },
+    {
+      "role": "performance_comparison",
+      "official_name": "中证全指全收益指数",
+      "official_code": "H00985",
+      "tushare_ts_code": "H00985.CSI",
+      "return_definition": "total_return",
+      "publisher": "中证指数有限公司",
+      "market": "CSI",
+      "base_date": "2004-12-31",
+      "base_point": 1000.0,
+      "list_date": "2011-08-02",
+      "index_basic_rows": 1,
+      "small_daily_probe_rows": 5,
+      "identity_verified": true
+    },
+    {
+      "role": "diagnostic_only",
+      "official_name": "中证全指净收益指数",
+      "official_code": "N00985",
+      "tushare_ts_code": "N00985.CSI",
+      "return_definition": "net_return",
+      "publisher": "中证指数有限公司",
+      "market": "CSI",
+      "base_date": "2004-12-31",
+      "base_point": 1000.0,
+      "list_date": "2013-02-08",
+      "index_basic_rows": 1,
+      "small_daily_probe_rows": 5,
+      "identity_verified": true
+    }
+  ],
+  "fixed_small_probe_window": {
+    "start": "2024-07-01",
+    "end": "2024-07-05"
+  },
+  "coverage_probes": [
+    {
+      "tushare_ts_code": "000985.CSI",
+      "requested_start": "2005-01-01",
+      "requested_end": "2024-12-31",
+      "returned_rows": 4858,
+      "first_trade_date": "2005-01-04",
+      "last_trade_date": "2024-12-31",
+      "duplicate_key_rows": 0,
+      "required_field_null_counts": {
+        "trade_date": 0,
+        "open": 0,
+        "high": 0,
+        "low": 0,
+        "close": 0,
+        "pre_close": 0
+      },
+      "optional_field_null_counts": {}
+    },
+    {
+      "tushare_ts_code": "H00985.CSI",
+      "requested_start": "2005-01-01",
+      "requested_end": "2024-12-31",
+      "returned_rows": 4857,
+      "first_trade_date": "2005-01-04",
+      "last_trade_date": "2024-12-31",
+      "duplicate_key_rows": 0,
+      "required_field_null_counts": {
+        "trade_date": 0,
+        "close": 0,
+        "pre_close": 0
+      },
+      "optional_field_null_counts": {
+        "open": 4857,
+        "high": 4857,
+        "low": 4857
+      }
+    }
+  ],
+  "coverage_cross_check": {
+    "common_trade_dates": 4857,
+    "price_only_trade_dates": [
+      "2011-08-02"
+    ],
+    "total_return_only_trade_dates": [],
+    "missing_dates_must_not_be_synthesized": true,
+    "total_return_ohlc_is_not_required_for_close_to_close_benchmark": true
+  },
+  "official_recovery_probe": {
+    "endpoint_index_code": "H00985",
+    "requested_start": "2005-01-01",
+    "requested_end": "2024-12-31",
+    "returned_rows": 4860,
+    "first_source_date": "2005-01-01",
+    "last_source_date": "2024-12-31",
+    "duplicate_source_dates": 0,
+    "null_close_rows": 0,
+    "source_dates_outside_sse_open_calendar": [
+      "2005-01-01",
+      "2018-06-18"
+    ],
+    "tushare_dates_missing_from_official": [],
+    "official_only_valid_trading_dates": [
+      "2011-08-02"
+    ],
+    "common_dates": 4857,
+    "common_close_difference_rows": 3089,
+    "maximum_common_close_difference_bps": 2.15205332788182,
+    "fixed_official_override_dates": [
+      "2011-08-02",
+      "2011-08-03"
+    ],
+    "repair_rule": "tushare_primary_exact_sse_calendar_official_override_only_on_2011_08_02_and_2011_08_03",
+    "no_interpolation_or_forward_fill": true,
+    "official_source_rows_must_be_hash_bound_before_materialization": true
+  },
+  "readiness": {
+    "factual_identity_verified": true,
+    "price_series_ready_for_long_history_materialization": true,
+    "total_return_series_ready_for_strict_long_history_materialization": true,
+    "long_history_materializer_status": "pending_implementation",
+    "remaining_blocker": "offline_long_history_materializer_and_hash_bound_raw_collection_not_yet_implemented",
+    "ready_for_scoring": false,
+    "ready_for_backtest": false,
+    "ready_for_trading": false,
+    "ready_for_orders": false,
+    "auto_apply": false
+  },
+  "no_token_value_recorded": true,
+  "no_market_values_recorded": true,
+  "no_consumed_oos_used": true,
+  "does_not_materialize_history": true,
+  "does_not_score": true,
+  "does_not_backtest": true,
+  "does_not_trade": true,
+  "note": "Official CSI documents and exact Tushare index_basic/index_daily probes confirm 000985.CSI (price), H00985.CSI (total return), and N00985.CSI (net return). The Tushare price series exactly matches the 4,858-day SSE open calendar. The official H00985 response recovers the missing 2011-08-02 row and identifies a 2011-08-03 source discrepancy; only those two dates may use official overrides. No interpolation or forward fill is permitted. The offline materializer remains pending."
+}

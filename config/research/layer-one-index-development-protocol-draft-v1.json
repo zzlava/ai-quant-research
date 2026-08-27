@@ -1,0 +1,286 @@
+{
+  "schema_version": "2",
+  "protocol_version": "layer-one-index-development-protocol-v2",
+  "status": "confirmed_for_implementation_but_not_ready",
+  "confirmation_as_of": "2026-08-26",
+  "research_trial_ledger_id": "1fc944251212da4972a087b4c54263912d621e43ad400b5936d6a492f1f9b9f4",
+  "research_trial_ledger_path": "config/research/research-trial-ledger-v1.json",
+  "two_layer_decision_contract_id": "27a6fd11a8324aea2eca90353a5ca5ceeba69ee4d3d2ebee6445d72ef92a18d6",
+  "two_layer_decision_contract_path": "config/research/two-layer-strategy-decision-draft-v1.json",
+  "consumed_oos": {
+    "reuse_forbidden": true,
+    "note": "Consumed one-shot OOS windows and receipts are terminal. Layer-one index development must not bind to them or reuse their evaluation windows. Do not confuse the consumed window with the new frozen OOS that begins later."
+  },
+  "risk_state_index": {
+    "role": "market_risk_state",
+    "name": "csi_all_share_price_index",
+    "return_definition": "price_index",
+    "market_data_primary_source": "tushare",
+    "identity_cross_check": "csi_index_official_website",
+    "symbol": null,
+    "symbol_status": "pending_factual_source_verification",
+    "note": "中证全指价格指数 for market risk-state features (price returns). Tushare primary market data; CSI official website identity cross-check. Exact symbol pending factual source verification; do not guess."
+  },
+  "performance_benchmark": {
+    "role": "performance_comparison",
+    "name": "csi_all_share_total_return",
+    "return_definition": "total_return",
+    "market_data_primary_source": "tushare",
+    "identity_cross_check": "csi_index_official_website",
+    "symbol": null,
+    "symbol_status": "pending_factual_source_verification",
+    "note": "中证全指全收益 for performance comparison (total return). Tushare primary market data; CSI official website identity cross-check. Exact symbol pending factual source verification; do not guess."
+  },
+  "windows": {
+    "development": {
+      "start": "2005-01-01",
+      "end": "2012-12-31",
+      "role": "development",
+      "tunable_parameter_window": false
+    },
+    "historical_validation_segments": [
+      {
+        "start": "2013-01-01",
+        "end": "2016-12-31",
+        "role": "historical_validation",
+        "tunable_parameter_window": false
+      },
+      {
+        "start": "2017-01-01",
+        "end": "2019-12-31",
+        "role": "historical_validation",
+        "tunable_parameter_window": false
+      },
+      {
+        "start": "2020-01-01",
+        "end": "2021-12-31",
+        "role": "historical_validation",
+        "tunable_parameter_window": false
+      }
+    ],
+    "seen_robustness_check_only": {
+      "start": "2022-01-01",
+      "end": "2024-12-31",
+      "role": "seen_robustness_check_only",
+      "tunable_parameter_window": false
+    },
+    "consumed_oos": {
+      "start": "2025-01-01",
+      "end": "2026-08-21",
+      "role": "consumed_oos",
+      "tunable_parameter_window": false
+    },
+    "new_frozen_oos": {
+      "start": "2026-08-22",
+      "planned_duration_months": 12,
+      "continuous_recording_required": true,
+      "not_hard_prerequisite_for_60_or_90_unlock": true,
+      "complete_oos_pass_claim_forbidden_before_maturity": true,
+      "note": "New frozen OOS begins 2026-08-22 with a planned 12-month continuous record. It is not a hard prerequisite for manual 60%/90% unlock, but a complete OOS pass claim is forbidden before maturity. Distinct from consumed OOS 2025-01-01..2026-08-21."
+    },
+    "note": "Historical validation segments are never tunable parameter windows and must not be called OOS. 2022-2024 is seen robustness only. Consumed OOS 2025-01-01..2026-08-21 must not be reused. New frozen OOS starts 2026-08-22 and is not the consumed window."
+  },
+  "lookbacks": {
+    "trend_lookback_bars": 200,
+    "volatility_lookback_bars": 60,
+    "drawdown_lookback_bars": 242
+  },
+  "annualization_trading_days_per_year": 242,
+  "trend": {
+    "lookback_trading_days": 200,
+    "neutral_band_pct": 0.03,
+    "base_budget_positive_trend": 0.9,
+    "base_budget_neutral_trend": 0.6,
+    "base_budget_negative_trend": 0.3
+  },
+  "volatility": {
+    "lookback_trading_days": 60,
+    "annualization_trading_days_per_year": 242,
+    "target": 0.18,
+    "no_cap_at_or_below": 0.18,
+    "cap_0_6_above_through": 0.27,
+    "cap_0_3_above_through": 0.36,
+    "force_zero_above": 0.36,
+    "budget_when_at_or_below_no_cap_threshold": "no_additional_cap",
+    "budget_when_in_cap_0_6_band": 0.6,
+    "budget_when_in_cap_0_3_band": 0.3,
+    "budget_when_above_force_zero": 0.0
+  },
+  "index_drawdown": {
+    "lookback_trading_days": 242,
+    "no_cap_shallower_than": -0.1,
+    "cap_0_6_at_or_beyond": -0.1,
+    "cap_0_3_at_or_beyond": -0.15,
+    "force_zero_at_or_beyond": -0.2,
+    "budget_when_in_cap_0_6_band": 0.6,
+    "budget_when_in_cap_0_3_band": 0.3,
+    "budget_when_at_or_beyond_force_zero": 0.0
+  },
+  "account_drawdown": {
+    "max_acceptable_drawdown": -0.2,
+    "cap_0_6_at_or_beyond": -0.1,
+    "cap_0_3_at_or_beyond": -0.15,
+    "risk_lock_at_or_beyond": -0.18,
+    "final_red_line": -0.2,
+    "budget_when_in_cap_0_6_band": 0.6,
+    "budget_when_in_cap_0_3_band": 0.3,
+    "risk_lock_effects": [
+      "prohibit_new_entries",
+      "target_stock_budget_zero",
+      "prominent_ui_and_output_annotation_required",
+      "service_restart_must_not_auto_clear"
+    ],
+    "risk_lock_recovery": {
+      "min_cooling_trading_days": 20,
+      "index_must_not_be_negative_trend": true,
+      "realized_vol_60d_annualized_must_be_below": 0.27,
+      "requires_explicit_user_confirmation": true,
+      "auto_clear_forbidden": true
+    }
+  },
+  "budget_composition": {
+    "final_budget_rule": "min_of_trend_base_vol_cap_index_dd_cap_account_dd_cap",
+    "allowed_levels": [
+      0.0,
+      0.3,
+      0.6,
+      0.9
+    ],
+    "risk_lock_has_priority": true,
+    "cash_only_defensive_asset": true,
+    "max_stock_budget": 0.9
+  },
+  "adjustment_policy": {
+    "reduce_allowed_daily": true,
+    "increase_only_on_first_trading_day_of_week": true,
+    "increase_uses_prior_trading_day_known_state": true,
+    "risk_lock_has_priority": true
+  },
+  "risk_budget_levels": [
+    0.0,
+    0.3,
+    0.6,
+    0.9
+  ],
+  "rebalance_frequency_phase_policy": "reduce_daily_increase_only_first_trading_day_of_week_prior_day_state_risk_lock_priority",
+  "benchmark_baseline": {
+    "composition": "0.9_csi_all_share_total_return_plus_0.1_cash"
+  },
+  "cost_assumptions": {
+    "base_commission_per_side": 0.00025,
+    "minimum_commission_cny": 5.0,
+    "base_slippage_bps_per_side": 5,
+    "stress_slippage_bps_per_side": 15,
+    "stamp_tax": "official_historical_sell_side_schedule",
+    "stamp_tax_schedule_status": "pending_factual_source_verification",
+    "stamp_tax_note": "Official full historical sell-side stamp-tax timetable remains pending factual source verification. A simplified flat 0.1%-since-1900 schedule must not be treated as complete.",
+    "stress_must_not_breach_max_drawdown": -0.2
+  },
+  "hard_gates": {
+    "max_drawdown_floor_per_validation_segment_and_combined": -0.2,
+    "combined_validation_after_cost_annualized_return_must_be_positive": true,
+    "calmar_min": 0.5,
+    "baseline": {
+      "composition": "0.9_csi_all_share_total_return_plus_0.1_cash",
+      "max_drawdown_amplitude_improvement_min": 0.25,
+      "if_baseline_cagr_positive_retain_at_least": 0.6
+    },
+    "stress_max_drawdown_must_not_breach": -0.2,
+    "budget_level_occupancy_diagnostic_only": true,
+    "occupancy_not_a_post_hoc_hard_gate": true,
+    "require_per_regime_occupancy_diagnostic": true,
+    "require_regime_transition_counts_diagnostic": true,
+    "primary_metric": "max_drawdown_and_calmar_vs_baseline"
+  },
+  "deployment_upgrade": {
+    "auto_upgrade_forbidden": true,
+    "stages": [
+      {
+        "max_stock_budget": 0.3,
+        "mode": "human_controlled_trial",
+        "requires_historical_validation_pass": true,
+        "min_months_before_next": null,
+        "requires_user_confirmation": true
+      },
+      {
+        "max_stock_budget": 0.6,
+        "mode": "human_controlled",
+        "min_months_at_prior_stage": 3,
+        "requires_no_severe_anomaly": true,
+        "requires_user_confirmation": true,
+        "system_auto_upgrade_forbidden": true
+      },
+      {
+        "max_stock_budget": 0.9,
+        "mode": "human_controlled",
+        "min_months_at_prior_stage": 3,
+        "requires_no_risk_lock_trigger": true,
+        "requires_user_confirmation": true,
+        "system_auto_upgrade_forbidden": true
+      }
+    ],
+    "twelve_month_new_oos_continues_and_is_marked": true,
+    "twelve_month_new_oos_is_not_hard_gate_for_60_or_90_unlock": true,
+    "unlock_records_must_include": [
+      "timestamp",
+      "contract_version",
+      "data_snapshot_id",
+      "user_confirmation"
+    ]
+  },
+  "decision_timing": {
+    "features_use_data_available_after_close_only": true,
+    "action_contract": "T+1",
+    "missing_or_late_bars_fail_closed": true
+  },
+  "evidence_blockers": [
+    {
+      "path": "risk_state_index.symbol",
+      "category": "pending_factual_source_verification",
+      "detail": "CSI All-Share price-index exact Tushare/CSI symbol pending factual source verification; do not guess."
+    },
+    {
+      "path": "performance_benchmark.symbol",
+      "category": "pending_factual_source_verification",
+      "detail": "CSI All-Share total-return exact Tushare/CSI symbol pending factual source verification; do not guess."
+    },
+    {
+      "path": "cost_assumptions.stamp_tax_schedule",
+      "category": "pending_factual_source_verification",
+      "detail": "Official full historical sell-side stamp-tax timetable evidence incomplete; flat 0.1%-since-1900 must not be treated as done."
+    },
+    {
+      "path": "regime_budget_engine",
+      "category": "pending_implementation",
+      "detail": "Confirmed trend/vol/drawdown/account-lock regime budget engine is not implemented."
+    },
+    {
+      "path": "risk_lock_persistence_and_ui",
+      "category": "pending_implementation",
+      "detail": "Risk-lock persistence across restart and prominent UI/output annotation are contractual but not implemented."
+    },
+    {
+      "path": "long_history_index_materializer",
+      "category": "pending_implementation",
+      "detail": "Long-history index bar materializer for confirmed windows is not implemented."
+    },
+    {
+      "path": "hard_gates.segment_and_combined_results",
+      "category": "pending_development_evidence",
+      "detail": "Hard gates are confirmed as criteria; segment/combined validation results are not yet produced."
+    },
+    {
+      "path": "windows.new_frozen_oos",
+      "category": "future_oos_observation",
+      "detail": "New frozen OOS from 2026-08-22 is incomplete; distinct from consumed OOS 2025-01-01..2026-08-21. Complete OOS pass claim forbidden before maturity."
+    }
+  ],
+  "bound_consumed_oos_receipt_path": null,
+  "bound_consumed_oos_freeze_id": null,
+  "bound_consumed_oos_authorization_id": null,
+  "ready_for_scoring": false,
+  "ready_for_backtest": false,
+  "ready_for_trading": false,
+  "auto_apply": false,
+  "protocol_id": "b7aa9de1539cdd791aee5b74ca8ec3f269b6ed809a070caa917686742c4b1b2f"
+}

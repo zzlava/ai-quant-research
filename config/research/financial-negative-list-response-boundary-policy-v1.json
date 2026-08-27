@@ -1,0 +1,21 @@
+{
+  "allowed_quarantine_case": "ann_date valid and in-window; end_date <= 2024-12-31; f_ann_date valid and > 2024-12-31; effective_disclosure_date=max(ann_date,f_ann_date) therefore outside authorized window",
+  "announcement_window_end": "2024-12-31",
+  "announcement_window_start": "2020-01-01",
+  "bound_base_protocol_file_sha256": "b3e8310e158979fc0f1d22fd5122d6ca0cf694908d78d3ef96af3c1fec6d72c2",
+  "bound_base_protocol_id": "314e9d644b897ed4398cc349e3772b09bbe6f80cfd2d518a7cdbf19bb651d2ea",
+  "bound_base_protocol_path": "config/research/layer-two-financial-negative-list-data-protocol-v1.json",
+  "do_not_persist_future_payload_values": true,
+  "exclude_quarantined_rows_from_pit": true,
+  "policy_id": "9030c05343a4480e4b8889deae544ee34d9bc652382a4542cbdb41f8b3af5629",
+  "policy_version": "financial-negative-list-response-boundary-policy-v1",
+  "preserve_source_row_hash_for_quarantine_receipt": true,
+  "purpose": "Narrow fail-closed response-boundary policy for financial-negative-list collection: only quarantine rows whose ann_date is in-window but f_ann_date moves effective disclosure beyond 2024-12-31.",
+  "quarantine_reason_code": "FNLD-013",
+  "ready_for_backtest": false,
+  "ready_for_scoring": false,
+  "ready_for_trading": false,
+  "schema_version": "1",
+  "status": "frozen_for_development",
+  "unsupported_shapes_fail_closed": true
+}

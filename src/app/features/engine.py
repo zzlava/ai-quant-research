@@ -39,14 +39,13 @@ class FeatureEngine:
         self.global_symbol = config.data.global_symbol
 
     def compute_all(self, as_of: date) -> list[StockFeatureVector]:
-        # Every stock feature below has a maximum 60-session dependency.  Do
-        # not rescan the entire multi-year all-market history for each signal
-        # date; the bounded query is mathematically identical for these
-        # rolling expressions and makes full-market diagnostics tractable.
-        recent_calendar = self.store.get_calendar(as_of - timedelta(days=400), as_of)
+        # The balanced strategy declares a 121-bar warm-up for its 120-session
+        # trend. Legacy strategies retain their 60-session dependency.
+        history_bars = required_history_bars(self.config.data.min_history_bars)
+        recent_calendar = self.store.get_calendar(as_of - timedelta(days=800), as_of)
         history_start = (
-            recent_calendar[-STOCK_FEATURE_HISTORY_BARS]
-            if len(recent_calendar) >= STOCK_FEATURE_HISTORY_BARS
+            recent_calendar[-history_bars]
+            if len(recent_calendar) >= history_bars
             else None
         )
         daily = self.store.get_daily_bars(as_of=as_of, start=history_start)
@@ -64,7 +63,7 @@ class FeatureEngine:
         if as_of_rows.is_empty():
             return []
 
-        index_ret_20d, market_score = self._market_snapshot(as_of)
+        index_ret_20d, index_ret_120d, market_score = self._market_snapshot(as_of)
         global_ret_20d, global_score = self._global_snapshot(as_of)
         sector_ret = self._sector_returns(as_of_rows)
 
@@ -74,7 +73,7 @@ class FeatureEngine:
             inst = instruments.get(symbol)
             if inst is None:
                 continue
-            needed = (
+            needed: tuple[str, ...] = (
                 "ret_1d",
                 "ret_5d",
                 "ret_20d",
@@ -85,6 +84,8 @@ class FeatureEngine:
                 "atr_14",
                 "avg_turnover_20d",
             )
+            if self.config.balanced_ranking is not None:
+                needed = (*needed, "ret_120d")
             if any(not _finite(row.get(key)) for key in needed):
                 continue
 
@@ -119,6 +120,11 @@ class FeatureEngine:
                     ret_1d=float(row["ret_1d"]),
                     ret_5d=ret_5d,
                     ret_20d=float(row["ret_20d"]),
+                    ret_120d=(
+                        float(row["ret_120d"])
+                        if _finite(row.get("ret_120d"))
+                        else 0.0
+                    ),
                     ma20_distance=float(row["ma20_distance"]),
                     ma60_distance=float(row["ma60_distance"]),
                     volume_ratio_5d=volume_ratio,
@@ -137,9 +143,33 @@ class FeatureEngine:
                     is_st=bool(row["is_st"]),
                     is_suspended=bool(row["is_suspended"]),
                     index_ret_20d=index_ret_20d,
+                    index_ret_120d=index_ret_120d,
                     global_ret_20d=global_ret_20d,
                 )
             )
+        if self.config.balanced_ranking is not None:
+            # Rank the new strategy inside its declared liquid/listing universe;
+            # legacy strategy cross-sections remain byte-for-byte unchanged.
+            from app.universe.membership import membership_lookup_options
+
+            lookup = membership_lookup_options(self.config.universe)
+            members = self.store.get_universe_members(
+                self.config.universe.id,
+                as_of,
+                decision_at_utc(as_of, self.config.data),
+                expected_constituents=lookup["expected_constituents"],
+                require_available_cross_section=bool(
+                    lookup["require_available_cross_section"]
+                ),
+            )
+            vectors = [vector for vector in vectors if vector.symbol in members]
+            # The persisted derived-membership snapshot can be a broader
+            # superset collected under an earlier strategy's listing-age
+            # threshold. Apply the current, PIT-observable universe contract
+            # before computing cross-sectional fundamental/ownership ranks.
+            from app.universe.filter import UniverseFilter
+
+            vectors = UniverseFilter(self.config.universe).apply(vectors)
         if self.config.fundamental is not None:
             from app.features.fundamental import enrich_fundamental_features
 
@@ -149,6 +179,17 @@ class FeatureEngine:
                 as_of=as_of,
                 available_by=decision_at_utc(as_of, self.config.data),
                 config=self.config.fundamental,
+                require_size=self.config.balanced_ranking is not None,
+            )
+        if self.config.ownership is not None:
+            from app.features.ownership import enrich_ownership_features
+
+            vectors = enrich_ownership_features(
+                vectors,
+                store=self.store,
+                as_of=as_of,
+                available_by=decision_at_utc(as_of, self.config.data),
+                config=self.config.ownership,
             )
         return vectors
 
@@ -183,6 +224,9 @@ class FeatureEngine:
                 ret_1d.alias("ret_1d"),
                 (pl.col("close") / pl.col("close").shift(5).over("symbol") - 1.0).alias("ret_5d"),
                 (pl.col("close") / pl.col("close").shift(20).over("symbol") - 1.0).alias("ret_20d"),
+                (pl.col("close") / pl.col("close").shift(120).over("symbol") - 1.0).alias(
+                    "ret_120d"
+                ),
                 (pl.col("close") / pl.col("close").rolling_mean(window_size=20).over("symbol") - 1.0).alias(
                     "ma20_distance"
                 ),
@@ -198,7 +242,7 @@ class FeatureEngine:
             ]
         )
 
-    def _market_snapshot(self, as_of: date) -> tuple[float, float]:
+    def _market_snapshot(self, as_of: date) -> tuple[float, float, float]:
         index = self.store.get_index_bars(as_of=as_of, symbol=self.index_symbol)
         index = index.filter(pl.col("date") <= as_of).sort("date")
         needed = self.config.data.min_history_bars
@@ -209,10 +253,11 @@ class FeatureEngine:
         closes = [float(x) for x in index["close"].to_list()]
         last = closes[-1]
         ret_20d = last / closes[-21] - 1.0
+        ret_120d = last / closes[-121] - 1.0 if len(closes) >= 121 else 0.0
         ma20 = sum(closes[-20:]) / 20.0
         ma20_dist = last / ma20 - 1.0
         market_score = 0.6 * scale(ret_20d, -0.10, 0.10) + 0.4 * scale(ma20_dist, -0.08, 0.08)
-        return ret_20d, market_score
+        return ret_20d, ret_120d, market_score
 
     def _global_snapshot(self, as_of: date) -> tuple[float, float]:
         glob = self.store.get_global_bars(as_of=as_of, symbol=self.global_symbol)

@@ -212,6 +212,34 @@ def test_qualified_window_emits_signal_ready_start() -> None:
     assert controlled_result.research_mode == CONTROLLED_SAMPLE_MODE_LABEL
 
 
+def test_warmup_ignores_members_not_yet_seasoned_by_current_strategy() -> None:
+    calendar = weekdays(date(2024, 1, 2), STOCK_FEATURE_HISTORY_BARS + 10)
+    store = _store(calendar)
+    store.replace_daily(
+        pl.concat(
+            [_daily([A], calendar), _daily([B], calendar[-10:])],
+            how="vertical_relaxed",
+        )
+    )
+    recent_listing = calendar[-20]
+    store.instruments_frame = store.instruments_frame.with_columns(
+        pl.when(pl.col("symbol") == B)
+        .then(pl.lit(recent_listing))
+        .otherwise(pl.col("listing_date"))
+        .cast(pl.Date)
+        .alias("listing_date")
+    )
+    config = load_test_config()
+    config.universe.min_listing_days = 120
+    ready = preflight_research(
+        store=store,
+        config=config,
+        start=calendar[READY_OFFSET],
+        end=calendar[-1],
+    )
+    assert ready.signal_ready_start == calendar[READY_OFFSET]
+
+
 def test_snapshot_adjustment_must_match_the_strategy_price_contract() -> None:
     calendar = weekdays(date(2024, 1, 2), STOCK_FEATURE_HISTORY_BARS + 10)
     store = _store(calendar)

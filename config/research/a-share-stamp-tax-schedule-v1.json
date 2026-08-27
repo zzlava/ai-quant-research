@@ -1,0 +1,93 @@
+{
+  "schema_version": "1",
+  "contract_version": "a-share-stamp-tax-schedule-v1",
+  "contract_id": "a5bfd11fec6543b58c761996781ac584e69e4263bc9688281bf4e1f0187735f0",
+  "confirmation_as_of": "2026-08-26",
+  "verified_through": "2026-08-26",
+  "declared_window": {
+    "start": "2022-01-01",
+    "end": "2024-12-31"
+  },
+  "schedule_coverage_start": "2008-09-19",
+  "schedule_bands": [
+    {
+      "effective_from": "2008-09-19",
+      "effective_to": "2023-08-27",
+      "seller_rate": 0.001,
+      "buyer_rate": 0.0,
+      "open_ended": false
+    },
+    {
+      "effective_from": "2023-08-28",
+      "effective_to": null,
+      "seller_rate": 0.0005,
+      "buyer_rate": 0.0,
+      "open_ended": true
+    }
+  ],
+  "evidence_sources": [
+    {
+      "source_id": "mof_2008_unilateral_levy",
+      "title": "9月19日起证券交易印花税改为单边征收",
+      "url": "http://www.mof.gov.cn/zhengwuxinxi/caizhengxinwen/200809/t20080919_76432.htm",
+      "document_identifier": "MOF-2008-09-19-unilateral-stamp-tax",
+      "evidence_role": "establishes_seller_only_levy",
+      "published_or_effective_date": "2008-09-19",
+      "accessed_at": "2026-08-26T06:54:52Z",
+      "notes": "PRC Ministry of Finance official notice: from 2008-09-19 A/B share transfer seller taxed at 0.001; buyer no longer taxed. accessed_at is the offline evidence-review timestamp, not a live crawl."
+    },
+    {
+      "source_id": "sta_stamp_tax_law_2022",
+      "title": "中华人民共和国印花税法",
+      "url": "https://fgk.chinatax.gov.cn/zcfgk/c100009/c5193058/content.html",
+      "document_identifier": "PRC-Stamp-Tax-Law-effective-2022-07-01",
+      "evidence_role": "reaffirms_seller_only_and_statutory_rate",
+      "published_or_effective_date": "2022-07-01",
+      "accessed_at": "2026-08-26T06:54:52Z",
+      "notes": "Passed 2021-06-10, effective 2022-07-01. Securities transaction stamp tax levied on transferor not transferee; taxable basis transaction amount; statutory table rate 0.001. Reaffirms rather than changes the first-band applicable rate. accessed_at is offline evidence-review time."
+    },
+    {
+      "source_id": "mof_sta_announcement_2023_39",
+      "title": "财政部 税务总局公告2023年第39号",
+      "url": "https://fgk.chinatax.gov.cn/zcfgk/c102416/c5211343/content.html",
+      "document_identifier": "MOF-STA-Announcement-2023-No.39",
+      "evidence_role": "halves_seller_rate",
+      "published_or_effective_date": "2023-08-28",
+      "accessed_at": "2026-08-26T06:54:52Z",
+      "notes": "Dated 2023-08-27, effective 2023-08-28: securities transaction stamp tax reduced by half (seller_rate 0.0005). accessed_at is offline evidence-review time."
+    },
+    {
+      "source_id": "shanghai_tax_2023_39_validity_mirror",
+      "title": "财政部 税务总局公告2023年第39号（上海税务局转载·全文有效）",
+      "url": "https://shanghai.chinatax.gov.cn/zcfw/zcfgk/yhs/202308/t468451.html",
+      "document_identifier": "Shanghai-Tax-Bureau-2023-No.39-validity-mirror",
+      "evidence_role": "validity_mirror",
+      "published_or_effective_date": "2023-08-28",
+      "accessed_at": "2026-08-26T06:54:52Z",
+      "notes": "Optional official validity mirror marking Announcement 2023 No.39 全文有效. accessed_at is offline evidence-review time."
+    }
+  ],
+  "reaffirmation_milestones": [
+    {
+      "milestone_id": "stamp_tax_law_effective_2022_07_01",
+      "milestone_date": "2022-07-01",
+      "does_not_create_new_rate_band": true,
+      "evidence_source_id": "sta_stamp_tax_law_2022",
+      "notes": "Stamp Tax Law effective date is reaffirmation evidence only; it must not invent a new rate band inside 2008-09-19..2023-08-27."
+    }
+  ],
+  "seller_only": true,
+  "taxable_basis": "transaction_amount",
+  "buyer_rate_always_zero_within_coverage": true,
+  "no_claims_before_schedule_coverage_start": true,
+  "no_guessing_beyond_evidence": true,
+  "legal_open_ended_band_does_not_authorize_extrapolation_past_verified_through": true,
+  "evidence_accessed_at_is_offline_review_timestamp": true,
+  "factual_cost_contract_only": true,
+  "ready_for_scoring": false,
+  "ready_for_backtest": false,
+  "ready_for_trading": false,
+  "ready_for_orders": false,
+  "auto_apply": false,
+  "existing_tranche_protocol_blocker_not_modified": true
+}

@@ -1,0 +1,397 @@
+{
+  "schema_version": "2",
+  "contract_version": "two-layer-strategy-decision-v2",
+  "status": "confirmed_for_implementation_but_not_ready",
+  "confirmation_as_of": "2026-08-26",
+  "research_trial_ledger_id": "1fc944251212da4972a087b4c54263912d621e43ad400b5936d6a492f1f9b9f4",
+  "research_trial_ledger_path": "config/research/research-trial-ledger-v1.json",
+  "confirmed": {
+    "initial_cash": 80000,
+    "initial_cash_confirmed": true,
+    "initial_cash_is_blocker": false,
+    "note": "initial_cash=80000 is confirmed for account-scale research and is not a pending user decision blocker."
+  },
+  "consumed_oos": {
+    "reuse_forbidden": true,
+    "note": "Consumed one-shot OOS windows are terminal. They must not be reused to select parameters, re-run evaluations, or authorize new strategy configs."
+  },
+  "layer_one": {
+    "objective": "absolute_return",
+    "performance_benchmark": {
+      "role": "performance_comparison",
+      "name": "csi_all_share_total_return",
+      "return_definition": "total_return",
+      "market_data_primary_source": "tushare",
+      "identity_cross_check": "csi_index_official_website",
+      "symbol": null,
+      "symbol_status": "pending_factual_source_verification",
+      "note": "中证全指全收益 used as performance comparison benchmark. Exact Tushare/CSI symbol pending factual source verification."
+    },
+    "risk_state_index": {
+      "role": "market_risk_state",
+      "name": "csi_all_share_price_index",
+      "return_definition": "price_index",
+      "market_data_primary_source": "tushare",
+      "identity_cross_check": "csi_index_official_website",
+      "symbol": null,
+      "symbol_status": "pending_factual_source_verification",
+      "note": "中证全指价格指数 used for market risk-state features. Exact Tushare/CSI symbol pending factual source verification."
+    },
+    "cash_asset_scope": [
+      "CNY_CASH"
+    ],
+    "etf_asset_scope": [],
+    "etf_enhancement_layer": "future_milestone_after_base_strategy_validation",
+    "max_acceptable_drawdown": -0.2,
+    "min_stock_budget": 0.0,
+    "max_stock_budget": 0.9,
+    "risk_budget_levels": [
+      0.0,
+      0.3,
+      0.6,
+      0.9
+    ],
+    "trend": {
+      "lookback_trading_days": 200,
+      "neutral_band_pct": 0.03,
+      "base_budget_positive_trend": 0.9,
+      "base_budget_neutral_trend": 0.6,
+      "base_budget_negative_trend": 0.3
+    },
+    "volatility": {
+      "lookback_trading_days": 60,
+      "annualization_trading_days_per_year": 242,
+      "target": 0.18,
+      "no_cap_at_or_below": 0.18,
+      "cap_0_6_above_through": 0.27,
+      "cap_0_3_above_through": 0.36,
+      "force_zero_above": 0.36,
+      "budget_when_at_or_below_no_cap_threshold": "no_additional_cap",
+      "budget_when_in_cap_0_6_band": 0.6,
+      "budget_when_in_cap_0_3_band": 0.3,
+      "budget_when_above_force_zero": 0.0
+    },
+    "index_drawdown": {
+      "lookback_trading_days": 242,
+      "no_cap_shallower_than": -0.1,
+      "cap_0_6_at_or_beyond": -0.1,
+      "cap_0_3_at_or_beyond": -0.15,
+      "force_zero_at_or_beyond": -0.2,
+      "budget_when_in_cap_0_6_band": 0.6,
+      "budget_when_in_cap_0_3_band": 0.3,
+      "budget_when_at_or_beyond_force_zero": 0.0
+    },
+    "account_drawdown": {
+      "max_acceptable_drawdown": -0.2,
+      "cap_0_6_at_or_beyond": -0.1,
+      "cap_0_3_at_or_beyond": -0.15,
+      "risk_lock_at_or_beyond": -0.18,
+      "final_red_line": -0.2,
+      "budget_when_in_cap_0_6_band": 0.6,
+      "budget_when_in_cap_0_3_band": 0.3,
+      "risk_lock_effects": [
+        "prohibit_new_entries",
+        "target_stock_budget_zero",
+        "prominent_ui_and_output_annotation_required",
+        "service_restart_must_not_auto_clear"
+      ],
+      "risk_lock_recovery": {
+        "min_cooling_trading_days": 20,
+        "index_must_not_be_negative_trend": true,
+        "realized_vol_60d_annualized_must_be_below": 0.27,
+        "requires_explicit_user_confirmation": true,
+        "auto_clear_forbidden": true
+      }
+    },
+    "adjustment_policy": {
+      "reduce_allowed_daily": true,
+      "increase_only_on_first_trading_day_of_week": true,
+      "increase_uses_prior_trading_day_known_state": true,
+      "risk_lock_has_priority": true
+    },
+    "deployment_upgrade": {
+      "auto_upgrade_forbidden": true,
+      "stages": [
+        {
+          "max_stock_budget": 0.3,
+          "mode": "human_controlled_trial",
+          "requires_historical_validation_pass": true,
+          "min_months_before_next": null,
+          "requires_user_confirmation": true
+        },
+        {
+          "max_stock_budget": 0.6,
+          "mode": "human_controlled",
+          "min_months_at_prior_stage": 3,
+          "requires_no_severe_anomaly": true,
+          "requires_user_confirmation": true,
+          "system_auto_upgrade_forbidden": true
+        },
+        {
+          "max_stock_budget": 0.9,
+          "mode": "human_controlled",
+          "min_months_at_prior_stage": 3,
+          "requires_no_risk_lock_trigger": true,
+          "requires_user_confirmation": true,
+          "system_auto_upgrade_forbidden": true
+        }
+      ],
+      "twelve_month_new_oos_continues_and_is_marked": true,
+      "twelve_month_new_oos_is_not_hard_gate_for_60_or_90_unlock": true,
+      "unlock_records_must_include": [
+        "timestamp",
+        "contract_version",
+        "data_snapshot_id",
+        "user_confirmation"
+      ]
+    },
+    "cost_assumptions": {
+      "base_commission_per_side": 0.00025,
+      "minimum_commission_cny": 5.0,
+      "base_slippage_bps_per_side": 5,
+      "stress_slippage_bps_per_side": 15,
+      "stamp_tax": "official_historical_sell_side_schedule",
+      "stamp_tax_schedule_status": "pending_factual_implementation_evidence",
+      "stamp_tax_note": "Must not claim completion using a simplified 0.1% since-1900 schedule. Full official historical sell-side stamp-tax timetable remains pending factual implementation evidence.",
+      "stress_must_not_breach_max_drawdown": -0.2
+    }
+  },
+  "layer_two": {
+    "universe": {
+      "markets": [
+        "SSE",
+        "SZSE"
+      ],
+      "include_bse": false,
+      "st_or_delist_risk_new_entries_forbidden": true,
+      "suspended_buy_forbidden": true,
+      "min_listed_market_trading_days": 180
+    },
+    "liquidity": {
+      "lookback_market_trading_days": 20,
+      "median_daily_amount_min_cny": 50000000,
+      "min_tradable_days_in_lookback": 15,
+      "max_planned_buy_vs_20d_avg_amount": 0.001,
+      "missing_fails_closed": true
+    },
+    "small_cap": {
+      "metric": "pit_free_float_market_cap_cny",
+      "exclude_below_cny": 3000000000,
+      "size_multipliers": [
+        {
+          "min_inclusive": 3000000000.0,
+          "max_exclusive": 5000000000.0,
+          "multiplier": 0.5
+        },
+        {
+          "min_inclusive": 5000000000.0,
+          "max_exclusive": 10000000000.0,
+          "multiplier": 0.75
+        },
+        {
+          "min_inclusive": 10000000000.0,
+          "max_exclusive": null,
+          "multiplier": 1.0
+        }
+      ],
+      "reduced_capital_may_not_backfill_small_caps": true,
+      "reduced_capital_may_go_to_other_eligible_or_cash": true
+    },
+    "ownership_proxy_role": "diagnostic",
+    "ownership_missing_stays_unknown": true,
+    "ownership_not_in_scoring_or_exclusion": true,
+    "pit_industry": {
+      "user_blocker": false,
+      "current_proxy": "statistical_risk_clusters",
+      "pit_industry_enhancement": "future_enhancement_not_completed",
+      "current_industry_backfill_forbidden": true,
+      "research_and_30pct_controlled_trial_allowed_with_clusters_and_annotation": true
+    },
+    "statistical_risk_cluster": {
+      "lookback_trading_days": 120,
+      "correlation_threshold": 0.65,
+      "max_sleeve_weight_per_cluster": 0.35,
+      "max_positions_per_cluster": 2,
+      "uses_only_data_on_or_before_decision_date": true,
+      "required_when_pit_industry_history_missing": true,
+      "must_be_prominently_annotated": true,
+      "current_industry_backfill_forbidden": true
+    },
+    "position_sizing": {
+      "min_target_notional_cny": 8000,
+      "max_positions_by_budget": {
+        "0.3": 3,
+        "0.6": 6,
+        "0.9": 9
+      },
+      "absolute_max_positions": 9,
+      "unaffordable_board_lot_must_not_force_buy": true,
+      "never_relax_rules_for_affordability": true
+    },
+    "tranche_hold": {
+      "holding_period_market_trading_days": 40,
+      "holding_cycle_market_trading_days": 40,
+      "max_active_tranches_by_budget": {
+        "0.3": 3,
+        "0.6": 6,
+        "0.9": 9
+      },
+      "absolute_max_active_tranches": 9,
+      "active_tranche_count_equals_active_target_position_count": true,
+      "one_stock_per_tranche": true,
+      "uniform_stagger_within_holding_period": true,
+      "initial_and_upgrade_build_gradually": true,
+      "same_day_catchup_fill_forbidden": true,
+      "risk_reduce_not_phase_limited": true
+    },
+    "early_exit": {
+      "no_fixed_take_profit": true,
+      "catastrophe_stop_loss_vs_fill": -0.15,
+      "catastrophe_stop_next_tradable_open": true,
+      "suspension_or_limit_down_defers_stop": true,
+      "portfolio_risk_lock_has_priority": true,
+      "no_early_exit_for_ordinary_rank_drop_within_holding_period": true,
+      "allowed_early_exit_reasons": [
+        "catastrophe_stop_loss",
+        "st_or_delist_risk",
+        "confirmed_financial_hard_exclusion",
+        "portfolio_risk_reduce_or_lock"
+      ]
+    },
+    "candidate_shortage": {
+      "retain_cash_when_candidates_insufficient": true,
+      "retain_cash_when_critical_input_missing": true,
+      "retain_cash_when_board_lot_unaffordable": true,
+      "never_relax_thresholds": true,
+      "never_reuse_other_date_candidates": true
+    },
+    "financial_negative_list": {
+      "non_standard_audit_single_hit_excludes": true,
+      "other_known_pit_auditable_warning_hits_ge_2_excludes": true,
+      "other_known_pit_auditable_warning_hits_eq_1_halves_target": true,
+      "missing_stays_unknown_and_is_not_a_miss": true,
+      "exclusion_cannot_be_offset_by_alpha": true
+    },
+    "event_data": {
+      "shareholder_count_role": "diagnostic_until_independent_dev_and_pit_coverage_gates",
+      "earnings_preview_flash_role": "diagnostic_until_independent_dev_and_pit_coverage_gates",
+      "pledge_role": "diagnostic_until_independent_dev_and_pit_coverage_gates",
+      "unlock_role": "diagnostic_until_independent_dev_and_pit_coverage_gates",
+      "silent_scoring_integration_forbidden": true,
+      "future_unlock_hard_exclude_rule": {
+        "description": "Future 30 calendar-day unlock amount / free float > 10% may become a hard exclusion only when coverage, denominator, and available_at are all complete and auditable; otherwise the rule must not enable at all.",
+        "threshold": 0.1,
+        "horizon_calendar_days": 30,
+        "enable_only_when_coverage_denominator_available_at_complete": true
+      }
+    },
+    "alpha_candidates": {
+      "families": [
+        "quality",
+        "value",
+        "medium_momentum_12_1",
+        "defensive_low_vol"
+      ],
+      "evaluation_methods": [
+        "full_cross_section_quantile_portfolios",
+        "icir_hac_development"
+      ],
+      "missing_must_not_fill_zero": true,
+      "ownership_and_events_not_in_alpha": true,
+      "weight_selection_status": "pending_development_evidence",
+      "runnable_strategy_yaml_forbidden_now": true
+    },
+    "research_windows": {
+      "seen_development": {
+        "start": "2022-01-01",
+        "end": "2023-12-31"
+      },
+      "seen_robustness_check_only": {
+        "start": "2024-01-01",
+        "end": "2024-12-31"
+      },
+      "consumed_oos_reuse_forbidden_from": "2025-01-01",
+      "note": "Layer-two seen development is limited to 2022-01-01..2023-12-31; 2024 is seen robustness only; consumed 2025+ must not be reused. If any local contract already imposes a stricter bound, the stricter bound wins."
+    },
+    "rebalance_semantics": "fixed_40d_tranche_hold_with_risk_overrides",
+    "exit_semantics": "hold_40_market_days_then_next_tradable_open_exit_with_limit_suspend_defer"
+  },
+  "execution": {
+    "decision_after_close_on_t": true,
+    "attempt_fill_at_next_open_t_plus_1": true,
+    "fill_day_is_holding_day_1": true,
+    "exit_after_40_market_days_at_next_tradable_open": true,
+    "limit_up_buy_fails": true,
+    "limit_down_sell_fails": true,
+    "suspension_defers_and_is_recorded": true,
+    "no_hindsight_rewrite_of_original_orders": true,
+    "suspension_holding_day_clock": "count_suspended_days",
+    "if_still_suspended_at_expiry_exit_first_sellable_after_resume": true,
+    "delisting_settlement_contract": "prefer_exit_when_tradable_else_hold_with_annotation_fail_closed_without_official_final_evidence",
+    "delisting_live_becomes_human_event": true,
+    "minimum_commission_lot_handling_policy": "retain_cash_never_relax_thresholds_or_reuse_other_date_candidates",
+    "no_guess_prices_for_missing_final_settlement": true
+  },
+  "evidence_blockers": [
+    {
+      "path": "layer_one.performance_benchmark.symbol",
+      "category": "pending_factual_source_verification",
+      "detail": "CSI All-Share total-return index Tushare/CSI official symbol is not verified from local evidence; must not be guessed."
+    },
+    {
+      "path": "layer_one.risk_state_index.symbol",
+      "category": "pending_factual_source_verification",
+      "detail": "CSI All-Share price-index Tushare/CSI official symbol is not verified from local evidence; must not be guessed."
+    },
+    {
+      "path": "layer_one.cost_assumptions.stamp_tax_schedule",
+      "category": "pending_factual_source_verification",
+      "detail": "Official historical sell-side stamp-tax timetable evidence is incomplete; a flat 0.1%-since-1900 simplification must not be treated as done."
+    },
+    {
+      "path": "layer_one.regime_budget_engine",
+      "category": "pending_implementation",
+      "detail": "Confirmed trend/vol/drawdown/account-lock mapping is not yet implemented."
+    },
+    {
+      "path": "layer_two.portfolio_construction",
+      "category": "pending_implementation",
+      "detail": "Universe, liquidity, size, clusters, tranches, negative list, and execution semantics are confirmed but not implemented as a runnable strategy."
+    },
+    {
+      "path": "execution.risk_lock_ui_and_persistence",
+      "category": "pending_implementation",
+      "detail": "Prominent risk-lock annotation and non-auto-clear across service restart are contractual but not implemented."
+    },
+    {
+      "path": "layer_two.alpha_weight_selection",
+      "category": "pending_development_evidence",
+      "detail": "Alpha families are pre-registered only; weights remain pending development evidence from quantile/ICIR evaluation. Not a pending user decision."
+    },
+    {
+      "path": "layer_one.validation_hard_gates_evaluation",
+      "category": "pending_development_evidence",
+      "detail": "Layer-one hard gates are confirmed as criteria; segment evaluations are not yet run."
+    },
+    {
+      "path": "layer_one.etf_enhancement_layer",
+      "category": "future_enhancement",
+      "detail": "Cash/money-market ETF enhancement is a future milestone after base-strategy validation."
+    },
+    {
+      "path": "layer_two.pit_industry_history",
+      "category": "future_enhancement",
+      "detail": "Real PIT industry history is a future enhancement; statistical clusters are the current required proxy with prominent annotation."
+    },
+    {
+      "path": "layer_two.event_factors_scoring_integration",
+      "category": "future_enhancement",
+      "detail": "Shareholder count, earnings preview/flash, unlock, and pledge stay diagnostic until independent development evidence and PIT coverage gates pass."
+    }
+  ],
+  "ready_for_scoring": false,
+  "ready_for_backtest": false,
+  "ready_for_trading": false,
+  "auto_deploy": false,
+  "contract_id": "27a6fd11a8324aea2eca90353a5ca5ceeba69ee4d3d2ebee6445d72ef92a18d6"
+}

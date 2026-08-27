@@ -1,0 +1,21 @@
+{
+  "allowed_quarantine_case": "case_a: endpoint in {balancesheet,income}; ann_date valid and in-window; end_date <= 2024-12-31; f_ann_date valid and > 2024-12-31; effective_disclosure_date=f_ann_date; case_b: endpoint in {fina_indicator,fina_audit}; ann_date valid and > 2024-12-31; end_date <= 2024-12-31; f_ann_date absent; effective_disclosure_date=ann_date",
+  "announcement_window_end": "2024-12-31",
+  "announcement_window_start": "2020-01-01",
+  "bound_base_protocol_file_sha256": "b3e8310e158979fc0f1d22fd5122d6ca0cf694908d78d3ef96af3c1fec6d72c2",
+  "bound_base_protocol_id": "314e9d644b897ed4398cc349e3772b09bbe6f80cfd2d518a7cdbf19bb651d2ea",
+  "bound_base_protocol_path": "config/research/layer-two-financial-negative-list-data-protocol-v1.json",
+  "do_not_persist_future_payload_values": true,
+  "exclude_quarantined_rows_from_pit": true,
+  "policy_id": "dd5ad210aab073d8dc5b625535be57df75c7c8c2026b52dc61c2210a3d96598c",
+  "policy_version": "financial-negative-list-response-boundary-policy-v2",
+  "preserve_source_row_hash_for_quarantine_receipt": true,
+  "purpose": "Fail-closed response-boundary policy for financial-negative-list report-period queries: quarantine future effective versions as sealed metadata-only receipts without persisting future payload values.",
+  "quarantine_reason_code": "FNLD-013",
+  "ready_for_backtest": false,
+  "ready_for_scoring": false,
+  "ready_for_trading": false,
+  "schema_version": "1",
+  "status": "frozen_for_development",
+  "unsupported_shapes_fail_closed": true
+}

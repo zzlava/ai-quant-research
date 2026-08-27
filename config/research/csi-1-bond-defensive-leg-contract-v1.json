@@ -1,0 +1,48 @@
+{
+  "schema_version": "1",
+  "contract_version": "csi-1-bond-defensive-leg-contract-v1",
+  "contract_id": "9c085d0bc4edd60a3d81b964108910264ebeff6b23b88eda2c4943b62af25f4f",
+  "sealed_as_of": "2026-08-27",
+  "index_code": "H11010",
+  "index_name_cn": "中证1债指数",
+  "index_name_en": "CSI 1 Bond Index",
+  "role": "short_duration_defensive_research_proxy",
+  "return_definition": "full_price_plus_coupon_reinvestment",
+  "remaining_maturity_rule": "one_month_or_more_and_less_than_one_year",
+  "eligible_credit_floor": "BBB_or_above",
+  "credit_risk_is_nonzero": true,
+  "duration_risk_is_nonzero": true,
+  "assumed_fixed_carry_forbidden": true,
+  "official_sources": {
+    "history": {
+      "url": "https://www.csindex.com.cn/csindex-home/perf/index-perf?indexCode=H11010&startDate=20050101&endDate=20241231",
+      "sha256": "4de05f824bfa3c5dc6abe706f3a58bdaa599e46410b036b4357503f98789c17b"
+    },
+    "methodology": {
+      "url": "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/indices/detail/files/zh_CN/690_H11010_Index_Methodology_cn.pdf",
+      "sha256": "a4fa3d81ed1f236da55a5f4c3c105556713ea0acfe7bd871812b344c78d80e7a"
+    },
+    "factsheet": {
+      "url": "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/indices/detail/files/zh_CN/H11010factsheet.pdf",
+      "sha256": "64e0956cffb17e2251d63f30913e2f3d4e423d53df335c1dc20efcbaf1d51e6d"
+    },
+    "base_info": {
+      "url": "https://www.csindex.com.cn/csindex-home/indexInfo/index-basic-info/H11010",
+      "sha256": "0e94ed148307e2fb3b9314d864b05d00aa3619810ea816be62982ca719c6baa0"
+    }
+  },
+  "calendar_binding": {
+    "path": "data/research/csi-all-share-index-2005-2024-v1/calendar.parquet",
+    "sha256": "ddebb65c627bdfb552ce0c092949ee9da20aad012d4ca5920c15d7895f886abb",
+    "expected_rows": 4858,
+    "coverage_start": "2005-01-04",
+    "coverage_end": "2024-12-31"
+  },
+  "staging_dir": "data/raw/csi-1-bond-2005-2024-v1",
+  "snapshot_dir": "data/research/csi-1-bond-2005-2024-v1",
+  "exact_live_tracking_product_found_on_official_index_page": false,
+  "ready_for_index_level_historical_replay": true,
+  "ready_for_live_product_mapping": false,
+  "ready_for_orders": false,
+  "ready_for_trading": false
+}

@@ -1,0 +1,250 @@
+{
+  "schema_version": "1",
+  "protocol_version": "layer-two-financial-negative-list-data-protocol-v1",
+  "status": "frozen_for_development",
+  "frozen_as_of": "2026-08-26",
+  "purpose": "Frozen point-in-time financial-negative-list data collection and evidence-availability protocol for the E10b adjudicator. Defines exact source endpoints, fields, PIT availability semantics, rule math thresholds, scope, and freshness. This protocol does not modify the existing E10b evaluator or deploy rules. Any future threshold/scope change requires a new protocol version and ledger entry.",
+  "not_alpha_evidence": true,
+  "not_authorization": true,
+  "does_not_modify_e10b_evaluator": true,
+  "does_not_deploy_rules": true,
+  "bindings": {
+    "two_layer_decision_contract_id": "27a6fd11a8324aea2eca90353a5ca5ceeba69ee4d3d2ebee6445d72ef92a18d6",
+    "two_layer_decision_contract_path": "config/research/two-layer-strategy-decision-draft-v1.json",
+    "two_layer_decision_contract_file_sha256": "0e1afbf963c5d5b11e6db86d8fb5f7ccec3c364eb304c2227e7d9ae9eda345f6",
+    "e10b_engine_version": "layer-two-financial-negative-list-engine-v1",
+    "e10b_module_path": "src/app/research/layer_two_financial_negative_list.py",
+    "e10b_module_sha256": "5eba8c96392620bcae54f41dd532756ad528a3e5bbc939d134987e309f4fc15c",
+    "candidate_pack_path": "data/all-a-share-historical-v1/research/candidate-eligibility-pack-v1",
+    "candidate_pack_id": "cd904a7974d019689d933bcb0c0e329e51e38f96a26e30cdea4c5b15aaa4d09e",
+    "candidate_pack_parquet_sha256": "6f6518828df99f7111b6632e0fad51335e6feaa8e06a65dc06457e062a65ffd4",
+    "candidate_pack_row_count": 3597408,
+    "candidate_pack_coverage_start": "2022-01-01",
+    "candidate_pack_coverage_end": "2024-12-31",
+    "raw_collection_dir": "data/raw/all-a-share-history-20211008-20241231-v1",
+    "raw_collection_request_id": "0b1e4abf58af7c68e7e00e2ecddc7b205010e8a9f26c6c2bb9f7a81e0699f7d1",
+    "raw_collection_manifest_sha256": "2e79423dbcfd49dca8148960071495d45abcb36c439b97f226f29ddd6757bbfa",
+    "raw_quality_report_sha256": "8fe834efd812d685228ad8a74733270e9526ea8b1ade876f349cb29da4b00081"
+  },
+  "decision_window": {
+    "start": "2022-01-01",
+    "end": "2024-12-31",
+    "note": "Development decision window matches candidate pack coverage."
+  },
+  "source_announcement_collection_window": {
+    "start": "2020-01-01",
+    "end": "2024-12-31",
+    "note": "2020+ is required because consecutive YoY evidence (two periods of same-quarter year-over-year) for early 2022 decisions needs FY2020 annual data announced in early 2021 and FY2021 annual data announced in early 2022. Without 2020-start, the earliest usable YoY pairs would not be available until mid-2022."
+  },
+  "source_endpoints": {
+    "balancesheet": {
+      "tushare_api": "balancesheet",
+      "official_doc": "https://tushare.pro/document/2?doc_id=36",
+      "fields": [
+        "ts_code", "ann_date", "f_ann_date", "end_date", "report_type", "comp_type",
+        "end_type", "money_cap", "notes_receiv", "accounts_receiv", "oth_receiv",
+        "inventories", "goodwill", "total_assets", "st_borr", "lt_borr",
+        "st_bonds_payable", "non_cur_liab_due_1y", "bond_payable",
+        "total_hldr_eqy_exc_min_int", "update_flag"
+      ],
+      "partition_key": "ts_code",
+      "resumable": true
+    },
+    "income": {
+      "tushare_api": "income",
+      "official_doc": "https://tushare.pro/document/2?doc_id=33",
+      "fields": [
+        "ts_code", "ann_date", "f_ann_date", "end_date", "report_type", "comp_type",
+        "end_type", "revenue", "total_revenue", "update_flag"
+      ],
+      "partition_key": "ts_code",
+      "resumable": true
+    },
+    "fina_indicator": {
+      "tushare_api": "fina_indicator",
+      "official_doc": "https://tushare.pro/document/2?doc_id=79",
+      "fields": [
+        "ts_code", "ann_date", "end_date", "interestdebt", "update_flag"
+      ],
+      "partition_key": "ts_code",
+      "resumable": true
+    },
+    "fina_audit": {
+      "tushare_api": "fina_audit",
+      "official_doc": "https://tushare.pro/document/2?doc_id=80",
+      "fields": [
+        "ts_code", "ann_date", "end_date", "audit_result", "audit_fees",
+        "audit_agency", "audit_sign"
+      ],
+      "partition_key": "ts_code",
+      "resumable": true
+    }
+  },
+  "collection_semantics": {
+    "partition_per_endpoint_symbol": true,
+    "raw_response_row_hashes": true,
+    "request_quality_collection_manifests": true,
+    "complete_empty_partitions_allowed_after_audited_response": true,
+    "truncation_fail_closed": true,
+    "duplicate_fail_closed": true,
+    "conflict_fail_closed": true,
+    "collected_at_never_becomes_available_at": true,
+    "note": "Each endpoint/symbol partition is resumable. Raw response row hashes are recorded. Truncation, duplicates, and conflicts fail closed. collected_at/download time never becomes historical available_at."
+  },
+  "pit_availability": {
+    "effective_disclosure_date": "max(valid ann_date, valid f_ann_date when present)",
+    "available_at_time": "23:59:59 Asia/Shanghai on effective disclosure date",
+    "same_day_decision_unusable": true,
+    "first_usable_at_next_decision_date": true,
+    "missing_invalid_ann_date_row_unusable": true,
+    "all_evidence_requires_available_at_le_decision_at": true,
+    "preserve_every_retrieved_version": true,
+    "preserve_source_row_hash": true,
+    "never_overwrite_older_rows": true,
+    "report_type_included": [1, 4, 5],
+    "report_type_included_meaning": "consolidated cumulative statements only",
+    "report_type_excluded": [2, 3, 6, 7, 8, 9, 10, 11, 12],
+    "update_flag_is_metadata_not_availability": true,
+    "same_key_conflicting_values_unknown": true,
+    "ambiguous_restatement_chronology_unknown": true,
+    "note": "Source date granularity is day only, so available_at = 23:59:59 Asia/Shanghai on effective disclosure date. Because decision_at is 17:30 same day, same-day disclosures are unusable and first usable at the next decision date. report_type 1,4,5 are consolidated cumulative; all others excluded. update_flag is metadata only. Conflicting values or ambiguous restatement chronology yield unknown."
+  },
+  "scope": {
+    "generic_rules_require_comp_type_1": true,
+    "comp_type_1_meaning": "general industrial",
+    "comp_type_2_bank_excluded": true,
+    "comp_type_3_insurer_excluded": true,
+    "comp_type_4_securities_excluded": true,
+    "missing_conflicting_comp_type_generic_rules_unknown": true,
+    "financial_sector_insufficient_evidence": true,
+    "fina_audit_applies_to_all": true,
+    "future_financial_sector_v2_backlog": true,
+    "note": "Four generic accounting-warning rules apply only when comp_type=1 (general industrial) is consistently known. comp_type 2/3/4/missing/conflicting yields generic rules unknown and current E10b report remains insufficient_evidence. fina_audit applies to every company. Financial-sector specific rules are future v2 backlog."
+  },
+  "rules": {
+    "A_non_standard_audit": {
+      "code": "non_standard_audit",
+      "source_endpoint": "fina_audit",
+      "applies_to_all_comp_types": true,
+      "latest_usable_annual_audit": true,
+      "max_report_period_age_days": 550,
+      "clean_value": "标准无保留意见",
+      "logic": "audit_result exactly equals clean_value => false; any other nonblank result => true; missing/conflict => unknown",
+      "comparison": "exact string equality",
+      "note": "Latest usable annual audit with report-period age <= 550 calendar days from decision date."
+    },
+    "B_large_cash_and_interest_bearing_debt": {
+      "code": "large_cash_and_interest_bearing_debt",
+      "source_endpoints": ["balancesheet", "fina_indicator"],
+      "requires_comp_type_1": true,
+      "latest_usable_consolidated_cumulative": true,
+      "max_report_period_age_days": 240,
+      "conditions": [
+        "total_assets > 0",
+        "money_cap / total_assets > 0.25",
+        "interestdebt / total_assets > 0.25"
+      ],
+      "interestdebt_source": "fina_indicator same-period latest usable",
+      "component_debt_crosscheck": {
+        "fields": ["st_borr", "lt_borr", "st_bonds_payable", "non_cur_liab_due_1y", "bond_payable"],
+        "all_five_must_be_explicit_numeric": true,
+        "partial_components_never_zero_filled": true,
+        "purpose": "cross-check/fallback only if all five are explicit numeric"
+      },
+      "threshold_operator": "strict_greater_than",
+      "missing_conflict_unknown": true,
+      "note": "Both money_cap/total_assets > 0.25 AND interestdebt/total_assets > 0.25 must hold. interestdebt from same-period fina_indicator. Component debt sum cross-check requires all five fields explicit numeric; partial components never zero-filled."
+    },
+    "C_receivables_inventory_growth_vs_revenue_two_periods": {
+      "code": "receivables_inventory_growth_vs_revenue_two_periods",
+      "source_endpoints": ["balancesheet", "income"],
+      "requires_comp_type_1": true,
+      "exposure_formula": "notes_receiv + accounts_receiv + inventories",
+      "exposure_requires_all_three_explicit_numeric": true,
+      "revenue_field": "revenue",
+      "no_silent_total_revenue_fallback": true,
+      "consecutive_periods": 2,
+      "standard_quarter_periods": true,
+      "each_period_requires_exact_prior_year_same_quarter": true,
+      "all_prior_denominators_must_be_positive": true,
+      "gap_formula": "(exposure_current / exposure_prior - 1) - (revenue_current / revenue_prior - 1)",
+      "true_condition": "both consecutive gaps > 0.20",
+      "false_condition": "complete and not both true",
+      "missing_skipped_nonconsecutive_conflict_unknown": true,
+      "threshold_value": 0.20,
+      "threshold_operator": "strict_greater_than",
+      "note": "For the latest two consecutive standard quarter periods available at decision, each needs exact prior-year same-quarter values. gap = (exposure growth) - (revenue growth). true only if BOTH consecutive gaps > 0.20. No silent total_revenue fallback."
+    },
+    "D_other_receivables_to_assets": {
+      "code": "other_receivables_to_assets_over_5pct",
+      "source_endpoint": "balancesheet",
+      "requires_comp_type_1": true,
+      "formula": "oth_receiv / total_assets",
+      "threshold": 0.05,
+      "threshold_operator": "strict_greater_than",
+      "denominator_must_be_positive": true,
+      "negative_numerator_invalid_unknown": true,
+      "latest_usable": true,
+      "missing_unknown": true,
+      "note": "oth_receiv / total_assets > 0.05. Denominator must be > 0. Negative numerator invalid unknown."
+    },
+    "E_goodwill_to_net_assets": {
+      "code": "goodwill_to_net_assets_over_30pct",
+      "source_endpoint": "balancesheet",
+      "requires_comp_type_1": true,
+      "formula": "goodwill / total_hldr_eqy_exc_min_int",
+      "threshold": 0.30,
+      "threshold_operator": "strict_greater_than",
+      "denominator_must_be_positive": true,
+      "nonpositive_equity_unknown": true,
+      "negative_numerator_invalid_unknown": true,
+      "latest_usable": true,
+      "missing_unknown": true,
+      "note": "goodwill / total_hldr_eqy_exc_min_int > 0.30. Nonpositive equity yields unknown. Negative goodwill invalid unknown."
+    }
+  },
+  "freshness": {
+    "max_report_period_age_audit_days": 550,
+    "max_report_period_age_statement_days": 240,
+    "age_is_calendar_days_from_decision_to_end_date": true,
+    "stale_beyond_max_age_unknown": true,
+    "note": "Report-period age = (decision_date - end_date).days. If age exceeds the max for that rule, evidence is stale/unknown."
+  },
+  "row_version_resolution": {
+    "latest_usable_by_effective_disclosure_date": true,
+    "effective_disclosure_date_formula": "max(ann_date, f_ann_date) when both valid dates",
+    "ties_with_same_availability_same_values_deduplicated": true,
+    "ties_with_same_availability_conflicting_values_unknown": true,
+    "chronological_restatement_latest_wins_only_if_unambiguous": true,
+    "ambiguous_restatement_sequence_unknown": true,
+    "note": "For each semantic key, the latest usable row by effective disclosure date wins. Ties with conflicting values yield unknown. Restatement chronology must be unambiguous; otherwise unknown."
+  },
+  "issue_codes": {
+    "FNLD-001": "missing_ann_date_row_unusable",
+    "FNLD-002": "same_day_disclosure_unusable_at_decision",
+    "FNLD-003": "report_type_excluded",
+    "FNLD-004": "comp_type_not_general_industrial",
+    "FNLD-005": "conflicting_values_same_key_unknown",
+    "FNLD-006": "ambiguous_restatement_chronology",
+    "FNLD-007": "stale_report_period_beyond_max_age",
+    "FNLD-008": "partial_debt_components_not_zero_filled",
+    "FNLD-009": "no_silent_total_revenue_fallback",
+    "FNLD-010": "negative_numerator_invalid",
+    "FNLD-011": "nonpositive_denominator_invalid",
+    "FNLD-012": "future_date_rejected",
+    "FNLD-013": "oos_2025_plus_rejected"
+  },
+  "outcome_driven_changes_forbidden": true,
+  "future_change_requires_new_version_and_ledger": true,
+  "readiness": {
+    "research_only": true,
+    "ready_for_scoring": false,
+    "ready_for_backtest": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_trading": false,
+    "ready_for_data_collection": false,
+    "auto_apply": false,
+    "note": "All readiness flags false. This protocol freezes semantics only; it does not authorize collection or deployment."
+  },
+  "protocol_id": "314e9d644b897ed4398cc349e3772b09bbe6f80cfd2d518a7cdbf19bb651d2ea"
+}

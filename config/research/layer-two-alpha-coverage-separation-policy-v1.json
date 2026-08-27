@@ -1,0 +1,72 @@
+{
+  "alpha_evidence_denominator_v2": {
+    "definition": "complete_verified_candidate_eligibility_and_eligible_for_new_entry_true",
+    "factor_known_count_gate_500_unchanged": true,
+    "factor_known_fraction_gate_60pct_unchanged": true,
+    "financial_known_only_subsample_selection_forbidden": true,
+    "financial_negative_list_must_not_condition_factor_ic_sample": true,
+    "pooled_and_per_year_date_gates_unchanged": true
+  },
+  "cluster_companion_v2": {
+    "financial_known_only_conditioning_forbidden": true,
+    "monthly_first_trading_day_pit_recompute_unchanged": true,
+    "not_a_fifth_hypothesis": true,
+    "population": "same_candidate_eligible_factor_known_cross_section_used_by_raw_factor_evidence",
+    "statistical_risk_proxy_not_industry": true
+  },
+  "financial_safety_overlay": {
+    "coverage_and_missingness_reported_separately": true,
+    "hard_exclusion_cannot_be_overridden_by_alpha": true,
+    "incomplete_financial_verdict_blocks_later_new_entry": true,
+    "no_imputation_or_zero_fill": true,
+    "role": "independent_safety_overlay_not_alpha_evidence_denominator",
+    "unknown_is_not_clean": true
+  },
+  "forbidden_shortcuts": [
+    "lower_500_name_gate_to_fit_current_data",
+    "treat_financial_unknown_as_clean",
+    "select_alpha_on_financial_known_only_subsample",
+    "use_2024_to_choose_or_change_weights",
+    "evaluate_consumed_or_new_frozen_oos"
+  ],
+  "policy_id": "de7a805c3092b0c12fc10ffd33397b959009f71b186cf7e430487e60d2f5b915",
+  "policy_version": "layer-two-alpha-coverage-separation-policy-v1",
+  "rationale": "sealed_optimistic_coverage_upper_bound_failed_before_any_factor_outcome_was_computed",
+  "readiness": {
+    "auto_apply": false,
+    "base_e11a_remains_immutable": true,
+    "no_factor_ic_or_forward_return_observed_before_freeze": true,
+    "pre_outcome_feasibility_correction": true,
+    "ready_for_alpha_diagnostic_execution": false,
+    "ready_for_backtest": false,
+    "ready_for_orders": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_scoring": false,
+    "ready_for_trading": false,
+    "requires_new_protocol_and_run_contract": true,
+    "requires_trial_ledger_registration_before_execution": true,
+    "research_only": true
+  },
+  "schema_version": "1",
+  "source_binding": {
+    "base_alpha_protocol_file_sha256": "88e586191d4217645eee0a975f8ea613506d3cd59468234f793a512c0f3f158d",
+    "base_alpha_protocol_id": "fa91f0e260beb59a7f639dd3650a3842c817e470e9c3614abf2583dd691d2f86",
+    "base_alpha_protocol_path": "config/research/layer-two-alpha-development-protocol-v1.json",
+    "candidate_pack_id": "cd904a7974d019689d933bcb0c0e329e51e38f96a26e30cdea4c5b15aaa4d09e",
+    "feasibility_report_file_sha256": "06a71ec578593fa8af01a1e658e16d24479de3411ef2338f99a0265f0a038518",
+    "feasibility_report_id": "87cf390bd3b459a87598abf3cad7edc3b3a99bd9fa0668514c045662517aa2c0",
+    "feasibility_report_path": "data/all-a-share-historical-v1/research/layer-two-alpha-input-feasibility-v1.json",
+    "financial_overlay_id": "3bfefbce0f32d842a5b77904d01e65c30f4a8c7c72ce312837ae7a9a473daa0d",
+    "fundamental_snapshot_id": "6a3406cb5424f6d86005ba1b5a571a27872e24accb2b2457b24187ac5ad425d3",
+    "market_snapshot_id": "de546fbbf5a6308a76fbfbd077a918cbbedfb3ad0ca361a24212c1bfe3e06857"
+  },
+  "status": "frozen_protocol_correction_not_executable",
+  "windows": {
+    "consumed_oos_forbidden": "2025-01-01..2026-08-21",
+    "development": "2022-01-01..2023-12-31",
+    "new_frozen_oos_begins": "2026-08-22",
+    "no_2024_selection_or_weight_change": true,
+    "no_2025_plus_evaluation_authorized": true,
+    "seen_robustness_report_only": "2024-01-01..2024-12-31"
+  }
+}

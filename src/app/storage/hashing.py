@@ -95,6 +95,19 @@ HASH_COLUMNS: dict[str, tuple[str, ...]] = {
         "circ_mv",
         "source_row_hash",
     ),
+    "top10_float_holders": (
+        "symbol",
+        "report_period",
+        "ann_date",
+        "available_at",
+        "holder_name",
+        "holder_type",
+        "hold_amount",
+        "hold_ratio",
+        "hold_float_ratio",
+        "hold_change",
+        "source_row_hash",
+    ),
     "earnings_forecast_events": (
         "symbol",
         "report_period",
@@ -186,6 +199,13 @@ SORT_KEYS: dict[str, tuple[str, ...]] = {
     "universe_membership": ("universe_id", "as_of_date", "symbol"),
     "fundamental_reports": ("symbol", "report_period", "ann_date", "update_flag", "source_row_hash"),
     "daily_valuation": ("symbol", "date"),
+    "top10_float_holders": (
+        "symbol",
+        "report_period",
+        "ann_date",
+        "holder_name",
+        "source_row_hash",
+    ),
     "earnings_forecast_events": (
         "symbol",
         "report_period",

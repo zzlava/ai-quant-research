@@ -1,0 +1,114 @@
+{
+  "alpha_execution_permitted": false,
+  "contract_id": "57644d0e85c6feff56c7b2a5a11615216e5769d49ffe02a0d0c4693b502d444a",
+  "contract_version": "layer-two-alpha-diagnostic-run-contract-v2",
+  "data_assembly_permitted": true,
+  "exact_unbound_required_slots": [
+    "statistical_cluster_companion_reports"
+  ],
+  "hypotheses": [
+    "h40-ic-quality",
+    "h40-ic-value",
+    "h40-ic-medium_momentum_12_1",
+    "h40-ic-defensive_low_vol"
+  ],
+  "input_slots": [
+    {
+      "artifact_id": "de546fbbf5a6308a76fbfbd077a918cbbedfb3ad0ca361a24212c1bfe3e06857",
+      "file_sha256": "d52a5c1265490762970f51893ad386754c7f1da5e7798e450a74affb657fc618",
+      "kind": "sealed_market_snapshot",
+      "path": "data/all-a-share-historical-v1/parquet",
+      "role": "factor_inputs_and_forward_diagnostic_labels_only",
+      "state": "bound"
+    },
+    {
+      "artifact_id": "cd904a7974d019689d933bcb0c0e329e51e38f96a26e30cdea4c5b15aaa4d09e",
+      "file_sha256": "cf1e2db55a0ee9643f2db3cddf45b0024fe6a203824a1ac7bd2a06ec9c212283",
+      "kind": "candidate_eligibility_reports",
+      "path": "data/all-a-share-historical-v1/research/candidate-eligibility-pack-v1",
+      "role": "alpha_evidence_denominator",
+      "state": "bound"
+    },
+    {
+      "artifact_id": "3bfefbce0f32d842a5b77904d01e65c30f4a8c7c72ce312837ae7a9a473daa0d",
+      "file_sha256": "71a7255f6970c8d62e65d69a21eda750a7c0714fc9e02489e19a52a97c9d123b",
+      "kind": "financial_negative_list_reports",
+      "path": "data/all-a-share-historical-v1/research/financial-negative-list-verdict-overlay-v1",
+      "role": "separate_fail_closed_safety_overlay_not_alpha_denominator",
+      "state": "bound"
+    },
+    {
+      "artifact_id": "6a3406cb5424f6d86005ba1b5a571a27872e24accb2b2457b24187ac5ad425d3",
+      "file_sha256": "4da8716e895b8c334a3bf93917391cba9050a934dc526684f5d4eeb45092c84a",
+      "kind": "pit_fundamental_overlay",
+      "path": "data/all-a-share-historical-v1/fundamentals-value-quality-v1",
+      "role": "quality_factor_inputs",
+      "state": "bound"
+    },
+    {
+      "artifact_id": "6a3406cb5424f6d86005ba1b5a571a27872e24accb2b2457b24187ac5ad425d3",
+      "file_sha256": "37377ea98bc1d7a39a570adb572ec2af992e98ba26d18b8fc814d1fb25a4f166",
+      "kind": "pit_daily_valuation",
+      "path": "data/all-a-share-historical-v1/fundamentals-value-quality-v1/daily_valuation.parquet",
+      "role": "value_factor_inputs",
+      "state": "bound"
+    },
+    {
+      "artifact_id": null,
+      "file_sha256": null,
+      "kind": "statistical_cluster_companion_reports",
+      "path": null,
+      "role": "pit_statistical_risk_companion_gate_only_not_fifth_hypothesis",
+      "state": "unbound_required"
+    }
+  ],
+  "readiness": {
+    "auto_apply": false,
+    "no_outcome_observed_by_this_artifact": true,
+    "ready_for_alpha_diagnostic_execution": false,
+    "ready_for_backtest": false,
+    "ready_for_orders": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_scoring": false,
+    "ready_for_trading": false,
+    "research_only": true
+  },
+  "schema_version": "1",
+  "sources": {
+    "base_inventory": {
+      "artifact_id": "e11a2108dac3b5735a85d8dfdf529a72179c8e681033c1aa2648b688fb1a05c3",
+      "file_sha256": "7a3fbfcdfea867d8161acc1b591a51ba1c21715a52d9245c55b79fdab8bcf4d0",
+      "path": "data/all-a-share-historical-v1/research/layer-two-alpha-diagnostic-input-inventory-v1.json"
+    },
+    "engine_file_sha256": "4680affb9521e68f027f1dda3e3c8b68e593653275df8b170ae0a8b2079a2bff",
+    "engine_path": "src/app/research/layer_two_alpha_diagnostic_engine.py",
+    "engine_version": "layer-two-alpha-diagnostic-engine-v0a",
+    "protocol_v2": {
+      "artifact_id": "7cd295ab6dcf596aef4d117b1b7db9abab7057d34063d6659f886e324e57fe74",
+      "file_sha256": "f17d883709cb1de63a4925f0294f0d4940fdfd345c3b53ce1513d456b8621786",
+      "path": "config/research/layer-two-alpha-development-protocol-v2.json"
+    },
+    "separation_policy": {
+      "artifact_id": "de7a805c3092b0c12fc10ffd33397b959009f71b186cf7e430487e60d2f5b915",
+      "file_sha256": "9af300e95e5bb6000c330f6ea215b06e65d5b39df40f399d94b9402604b0d6f7",
+      "path": "config/research/layer-two-alpha-coverage-separation-policy-v1.json"
+    },
+    "trial_registration": {
+      "artifact_id": "8a5a2e03595f7df48a6da0d01317e27c9cb189aadd4ca5d4df96dfe0df36012a",
+      "file_sha256": "9ebb616bcbba2da046c3efc4bddf68d4ecc0ce3ba02d0709c979c68fa84d1141",
+      "path": "config/research/layer-two-alpha-trial-registration-v2.json"
+    }
+  },
+  "status": "prepared_blocked_on_statistical_cluster_companion",
+  "windows": {
+    "consumed_oos_forbidden": "2025-01-01..2026-08-21",
+    "development": "2022-01-01..2023-12-31",
+    "exact_label_horizons_market_days": [
+      5,
+      20,
+      40
+    ],
+    "new_frozen_oos_begins": "2026-08-22",
+    "seen_robustness_report_only": "2024-01-01..2024-12-31"
+  }
+}

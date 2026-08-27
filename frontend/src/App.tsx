@@ -1,8 +1,24 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { createBacktest, getBacktest, getHealth, getRanking, getStrategies } from "./api/client";
-import type { BacktestCreated, BacktestRecord, RankingResponse, StrategyInfo } from "./api/types";
+import {
+  createBacktest,
+  getBacktest,
+  getHealth,
+  getLayerOneRiskState,
+  getRanking,
+  getStrategies,
+} from "./api/client";
+import type {
+  BacktestCreated,
+  BacktestRecord,
+  LayerOneMutationReceipt,
+  LayerOneRiskStateView,
+  RankingResponse,
+  StrategyInfo,
+} from "./api/types";
 import { EquityChart } from "./components/EquityChart";
+import { LayerOneRiskPanel } from "./components/LayerOneRiskPanel";
+import { RiskStateBanner } from "./components/RiskStateBanner";
 import { errorMessage, formatNumber, formatPct } from "./lib/format";
 
 const DEFAULT_DATE = "2024-01-15";
@@ -38,6 +54,14 @@ export function App() {
   const [end, setEnd] = useState(DEFAULT_END);
   const [backtest, setBacktest] = useState<LoadState<BacktestCreated | BacktestRecord>>(emptyState());
   const [backtestId, setBacktestId] = useState("");
+  const [riskState, setRiskState] = useState<LoadState<LayerOneRiskStateView>>({
+    data: null,
+    error: null,
+    loading: true,
+  });
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [mutationReceipt, setMutationReceipt] = useState<LayerOneMutationReceipt | null>(null);
+  const [mutationBusy, setMutationBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +80,13 @@ export function App() {
       })
       .catch((error: unknown) => {
         if (!cancelled) setStrategies({ data: null, error: errorMessage(error), loading: false });
+      });
+    getLayerOneRiskState()
+      .then((data) => {
+        if (!cancelled) setRiskState({ data, error: null, loading: false });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setRiskState({ data: null, error: errorMessage(error), loading: false });
       });
     return () => {
       cancelled = true;
@@ -108,6 +139,8 @@ export function App() {
         </p>
       </header>
 
+      <RiskStateBanner loading={riskState.loading} error={riskState.error} state={riskState.data} />
+
       <section className="status-row">
         <div>
           <h1>量化研究仪表盘</h1>
@@ -121,6 +154,35 @@ export function App() {
         严格 PIT / warm-up 状态必须用 CLI <code>preflight-research</code> 复核。当前
         GET/POST 接口不返回 signal_ready_start、universe 模式或来源 provenance。本页不会假装已经通过预检。
       </aside>
+
+      <LayerOneRiskPanel
+        riskState={riskState.data}
+        riskError={riskState.error}
+        riskLoading={riskState.loading}
+        mutationError={mutationError}
+        mutationBusy={mutationBusy}
+        setMutationBusy={setMutationBusy}
+        onRiskStateRefreshed={(data) => setRiskState({ data, error: null, loading: false })}
+        onRiskStateRefreshFailed={(detail) => {
+          setRiskState({ data: null, error: detail, loading: false });
+          setMutationError(`刷新风险状态失败：${detail}`);
+        }}
+        onMutationSuccess={(receipt) => {
+          setMutationReceipt(receipt);
+          setMutationError(null);
+        }}
+        onMutationError={(detail) => setMutationError(detail)}
+      />
+      {mutationReceipt ? (
+        <aside className="notice" role="status" aria-label="最近一次风险变更回执">
+          <strong>最近变更回执（研究/实现 only）</strong>
+          <p>
+            event={mutationReceipt.event_type} · revision={mutationReceipt.revision} · audit=
+            {mutationReceipt.audit_id.slice(0, 8)}… · ready_for_trading=false · ready_for_orders=false ·
+            does_not_trade=true
+          </p>
+        </aside>
+      ) : null}
 
       {strategies.error ? <ErrorBox title="策略列表失败" detail={strategies.error} /> : null}
 

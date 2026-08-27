@@ -1,0 +1,61 @@
+{
+  "schema_version": "1",
+  "protocol_version": "index-risk-budget-power-protocol-v1",
+  "protocol_id": "40f3bd8ff95bd9adf8466c00529329d245d249af9b6d3efc3d4964292a03772e",
+  "sealed_as_of": "2026-08-27",
+  "role": "pre_evaluation_static_frontier_uncertainty_calibration",
+  "source_bindings": {
+    "equity_snapshot": {
+      "path": "data/research/csi-all-share-index-2005-2024-v1/manifest.json",
+      "sha256": "9ed42710e0a315539b1ac4db5becef772b2fb1f39afe2b3b1f6c43bc97393d38",
+      "artifact_id": "9dbc0032539be62518bbc7f64e67cf9deb64e0564dcaca8aecc65bdc1d3890d0"
+    },
+    "defensive_snapshot": {
+      "path": "data/research/csi-1-bond-2005-2024-v1/manifest.json",
+      "sha256": "4b93c888d6cfb911bbe2873e3f012e383def5e71972937f54c5fb5b181baefc0",
+      "artifact_id": "4cfd36b96f972d582735e5d1bc9323fbccf6addcbc1710e9f5a647341fb34ba2"
+    },
+    "product_cost_contract": {
+      "path": "config/research/index-research-product-cost-contract-v1.json",
+      "sha256": "7f18a2713547469c9bd7792f783a81a957a88dc60826f105a834e3083f127ac3",
+      "artifact_id": "f3ec502cfc2056c7da4acbad61902e89f819a106d67aba480a578deecc70793c"
+    },
+    "trial_ledger": {
+      "path": "config/research/index-time-series-trial-ledger-v1.json",
+      "sha256": "f132760a650ae4dd777672ca544e45e1fe7f416af612a4f8f8a9d439665f557b",
+      "artifact_id": "bfde96cc1647fb7ed150f6b7fbbab3b440a50bde77d5d679384edd98db57b347"
+    }
+  },
+  "calibration_window": "2005-01-04..2024-12-31",
+  "static_equity_weight_grid": [0.3, 0.4, 0.5, 0.6, 0.7, 0.8],
+  "calibration_cost_scenario": "stress",
+  "familywise_alpha": 0.05,
+  "family_size": 2,
+  "pretest_alpha_allocation": "bonferroni_worst_case",
+  "target_power": 0.8,
+  "minimum_effect_of_interest_calmar_difference": 0.1,
+  "method": {
+    "bootstrap": "synchronized_circular_moving_block",
+    "block_length_trading_days": 20,
+    "calibration_replications": 2000,
+    "calibration_seed": 20260827,
+    "evaluation_bootstrap_replications": 2000,
+    "evaluation_bootstrap_seed": 20260828,
+    "calibration_statistic": "maximum_bootstrap_standard_deviation_of_best_static_minus_each_static_calmar",
+    "mde_formula": "(z_1_minus_alpha_over_family_plus_z_target_power)*maximum_standard_deviation"
+  },
+  "policies": {
+    "dynamic_candidate_returns_must_not_be_loaded_for_calibration": true,
+    "calibration_is_not_candidate_evaluation": true,
+    "calibration_is_not_oos": true,
+    "consumed_oos_reuse_forbidden": true,
+    "mde_must_not_be_changed_after_candidate_results": true,
+    "minimum_effect_of_interest_must_not_be_changed_after_candidate_results": true
+  },
+  "readiness": {
+    "ready_to_build_static_only_power_review": true,
+    "ready_for_candidate_evaluation": false,
+    "ready_for_orders": false,
+    "ready_for_trading": false
+  }
+}

@@ -1,0 +1,215 @@
+{
+  "schema_version": "1",
+  "protocol_version": "layer-two-allocation-implementation-protocol-v1",
+  "status": "confirmed_for_implementation_but_not_ready",
+  "confirmation_as_of": "2026-08-26",
+  "two_layer_decision_contract_id": "27a6fd11a8324aea2eca90353a5ca5ceeba69ee4d3d2ebee6445d72ef92a18d6",
+  "two_layer_decision_contract_path": "config/research/two-layer-strategy-decision-draft-v1.json",
+  "layer_one_index_protocol_id": "b7aa9de1539cdd791aee5b74ca8ec3f269b6ed809a070caa917686742c4b1b2f",
+  "layer_one_index_protocol_path": "config/research/layer-one-index-development-protocol-draft-v1.json",
+  "tranche_evaluation_protocol_id": "8ad6b70fa8e37501f6ab9e436b0698a591f25b2b4f3fc14329d97dff47bdea8a",
+  "tranche_evaluation_protocol_path": "config/research/tranche-evaluation-protocol-draft-v1.json",
+  "capital_budget": {
+    "initial_cash": 80000,
+    "initial_cash_is_research_starting_point_only": true,
+    "allocation_uses_verified_current_account_equity": true,
+    "allocation_uses_layer_one_current_risk_budget": true,
+    "allowed_risk_budget_levels": [
+      0.0,
+      0.3,
+      0.6,
+      0.9
+    ],
+    "sleeve_budget_formula": "current_account_equity * risk_budget",
+    "sleeve_budget_must_not_overspend_equity": true,
+    "note": "initial_cash=80000 is the research starting point only. Live allocation math must use verified current_account_equity and the current layer-one risk_budget in {0.0, 0.3, 0.6, 0.9}. sleeve_budget = current_account_equity * risk_budget and must never overspend equity."
+  },
+  "base_slot": {
+    "minimum_base_slot_notional_cny": 8000,
+    "minimum_applies_before_risk_multipliers": true,
+    "minimum_is_not_post_multiplier_floor": true,
+    "max_active_slots_by_budget": {
+      "0.0": 0,
+      "0.3": 3,
+      "0.6": 6,
+      "0.9": 9
+    },
+    "absolute_max_active_slots": 9,
+    "base_slot_count_formula": "min(contract_cap_for_budget, floor(sleeve_budget / minimum_base_slot_notional_cny))",
+    "zero_base_slot_count_means_no_new_entries": true,
+    "base_slot_notional_formula": "sleeve_budget / base_slot_count",
+    "pre_multiplier_each_slot_at_least_minimum": true,
+    "note": "8000 CNY is the minimum_base_slot_notional before size/financial multipliers. Budget tiers give max active slots 0/3/6/9. For non-zero budget, base_slot_count = min(contract cap, floor(sleeve_budget/8000)); if 0, open no slots. base_slot_notional = sleeve_budget / base_slot_count so each pre-multiplier slot is >= 8000."
+  },
+  "risk_multipliers": {
+    "size_multipliers_allowed": [
+      0.5,
+      0.75,
+      1.0
+    ],
+    "financial_multipliers_allowed": [
+      0.0,
+      0.5,
+      1.0
+    ],
+    "financial_unknown_retains_cash": true,
+    "financial_zero_is_hard_exclude": true,
+    "final_target_notional_formula": "base_slot_notional * size_multiplier * financial_multiplier",
+    "post_multiplier_notional_may_be_below_minimum_base_slot": true,
+    "lift_post_multiplier_notional_back_to_minimum_forbidden": true,
+    "rounding_compensation_forbidden": true,
+    "silent_conversion_of_downweight_into_hard_exclude_forbidden": true,
+    "note": "Final target notional = base_slot_notional * size_multiplier * financial_multiplier. size allows only 0.5/0.75/1.0; financial allows only 0/0.5/1.0/unknown. financial=0 is hard exclude; financial=unknown retains cash. Post-multiplier notional may be below 8000. Lifting back to 8000, rounding compensation, and silently converting a downweight into a hard exclude are forbidden."
+  },
+  "released_capital": {
+    "v1_risk_multiplier_released_capital_stays_cash": true,
+    "same_day_transfer_to_other_candidates_forbidden": true,
+    "small_cap_backfill_forbidden": true,
+    "threshold_relaxation_forbidden": true,
+    "future_redistribution_requires_new_protocol_and_review": true,
+    "note": "In v1, capital released by size/financial risk multipliers stays cash. It must not be transferred same-day to other candidates, must not backfill small caps, and must not relax thresholds. Any future redistribution among other eligible names requires a new protocol and review."
+  },
+  "cluster_cap": {
+    "cluster_cap_denominator": "sleeve_budget",
+    "cluster_cap_denominator_is_not_invested_notional": true,
+    "max_sleeve_weight_per_cluster": 0.35,
+    "max_positions_per_cluster": 2,
+    "unknown_or_incomplete_cluster_report_retains_all_cash": true,
+    "note": "Cluster cap denominator is fixed to sleeve_budget, not invested notional. Per-cluster sum of target notionals <= 0.35 * sleeve_budget and at most 2 names. Unknown/incomplete cluster reports retain all cash so cash does not mechanically inflate invested cluster weights."
+  },
+  "execution_boundary": {
+    "board_lot_shares": 100,
+    "board_lot_fees_limit_suspend_t_plus_1_open_are_execution_layer": true,
+    "unaffordable_one_lot_or_cost_gate_failure_retains_cash": true,
+    "must_not_raise_target_to_force_affordability": true,
+    "this_protocol_does_not_compute_orders": true,
+    "note": "100-share board lots, fees, limit-up/limit-down/suspension, and T+1 open fills belong to a later execution layer. If the final target cannot afford one lot or fails a cost gate, that slot retains cash; targets must not be raised. This protocol does not compute orders."
+  },
+  "cash_retention": {
+    "retain_cash_on_candidate_shortage": true,
+    "retain_cash_on_unknown_critical_input": true,
+    "retain_cash_when_no_available_slot": true,
+    "retain_cash_when_unaffordable": true,
+    "never_reuse_other_date_candidate_lists": true,
+    "never_catch_up_fill": true,
+    "note": "Candidate shortage, unknown critical inputs, no available slot, and unaffordable board-lot/cost outcomes all retain cash. Other-date candidate lists must not be reused and catch-up fills are forbidden."
+  },
+  "active_counts": {
+    "active_target_count_may_be_below_budget_cap": true,
+    "active_tranche_count_equals_active_target_count": true,
+    "holding_cycle_market_trading_days": 40,
+    "holding_cycle_is_not_active_tranche_count": true,
+    "note": "active_target_count may be below the budget-tier cap because of capital or candidate shortage. active_tranche_count = active_target_count. 40 is the holding/phase cycle length, not the active tranche count."
+  },
+  "readiness": {
+    "research_only": true,
+    "ready_for_scoring": false,
+    "ready_for_backtest": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_orders": false,
+    "ready_for_trading": false,
+    "auto_apply": false,
+    "does_not_score": true,
+    "does_not_backtest": true,
+    "does_not_construct_portfolio": true,
+    "does_not_compute_orders": true,
+    "does_not_trade": true,
+    "enhancement_layers_may_add_pit_industry_ownership_events_later": true,
+    "enhancement_layers_must_not_silently_rewrite_this_protocol": true,
+    "note": "This is a read-only implementation interpretation protocol. All ready flags stay false. Future enhancement layers may add real PIT industry / ownership / events, but must not silently rewrite this protocol."
+  },
+  "interpretation_inputs": {
+    "bool_inputs_fail_closed": true,
+    "nan_inf_fail_closed": true,
+    "negative_equity_budget_or_notional_forbidden": true,
+    "zero_equity_allowed": true,
+    "note": "Interpretation helpers and worked-example numeric fields reject bool (no coercion of True/False to 1.0/0.0), reject NaN/Inf, and reject negatives. Zero current_account_equity is allowed and yields no base slots under the confirmed formulas."
+  },
+  "worked_examples": [
+    {
+      "label": "equity_80k_budget_30pct_three_base_slots",
+      "current_account_equity": 80000.0,
+      "risk_budget": 0.3,
+      "sleeve_budget": 24000.0,
+      "budget_slot_cap": 3,
+      "base_slot_count": 3,
+      "base_slot_notional": 8000.0,
+      "size_multiplier": null,
+      "financial_multiplier": null,
+      "final_target_notional": null,
+      "cash_retention_reason": null,
+      "detail": "80k equity at 30% risk budget -> sleeve_budget=24000 -> 3 base slots x 8000 before multipliers."
+    },
+    {
+      "label": "size_0_5_financial_0_5_post_multiplier_2k",
+      "current_account_equity": 80000.0,
+      "risk_budget": 0.3,
+      "sleeve_budget": 24000.0,
+      "budget_slot_cap": 3,
+      "base_slot_count": 3,
+      "base_slot_notional": 8000.0,
+      "size_multiplier": 0.5,
+      "financial_multiplier": 0.5,
+      "final_target_notional": 2000.0,
+      "cash_retention_reason": "risk_multiplier_released_capital",
+      "detail": "3-5bn free-float size band (x0.5) plus one financial warning (x0.5) yields final target 2000 per slot. Post-multiplier may be below 8000; must not lift back to 8000. If execution cannot afford one board lot, retain cash without raising the target."
+    },
+    {
+      "label": "equity_70k_budget_30pct_two_slots",
+      "current_account_equity": 70000.0,
+      "risk_budget": 0.3,
+      "sleeve_budget": 21000.0,
+      "budget_slot_cap": 3,
+      "base_slot_count": 2,
+      "base_slot_notional": 10500.0,
+      "size_multiplier": null,
+      "financial_multiplier": null,
+      "final_target_notional": null,
+      "cash_retention_reason": null,
+      "detail": "70k * 0.3 = 21000 -> floor(21000/8000)=2 -> two base slots of 10500."
+    },
+    {
+      "label": "equity_100k_budget_30pct_three_slots",
+      "current_account_equity": 100000.0,
+      "risk_budget": 0.3,
+      "sleeve_budget": 30000.0,
+      "budget_slot_cap": 3,
+      "base_slot_count": 3,
+      "base_slot_notional": 10000.0,
+      "size_multiplier": null,
+      "financial_multiplier": null,
+      "final_target_notional": null,
+      "cash_retention_reason": null,
+      "detail": "100k * 0.3 = 30000 -> three base slots of 10000 (cap still 3)."
+    }
+  ],
+  "evidence_blockers": [
+    {
+      "path": "layer_two_constrained_allocator",
+      "category": "pending_implementation",
+      "detail": "Confirmed allocation interpretation is frozen but the constrained layer-two allocator that applies these rules is not implemented."
+    },
+    {
+      "path": "execution_board_lot_and_cost_gates",
+      "category": "pending_implementation",
+      "detail": "Board-lot / fee / limit / suspension / T+1 open execution gates remain outside this protocol and are not implemented here."
+    },
+    {
+      "path": "alpha_weight_selection",
+      "category": "pending_development_evidence",
+      "detail": "Alpha family weights remain pending development evidence; this protocol does not invent weights or wire scoring."
+    },
+    {
+      "path": "pit_industry_history",
+      "category": "future_enhancement",
+      "detail": "Real PIT industry history remains a future enhancement; statistical clusters stay the current proxy. Enhancement must not silently rewrite this protocol."
+    },
+    {
+      "path": "ownership_and_event_hard_rules",
+      "category": "future_enhancement",
+      "detail": "Ownership / event hard rules remain future enhancement after coverage gates; they must not silently rewrite this protocol."
+    }
+  ],
+  "pending_user_decisions": [],
+  "protocol_id": "0cbde5a96ccbe89fe87613101fad5210d96c87142b1f1dc9e6bfd975ef2b60e2"
+}

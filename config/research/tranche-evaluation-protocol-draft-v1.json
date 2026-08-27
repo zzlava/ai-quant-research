@@ -1,0 +1,255 @@
+{
+  "schema_version": "2",
+  "protocol_version": "tranche-evaluation-protocol-v2",
+  "status": "confirmed_for_implementation_but_not_ready",
+  "confirmation_as_of": "2026-08-26",
+  "research_trial_ledger_id": "1fc944251212da4972a087b4c54263912d621e43ad400b5936d6a492f1f9b9f4",
+  "research_trial_ledger_path": "config/research/research-trial-ledger-v1.json",
+  "two_layer_decision_contract_id": "27a6fd11a8324aea2eca90353a5ca5ceeba69ee4d3d2ebee6445d72ef92a18d6",
+  "two_layer_decision_contract_path": "config/research/two-layer-strategy-decision-draft-v1.json",
+  "layer_one_index_protocol_id": "b7aa9de1539cdd791aee5b74ca8ec3f269b6ed809a070caa917686742c4b1b2f",
+  "layer_one_index_protocol_path": "config/research/layer-one-index-development-protocol-draft-v1.json",
+  "confirmed": {
+    "initial_cash": 80000,
+    "initial_cash_confirmed": true,
+    "initial_cash_is_blocker": false,
+    "note": "initial_cash=80000 is confirmed for account-scale tranche research and is not a pending user decision blocker."
+  },
+  "consumed_oos": {
+    "reuse_forbidden": true,
+    "note": "Consumed one-shot OOS windows and receipts are terminal. Tranche evaluation development must not bind to them or reuse their evaluation windows."
+  },
+  "tranche_hold": {
+    "holding_period_market_trading_days": 40,
+    "holding_cycle_market_trading_days": 40,
+    "max_active_tranches_by_budget": {
+      "0.3": 3,
+      "0.6": 6,
+      "0.9": 9
+    },
+    "absolute_max_active_tranches": 9,
+    "active_tranche_count_equals_active_target_position_count": true,
+    "one_stock_per_tranche": true,
+    "uniform_stagger_within_holding_period": true,
+    "initial_and_upgrade_build_gradually": true,
+    "same_day_catchup_fill_forbidden": true,
+    "risk_reduce_not_phase_limited": true
+  },
+  "position_sizing": {
+    "min_target_notional_cny": 8000,
+    "max_positions_by_budget": {
+      "0.3": 3,
+      "0.6": 6,
+      "0.9": 9
+    },
+    "absolute_max_positions": 9,
+    "unaffordable_board_lot_must_not_force_buy": true,
+    "never_relax_rules_for_affordability": true
+  },
+  "phase_policy": {
+    "phase_determined_only_by_frozen_calendar_and_anchor": true,
+    "uniform_stagger_within_holding_cycle": true,
+    "never_select_phase_by_return": true,
+    "same_day_catchup_fill_forbidden": true,
+    "risk_reduce_not_phase_limited": true,
+    "report_full_phase_family_and_tranche_combined_path": true,
+    "note": "Active phases for each budget tier are deterministically and as-uniformly-as-possible staggered across the 40 market-trading-day cycle. Phase identity is frozen-calendar/anchor only; never pick a 'best' phase by return."
+  },
+  "decision_timing": {
+    "decision_after_close_on_t": true,
+    "attempt_fill_at_next_open_t_plus_1": true,
+    "fill_day_is_holding_day_1": true,
+    "exit_after_holding_period_at_next_tradable_open": true,
+    "suspension_holding_day_clock": "count_suspended_days",
+    "limit_or_suspension_defers_no_hindsight_fill": true,
+    "no_hindsight_rewrite_of_original_orders": true
+  },
+  "budget_adjustment": {
+    "layer_one_risk_lock_and_reduce_have_priority": true,
+    "stock_budget_reduce_allowed_daily": true,
+    "stock_budget_increase_only_on_first_trading_day_of_week": true,
+    "stock_budget_increase_uses_prior_trading_day_known_state": true
+  },
+  "candidate_cash_policy": {
+    "retain_cash_when_candidates_insufficient": true,
+    "retain_cash_when_critical_input_missing_or_unknown": true,
+    "retain_cash_when_board_lot_or_min_commission_unaffordable": true,
+    "never_shrink_min_notional_or_backfill_small_caps": true,
+    "never_relax_candidate_gates": true,
+    "never_reuse_other_date_candidates": true,
+    "never_fill_holes_with_future_data": true
+  },
+  "ownership": {
+    "ownership_proxy_role": "diagnostic",
+    "ownership_never_in_tranche_scoring_or_exclusion": true,
+    "note": "Institutional ownership / holding proxies are diagnostic only and must never participate in tranche selection, scoring, or exclusion."
+  },
+  "windows": {
+    "seen_development": {
+      "start": "2022-01-01",
+      "end": "2023-12-31"
+    },
+    "seen_robustness_check_only": {
+      "start": "2024-01-01",
+      "end": "2024-12-31"
+    },
+    "consumed_oos": {
+      "start": "2025-01-01",
+      "end": "2026-08-21"
+    },
+    "new_frozen_oos": {
+      "start": "2026-08-22",
+      "planned_continuous_months": 12,
+      "role": "new_frozen_oos",
+      "tunable_parameter_window": false,
+      "note": "New future OOS begins 2026-08-22 and continues to accumulate for a planned 12 months. It is distinct from consumed OOS 2025-01-01..2026-08-21. 12-month accumulation is not a hard gate for manual 60%/90% unlock."
+    },
+    "note": "Layer-two seen development is limited to 2022-01-01..2023-12-31; 2024 is seen robustness only (already observed; report-only, not unseen); consumed 2025-01-01..2026-08-21 must not be reused; new frozen OOS starts 2026-08-22. Stricter local bounds win if present."
+  },
+  "benchmark": {
+    "name": "csi_all_share_total_return",
+    "return_definition": "total_return",
+    "market_data_primary_source": "tushare",
+    "identity_cross_check": "csi_index_official_website",
+    "symbol": null,
+    "symbol_status": "pending_factual_source_verification",
+    "note": "CSI All Share Total Return is the performance benchmark. Exact official Tushare/CSI symbol is a factual evidence blocker; do not guess."
+  },
+  "cost_assumptions": {
+    "base_commission_per_side": 0.00025,
+    "minimum_commission_cny": 5.0,
+    "base_slippage_bps_per_side": 5,
+    "stress_slippage_bps_per_side": 15,
+    "stamp_tax": "official_historical_sell_side_schedule",
+    "stamp_tax_schedule_status": "pending_factual_implementation_evidence",
+    "stamp_tax_note": "Must not claim completion using a simplified 0.1% since-1900 schedule. Full official historical sell-side stamp-tax timetable remains pending factual implementation evidence.",
+    "stress_must_not_breach_max_drawdown": -0.2
+  },
+  "deployment_upgrade": {
+    "auto_upgrade_forbidden": true,
+    "stages": [
+      {
+        "max_stock_budget": 0.3,
+        "mode": "human_controlled_trial",
+        "requires_historical_validation_pass": true,
+        "min_months_before_next": null,
+        "requires_user_confirmation": true
+      },
+      {
+        "max_stock_budget": 0.6,
+        "mode": "human_controlled",
+        "min_months_at_prior_stage": 3,
+        "requires_no_severe_anomaly": true,
+        "requires_user_confirmation": true,
+        "system_auto_upgrade_forbidden": true
+      },
+      {
+        "max_stock_budget": 0.9,
+        "mode": "human_controlled",
+        "min_months_at_prior_stage": 3,
+        "requires_no_risk_lock_trigger": true,
+        "requires_user_confirmation": true,
+        "system_auto_upgrade_forbidden": true
+      }
+    ],
+    "twelve_month_new_oos_continues_and_is_marked": true,
+    "twelve_month_new_oos_is_not_hard_gate_for_60_or_90_unlock": true,
+    "unlock_records_must_include": [
+      "timestamp",
+      "contract_version",
+      "data_snapshot_id",
+      "user_confirmation"
+    ]
+  },
+  "evaluation_machine": {
+    "never_select_single_best_phase_by_return": true,
+    "report_full_frozen_phase_family": true,
+    "primary_execution_structure": "phase_aggregation_and_tranche_combined_path",
+    "list_all_phase_results_individually": true,
+    "factor_evidence_methods": [
+      "full_cross_section_quantile_portfolios",
+      "ic_icir_hac_overlap_corrected"
+    ],
+    "ten_name_or_tranche_portfolio_is_execution_check_only": true,
+    "factor_scoring_wiring_forbidden_in_this_milestone": true,
+    "must_attribute_cash_occupancy_causes": [
+      "candidate_shortage",
+      "gates",
+      "unaffordable_board_lot_or_min_commission",
+      "suspension",
+      "limit_up_or_limit_down",
+      "risk_budget"
+    ],
+    "never_report_total_return_alone": true,
+    "trial_family_registration_via_research_trial_ledger": true,
+    "never_pick_phase_or_params_by_return": true,
+    "note": "Evaluation machine is frozen as protocol text only. E8c must not run score, IC, phase, or backtest evaluations."
+  },
+  "go_no_go": {
+    "evaluate_after_costs_and_15bps_stress": true,
+    "require_phase_year_and_market_state_reports": true,
+    "not_ready_when_evidence_gates_unmet": true,
+    "invent_alpha_return_threshold_forbidden": true,
+    "cite_upstream_hard_risk_gates_do_not_copy_drift": true,
+    "upstream_hard_risk_gates_source": "layer-one-index-development-protocol-v2.hard_gates",
+    "note": "Go/no-go criteria are declared only. Do not fabricate results. If upstream layer-one hard risk gates are already frozen, cite them; do not restate drifted copies. No invented alpha return hurdle."
+  },
+  "trial_family_registration": "register_trial_family_before_any_evaluation_via_research_trial_ledger",
+  "evidence_blockers": [
+    {
+      "path": "benchmark.csi_all_share_total_return_symbol",
+      "category": "pending_factual_source_verification",
+      "detail": "CSI All-Share total-return exact Tushare/CSI symbol pending factual source verification; do not guess."
+    },
+    {
+      "path": "costs.stamp_tax_schedule",
+      "category": "pending_factual_source_verification",
+      "detail": "Official full historical sell-side stamp-tax timetable evidence incomplete; flat 0.1%-since-1900 must not be treated as done."
+    },
+    {
+      "path": "tranche_evaluation_runner",
+      "category": "pending_implementation",
+      "detail": "Confirmed tranche/hold/exit, capital, phase-stagger, and cash-retain policies are not yet implemented as a tranche evaluation engine/runner."
+    },
+    {
+      "path": "execution_cash_attribution",
+      "category": "pending_implementation",
+      "detail": "Execution cash-occupancy attribution (candidate_shortage / gates / unaffordable board-lot or min commission / suspension / limit_up_or_limit_down / risk_budget) is not yet implemented."
+    },
+    {
+      "path": "alpha_weight_selection",
+      "category": "pending_development_evidence",
+      "detail": "Alpha families are pre-registered only; weights remain pending development evidence from quantile/ICIR evaluation. Not a pending user decision. Factor scoring must not be wired in E8c."
+    },
+    {
+      "path": "windows.new_frozen_oos",
+      "category": "future_oos_observation",
+      "detail": "New frozen OOS from 2026-08-22 is incomplete; distinct from consumed OOS 2025-01-01..2026-08-21. Complete OOS pass claim forbidden before maturity."
+    },
+    {
+      "path": "ownership_proxy_scoring_integration",
+      "category": "future_enhancement",
+      "detail": "Institutional ownership proxies stay diagnostic only; never enter tranche/scoring/exclusion."
+    },
+    {
+      "path": "event_factor_scoring_integration",
+      "category": "future_enhancement",
+      "detail": "Shareholder count / earnings preview / unlock / pledge stay diagnostic until independent development and PIT coverage gates pass."
+    },
+    {
+      "path": "pit_industry_history",
+      "category": "future_enhancement",
+      "detail": "Real PIT industry history remains a future enhancement; clusters are the current proxy."
+    }
+  ],
+  "pending_user_decisions": [],
+  "bound_consumed_oos_receipt_path": null,
+  "bound_consumed_oos_freeze_id": null,
+  "bound_consumed_oos_authorization_id": null,
+  "research_only": true,
+  "ready_for_scoring": false,
+  "ready_for_backtest": false,
+  "ready_for_trading": false,
+  "auto_apply": false,
+  "protocol_id": "8ad6b70fa8e37501f6ab9e436b0698a591f25b2b4f3fc14329d97dff47bdea8a"
+}

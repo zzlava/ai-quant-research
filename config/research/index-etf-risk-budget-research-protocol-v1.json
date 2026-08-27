@@ -1,0 +1,292 @@
+{
+  "schema_version": "1",
+  "protocol_version": "index-etf-risk-budget-research-protocol-v1",
+  "protocol_id": "3a71730753c88889833bc5df06790d3a062d194eb497d0216ec7fc903cfd3cb2",
+  "status": "implementation_complete_pending_prominent_manual_run_confirmation",
+  "created_as_of": "2026-08-27",
+  "design_authorization": {
+    "protocol_writing_authorized": true,
+    "historical_replay_authorized": false,
+    "prospective_evaluation_authorized": false,
+    "orders_or_trading_authorized": false,
+    "writing_this_protocol_is_not_restart_authorization": true
+  },
+  "source_bindings": {
+    "research_plan_stop_rule": {
+      "path": "config/research/research-plan-stop-rule-v1.json",
+      "sha256": "cd196066d17d01d4483814b6720e73c4c2a5859fccbeac8b97fb54406f3d635a",
+      "artifact_id": "422d300fbd7b3d36908bef6b2e7544b7afa689f64d6c0a741830e9b1dfcfec0a"
+    },
+    "index_data_evidence": {
+      "path": "config/research/layer-one-index-data-evidence-v1.json",
+      "sha256": "c3e13e665b4a4ea80496eb574920b6b7b53a4206e4a84620d39d590d184d4f85",
+      "artifact_id": "6d7cdbb7ba25191f9d4718ec94b61acf6a18e0ca4ffa6a0984c1abbdc6e42e77"
+    },
+    "frozen_binary_risk_lock_policy": {
+      "path": "config/research/layer-one-risk-lock-recovery-policy-v1.json",
+      "sha256": "64f3620cd767e7e856d1796ebbaa5ac07a801e09bbb24070b028ae241cbc9dc3",
+      "artifact_id": "84c2734b0b418873b4c5dcf20890cb480c9861ea18996dba66e923847b610c8e"
+    },
+    "index_time_series_trial_ledger": {
+      "path": "config/research/index-time-series-trial-ledger-v1.json",
+      "sha256": "f132760a650ae4dd777672ca544e45e1fe7f416af612a4f8f8a9d439665f557b",
+      "artifact_id": "bfde96cc1647fb7ed150f6b7fbbab3b440a50bde77d5d679384edd98db57b347"
+    },
+    "defensive_leg_contract": {
+      "path": "config/research/csi-1-bond-defensive-leg-contract-v1.json",
+      "sha256": "52a09470f02b2aff30004e76c7d02faa2382aa885a22d9cffec9013ab2bd3d9a",
+      "artifact_id": "9c085d0bc4edd60a3d81b964108910264ebeff6b23b88eda2c4943b62af25f4f"
+    },
+    "defensive_leg_snapshot": {
+      "path": "data/research/csi-1-bond-2005-2024-v1/manifest.json",
+      "sha256": "4b93c888d6cfb911bbe2873e3f012e383def5e71972937f54c5fb5b181baefc0",
+      "artifact_id": "4cfd36b96f972d582735e5d1bc9323fbccf6addcbc1710e9f5a647341fb34ba2"
+    },
+    "product_cost_contract": {
+      "path": "config/research/index-research-product-cost-contract-v1.json",
+      "sha256": "7f18a2713547469c9bd7792f783a81a957a88dc60826f105a834e3083f127ac3",
+      "artifact_id": "f3ec502cfc2056c7da4acbad61902e89f819a106d67aba480a578deecc70793c"
+    },
+    "power_protocol": {
+      "path": "config/research/index-risk-budget-power-protocol-v1.json",
+      "sha256": "18bc0f87e4ed460c5ed14905eaa8463bc06efed8eb47dc52b9a402562ec7b2f9",
+      "artifact_id": "40f3bd8ff95bd9adf8466c00529329d245d249af9b6d3efc3d4964292a03772e"
+    },
+    "power_review": {
+      "path": "data/research/index-risk-budget-power-v1/review.json",
+      "sha256": "7182c2440bf9e91550c605fec9a070a6e1bc11f762579610b87483cf9f2d0280",
+      "artifact_id": "507dfa1b1b0d14b23990d6cc7559f73f69515d5a1465b5d03af8a9c5829c3913"
+    }
+  },
+  "implementation_bindings": {
+    "historical_replay_engine": {
+      "path": "src/app/research/index_risk_budget_evaluator.py",
+      "sha256": "7f7ba74ac68f8a00f2a599ceac9c68e3d219bc0f286a959dfb5c7bf315071fa4"
+    },
+    "power_calibration_engine": {
+      "path": "src/app/research/index_risk_budget_power.py",
+      "sha256": "c3c8b1f15d733de84dc34c592f08b9ca959495bd6744f1b1586292ff32d13dc7"
+    },
+    "product_cost_evidence_engine": {
+      "path": "src/app/research/index_research_product_cost_contract.py",
+      "sha256": "a29c8b0f01121a1a33b5db8256446596c1fabae5556a455f8b36de0578ca2bd4"
+    }
+  },
+  "research_family": {
+    "family_id": "index_time_series_risk_budget_v1",
+    "separate_trial_ledger_required": true,
+    "inherit_closed_individual_stock_trial_count": false,
+    "individual_stock_cross_sectional_alpha_forbidden": true,
+    "factor_or_etf_rotation_forbidden": true,
+    "two_parameterizations_count_as_two_registered_hypotheses": true,
+    "parameter_scanning_forbidden": true,
+    "prominent_manual_run_confirmation_required": true,
+    "automatic_restart_forbidden": true
+  },
+  "scope": {
+    "question": "Does a pure volatility-target equity/bond allocation add net-of-cost risk-adjusted value beyond a pre-registered static allocation frontier for the CSI All Share market?",
+    "a_share_volatility_return_relation_is_an_empirical_hypothesis": true,
+    "foreign_market_evidence_is_not_assumed_to_transfer": true,
+    "individual_stock_selection_or_financial_screen_use": false,
+    "performance_claim_from_seen_history_forbidden": true
+  },
+  "beta_core": {
+    "historical_total_return_proxy": "H00985.CSI",
+    "risk_state_price_index": "000985.CSI",
+    "beta_policy": "fixed_broad_market_beta",
+    "smart_beta_substitution_requires_new_protocol": true,
+    "dynamic_industry_or_style_etf_rotation_forbidden": true,
+    "live_product_not_selected": true
+  },
+  "defensive_leg": {
+    "status": "verified_index_level_total_return_history",
+    "contract_id": "9c085d0bc4edd60a3d81b964108910264ebeff6b23b88eda2c4943b62af25f4f",
+    "snapshot_id": "4cfd36b96f972d582735e5d1bc9323fbccf6addcbc1710e9f5a647341fb34ba2",
+    "historical_total_return_proxy": "H11010.CSI",
+    "assumed_fixed_carry_forbidden": true,
+    "must_use_point_in_time_realized_total_returns": true,
+    "must_include_interest_or_distribution_reinvestment": true,
+    "selection_must_use_credit_duration_liquidity_cost_and_data_quality_not_backtested_return": true,
+    "credit_risk_must_be_explicit": true,
+    "duration_risk_must_be_explicit": true,
+    "live_product_not_selected": true
+  },
+  "static_controls": {
+    "confirmatory_equity_weight_grid": [
+      0.3,
+      0.4,
+      0.5,
+      0.6,
+      0.7,
+      0.8
+    ],
+    "defensive_weight_rule": "one_minus_equity_weight",
+    "full_equity_reference_weight": 1.0,
+    "grid_is_fixed_before_any_evaluation": true,
+    "dynamic_strategy_must_be_compared_with_entire_static_grid_frontier": true,
+    "ex_post_average_exposure_matched_control": {
+      "allowed_for_attribution_only": true,
+      "confirmatory_baseline": false,
+      "tradable_precommitted_alternative_claim_forbidden": true
+    }
+  },
+  "dynamic_candidates": [
+    {
+      "candidate_id": "vol_target_20d_12pct_weekly_v1",
+      "realized_volatility_lookback_trading_days": 20,
+      "annualized_target_volatility": 0.12,
+      "annualization_trading_days": 242,
+      "equity_weight_formula": "clip(annualized_target_volatility / prior_close_realized_volatility, 0.0, 1.0)",
+      "minimum_equity_weight": 0.0,
+      "maximum_equity_weight": 1.0,
+      "rebalance_frequency": "weekly_first_market_trading_day",
+      "signal_lag": "prior_market_close_only_T_plus_1_action",
+      "parameter_tuning_after_seal_forbidden": true
+    },
+    {
+      "candidate_id": "vol_target_60d_12pct_weekly_v1",
+      "realized_volatility_lookback_trading_days": 60,
+      "annualized_target_volatility": 0.12,
+      "annualization_trading_days": 242,
+      "equity_weight_formula": "clip(annualized_target_volatility / prior_close_realized_volatility, 0.0, 1.0)",
+      "minimum_equity_weight": 0.0,
+      "maximum_equity_weight": 1.0,
+      "rebalance_frequency": "weekly_first_market_trading_day",
+      "signal_lag": "prior_market_close_only_T_plus_1_action",
+      "parameter_tuning_after_seal_forbidden": true
+    }
+  ],
+  "existing_binary_lock_comparator": {
+    "role": "diagnostic_comparator_not_new_confirmatory_hypothesis",
+    "must_use_frozen_bound_policy_without_threshold_changes": true,
+    "same_defensive_leg_and_cost_contract_required_for_fair_comparison": true,
+    "historical_cash_only_result_must_not_be_mixed_with_defensive_leg_result": true
+  },
+  "evaluation_windows": {
+    "seen_historical_replay": {
+      "start": "2005-01-04",
+      "end": "2024-12-31",
+      "role": "development_and_descriptive_replay_only",
+      "confirmatory_claim_forbidden": true,
+      "parameter_retuning_from_replay_forbidden": true
+    },
+    "consumed_oos": {
+      "start": "2025-01-01",
+      "end": "2026-08-21",
+      "reuse_forbidden": true
+    },
+    "prospective_frozen_record": {
+      "start": "2026-08-22",
+      "not_mature_before": "2027-08-21",
+      "continuous_recording_required": true,
+      "one_year_is_execution_validation_not_final_statistical_confirmation": true,
+      "performance_confirmation_requires_a_separate_power_gate": true
+    }
+  },
+  "decision_timing": {
+    "features_use_prior_close_only": true,
+    "actions_are_T_plus_1": true,
+    "missing_or_late_market_or_defensive_leg_data_fail_closed": true,
+    "forward_fill_returns_forbidden": true,
+    "synthetic_missing_trading_days_forbidden": true
+  },
+  "costs": {
+    "all_arms_use_same_point_in_time_product_cost_contract": true,
+    "management_and_custody_fees_required": true,
+    "commission_and_minimum_commission_required": true,
+    "bid_ask_spread_and_slippage_required": true,
+    "tracking_difference_required_for_live_product_mapping": true,
+    "premium_discount_diagnostic_required": true,
+    "base_and_stress_cost_scenarios_required": true,
+    "cost_values_must_be_sealed_before_evaluation": true,
+    "current_cost_contract_status": "sealed_synthetic_index_level_cost_envelope_live_product_cost_pending",
+    "historical_index_replay_cost_contract_ready": true,
+    "live_product_cost_contract_ready": false,
+    "synthetic_annual_drags_are_not_live_product_facts": true
+  },
+  "endpoints": {
+    "primary": {
+      "metric": "net_of_cost_calmar_difference_vs_best_static_grid_arm",
+      "direction": "higher_is_better",
+      "static_comparator_selection": "maximum_net_of_cost_calmar_across_pre_registered_30_to_80_percent_equity_grid",
+      "minimum_detectable_effect_must_be_computed_and_sealed_before_evaluation": true,
+      "observed_improvement_must_meet_or_exceed_sealed_mde": true,
+      "primary_metric_substitution_after_results_forbidden": true
+    },
+    "hard_gates": {
+      "dynamic_candidate_must_not_be_pareto_dominated_by_any_static_grid_arm_on_net_annualized_return_and_max_drawdown": true,
+      "maximum_drawdown_floor": -0.2,
+      "maximum_drawdown_floor_is_a_user_utility_constraint_not_a_prediction_claim": true,
+      "stress_cost_primary_gate_must_pass": true,
+      "two_candidate_family_wise_alpha": 0.05,
+      "multiple_testing_correction": "holm",
+      "power_and_mde_status_must_be_evaluable": true
+    },
+    "secondary_diagnostics_not_substitutes": [
+      "net_annualized_return",
+      "net_sharpe",
+      "maximum_drawdown",
+      "realized_volatility",
+      "turnover",
+      "equity_exposure_occupancy",
+      "drawdown_duration",
+      "static_frontier_pareto_plot"
+    ]
+  },
+  "a_share_specific_diagnostics": {
+    "high_volatility_rising_market_period": "2014-01-01..2015-12-31",
+    "report_equity_capture_and_deleveraging_timing": true,
+    "diagnostic_must_not_trigger_post_hoc_trend_overlay": true,
+    "trend_overlay_requires_a_future_separate_trial_family": true,
+    "tail_drawdown_and_volatility_decoupling_must_be_reported": true
+  },
+  "product_policy": {
+    "selection_is_policy_not_signal": true,
+    "review_frequency_at_most_annual": true,
+    "performance_chasing_and_dynamic_rotation_forbidden": true,
+    "single_constituent_cap_must_be_reported": true,
+    "sector_cap_or_explicit_absence_of_sector_cap_must_be_reported": true,
+    "top_ten_weight_and_sector_concentration_must_be_reported": true,
+    "index_methodology_changes_require_review": true,
+    "product_replacement_requires_eligibility_failure_or_new_protocol": true
+  },
+  "slow_oos_role": {
+    "primary_role": "execution_semantics_and_cost_model_validation",
+    "validate_slippage_commission_tracking_difference_and_premium_discount": true,
+    "one_realized_path_must_not_be_called_final_strategy_confirmation": true,
+    "positive_or_negative_one_year_result_must_not_trigger_retuning": true,
+    "evidence_accumulates_without_parameter_changes": true
+  },
+  "completed_prerequisites": [
+    "separate_index_time_series_trial_ledger",
+    "defensive_leg_identity_and_point_in_time_total_return_history_contract",
+    "fixed_index_proxy_product_policy_record",
+    "sealed_index_level_product_boundary_and_synthetic_cost_envelope",
+    "sealed_mde_and_power_review",
+    "implementation_and_independent_code_review"
+  ],
+  "blockers_before_any_run": [
+    "prominent_manual_user_restart_confirmation"
+  ],
+  "manual_run_gate": {
+    "confirmation_present": false,
+    "exact_confirmation_text": "我确认按照已封印的指数风险预算协议执行2005-01-04至2024-12-31一次性历史回放；该回放仅为已见历史研究，不是OOS、评分、荐股、组合指令或交易授权。",
+    "single_use_authorization_receipt_required": true,
+    "automatic_restart_forbidden": true
+  },
+  "readiness": {
+    "design_only": false,
+    "implementation_complete": true,
+    "ready_for_authorized_historical_replay": true,
+    "manual_confirmation_present": false,
+    "ready_for_historical_replay": false,
+    "ready_for_prospective_evaluation": false,
+    "ready_for_live_product_mapping": false,
+    "ready_for_scoring": false,
+    "ready_for_backtest": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_orders": false,
+    "ready_for_trading": false,
+    "auto_apply": false
+  }
+}

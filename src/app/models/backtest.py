@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
 from app.models.snapshot import DataSnapshot
+
+# Successful-fill budget diagnostics: finite and non-negative.
+# Missing JSON keys still default to 0.0 (backward compatible).
+BudgetTotal = Annotated[float, Field(ge=0, allow_inf_nan=False)]
 
 ExitReason = Literal["take_profit", "stop_loss", "timeout"]
 
@@ -36,6 +40,10 @@ class EquityPoint(BaseModel):
     cash: float
     market_value: float
     equity: float
+    # End-of-day counts written by BacktestEngine. Absent/null in historical JSON
+    # means unavailable — never treat a missing field as a real zero count.
+    open_positions: int | None = None
+    pending_orders: int | None = None
 
 
 class BacktestWindow(BaseModel):
@@ -76,9 +84,56 @@ class SignalAttribution(BaseModel):
     rejected_by_regime_gate: int = 0
     rejected_by_ranking_threshold: int = 0
     rejected_by_cooldown: int = 0
+    rejected_by_correlation_cap: int = 0
     rejected_suspended: int = 0
     rejected_at_limit: int = 0
     rejected_unaffordable: int = 0
+    # Position funnel / execution diagnostics (default 0 for backward-compatible JSON).
+    scheduled_signal_days: int = 0
+    empty_ranking_days: int = 0
+    regime_blocked_days: int = 0
+    capacity_blocked_days: int = 0
+    rejected_by_capacity: int = 0
+    rejected_already_held_or_pending: int = 0
+    rejected_not_in_membership: int = 0
+    not_evaluated_after_order_limit: int = 0
+    entry_attempts: int = 0
+    rejected_insufficient_cash: int = 0
+    # Would-exit days blocked by untradable open (not all suspended/limit-down holds).
+    exit_blocked_suspended_days: int = Field(default=0, ge=0)
+    exit_blocked_limit_down_days: int = Field(default=0, ge=0)
+    target_entry_budget_total: BudgetTotal = 0.0
+    actual_entry_cash_used_total: BudgetTotal = 0.0
+    unallocated_entry_budget_total: BudgetTotal = 0.0
+    overallocated_entry_budget_total: BudgetTotal = 0.0
+
+
+class PositionUtilizationSummary(BaseModel):
+    """Read-only position / budget utilization diagnosis from a BacktestResult."""
+
+    available: bool
+    unavailable_reason: str | None = None
+    trading_days: int | None = None
+    zero_position_days: int | None = None
+    underfilled_days: int | None = None
+    average_open_positions: float | None = None
+    peak_open_positions: int | None = None
+    average_invested_fraction: float | None = None
+    peak_invested_fraction: float | None = None
+    average_cash_fraction: float | None = None
+    scheduled_signal_days: int = 0
+    empty_ranking_days: int = 0
+    regime_blocked_days: int = 0
+    capacity_blocked_days: int = 0
+    orders_generated: int = 0
+    entry_attempts: int = 0
+    orders_filled: int = 0
+    fill_rate: float | None = None
+    target_entry_budget_total: BudgetTotal = 0.0
+    actual_entry_cash_used_total: BudgetTotal = 0.0
+    unallocated_entry_budget_total: BudgetTotal = 0.0
+    overallocated_entry_budget_total: BudgetTotal = 0.0
+    budget_utilization: float | None = None
 
 
 class BacktestAttribution(BaseModel):

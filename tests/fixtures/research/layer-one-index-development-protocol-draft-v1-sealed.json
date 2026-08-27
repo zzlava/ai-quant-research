@@ -1,0 +1,41 @@
+{
+  "schema_version": "1",
+  "protocol_version": "layer-one-index-development-protocol-draft-v1",
+  "status": "blocked_pending_user_decisions",
+  "research_trial_ledger_id": "1fc944251212da4972a087b4c54263912d621e43ad400b5936d6a492f1f9b9f4",
+  "research_trial_ledger_path": "config/research/research-trial-ledger-v1.json",
+  "consumed_oos": {
+    "reuse_forbidden": true,
+    "note": "Consumed one-shot OOS windows and receipts are terminal. Layer-one index development must not bind to them or reuse their evaluation windows."
+  },
+  "index": {
+    "source": null,
+    "symbol": null,
+    "return_definition": null
+  },
+  "windows": {
+    "development": null,
+    "validation_oos": null
+  },
+  "lookbacks": {
+    "trend_lookback_bars": null,
+    "volatility_lookback_bars": null,
+    "drawdown_lookback_bars": null
+  },
+  "annualization_trading_days_per_year": null,
+  "trend_thresholds": null,
+  "volatility_target_or_risk_budget_mapping": null,
+  "risk_budget_levels": null,
+  "rebalance_frequency_phase_policy": null,
+  "benchmark": null,
+  "cost_assumptions": null,
+  "go_no_go_metrics": null,
+  "bound_consumed_oos_receipt_path": null,
+  "bound_consumed_oos_freeze_id": null,
+  "bound_consumed_oos_authorization_id": null,
+  "ready_for_scoring": false,
+  "ready_for_backtest": false,
+  "ready_for_trading": false,
+  "auto_apply": false,
+  "protocol_id": "03129a46019aa7b32d0168857891c9a595200d1988c48262c1a0c7632495768e"
+}

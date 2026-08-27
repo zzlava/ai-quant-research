@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.layer_one import router as layer_one_router
 from app.errors import is_client_error, sanitize_error_message
 from app.models.backtest import BacktestResult
 from app.models.scores import ScoreResult
@@ -20,6 +21,7 @@ from app.strategies.loader import load_strategy_config
 from app.strategies.registry import StrategyRegistry
 
 app = FastAPI(title="ai-quant-research", version="0.1.0")
+app.include_router(layer_one_router)
 
 
 class BacktestRequest(BaseModel):

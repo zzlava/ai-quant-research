@@ -1,0 +1,75 @@
+{
+  "alpha_evidence_denominator": "candidate_complete_and_eligible_for_new_entry_and_factor_known",
+  "change_scope": "coverage_denominator_separation_only",
+  "factor_known_count_gate": 500,
+  "factor_known_fraction_gate": 0.6,
+  "financial_overlay_role": "independent_fail_closed_new_entry_safety_overlay_not_ic_denominator",
+  "forbidden_changes": [
+    "no_factor_definition_change",
+    "no_threshold_or_weight_change",
+    "no_2024_selection_or_weight_change",
+    "no_consumed_or_new_frozen_oos_evaluation",
+    "no_financial_unknown_to_clean_coercion"
+  ],
+  "holm_family_wise_alpha": 0.05,
+  "holm_hypothesis_count": 4,
+  "hypotheses": [
+    "h40-ic-quality",
+    "h40-ic-value",
+    "h40-ic-medium_momentum_12_1",
+    "h40-ic-defensive_low_vol"
+  ],
+  "inherited_factor_families": [
+    "quality",
+    "value",
+    "medium_momentum_12_1",
+    "defensive_low_vol"
+  ],
+  "per_year_primary_valid_date_gate": 40,
+  "pooled_primary_valid_date_gate": 120,
+  "primary_hac_lag": 39,
+  "primary_horizon_market_days": 40,
+  "protocol_id": "7cd295ab6dcf596aef4d117b1b7db9abab7057d34063d6659f886e324e57fe74",
+  "protocol_version": "layer-two-alpha-development-protocol-v2",
+  "readiness": {
+    "auto_apply": false,
+    "no_outcome_observed_by_this_artifact": true,
+    "ready_for_alpha_diagnostic_execution": false,
+    "ready_for_backtest": false,
+    "ready_for_orders": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_scoring": false,
+    "ready_for_trading": false,
+    "research_only": true
+  },
+  "schema_version": "1",
+  "sources": {
+    "base_e11a": {
+      "artifact_id": "fa91f0e260beb59a7f639dd3650a3842c817e470e9c3614abf2583dd691d2f86",
+      "file_sha256": "88e586191d4217645eee0a975f8ea613506d3cd59468234f793a512c0f3f158d",
+      "path": "config/research/layer-two-alpha-development-protocol-v1.json"
+    },
+    "separation_policy": {
+      "artifact_id": "de7a805c3092b0c12fc10ffd33397b959009f71b186cf7e430487e60d2f5b915",
+      "file_sha256": "9af300e95e5bb6000c330f6ea215b06e65d5b39df40f399d94b9402604b0d6f7",
+      "path": "config/research/layer-two-alpha-coverage-separation-policy-v1.json"
+    },
+    "trial_registration": {
+      "artifact_id": "8a5a2e03595f7df48a6da0d01317e27c9cb189aadd4ca5d4df96dfe0df36012a",
+      "file_sha256": "9ebb616bcbba2da046c3efc4bddf68d4ecc0ce3ba02d0709c979c68fa84d1141",
+      "path": "config/research/layer-two-alpha-trial-registration-v2.json"
+    }
+  },
+  "status": "frozen_not_executable_until_exact_input_contract_complete",
+  "windows": {
+    "consumed_oos_forbidden": "2025-01-01..2026-08-21",
+    "development": "2022-01-01..2023-12-31",
+    "exact_label_horizons_market_days": [
+      5,
+      20,
+      40
+    ],
+    "new_frozen_oos_begins": "2026-08-22",
+    "seen_robustness_report_only": "2024-01-01..2024-12-31"
+  }
+}

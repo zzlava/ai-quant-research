@@ -109,3 +109,147 @@ export type BacktestRecord = {
   error: string | null;
   result: BacktestResult | null;
 };
+
+/** Layer-one risk-state API (E9b-1). Research / implementation only; never tradable. */
+
+export type LayerOneEvidenceType = "historical_validation_pass" | "no_severe_anomaly_period";
+
+export type LayerOneAuditEventType =
+  | "initialize"
+  | "manual_ceiling_authorization"
+  | "unlock_request"
+  | "decision"
+  | "deployment_evidence";
+
+export type LayerOneBudgetLevel = 0 | 0.3 | 0.6 | 0.9;
+
+export type LayerOneRiskStateView = {
+  stream_name: string;
+  initialized: boolean;
+  revision: number | null;
+  state_id: string | null;
+  applied_stock_budget: number;
+  effective_stock_budget: number;
+  manual_ceiling: number;
+  manual_ceiling_authorization_id: string | null;
+  risk_lock_active: boolean | null;
+  risk_lock_triggered_as_of: string | null;
+  red_line_breached: boolean | null;
+  last_decision_id: string | null;
+  last_decision_target_trading_day: string | null;
+  last_audit_id: string | null;
+  data_snapshot_id: string | null;
+  two_layer_decision_contract_id: string | null;
+  layer_one_index_protocol_id: string | null;
+  initialized_at: string | null;
+  updated_at: string | null;
+  research_only: true;
+  implementation_only: true;
+  ready_for_orders: false;
+  ready_for_trading: false;
+  does_not_trade: true;
+};
+
+export type LayerOneMutationReceipt = {
+  stream_name: string;
+  event_type: LayerOneAuditEventType;
+  audit_id: string;
+  revision: number;
+  authorization_id?: string | null;
+  unlock_request_id?: string | null;
+  unlock_evidence_id?: string | null;
+  evidence_id?: string | null;
+  decision_id?: string | null;
+  state_id?: string | null;
+  idempotent_replay?: boolean;
+  research_only: true;
+  implementation_only: true;
+  ready_for_orders: false;
+  ready_for_trading: false;
+  does_not_trade: true;
+};
+
+export type LayerOneInitializeRequest = {
+  operator: string;
+  reason: string;
+  initialized_at: string;
+  user_confirmed: boolean;
+  two_layer_decision_contract_id: string;
+  layer_one_index_protocol_id: string;
+  data_snapshot_id: string;
+  contract_schema_version?: "1";
+  engine_version?: "layer-one-regime-engine-v1";
+};
+
+export type LayerOneManualCeilingAuthorizationRequest = {
+  request_id: string;
+  ceiling: LayerOneBudgetLevel;
+  authorized_at: string;
+  operator: string;
+  reason: string;
+  user_confirmed: boolean;
+  contract_schema_version?: "1";
+  two_layer_decision_contract_id: string;
+  layer_one_index_protocol_id: string;
+  data_snapshot_id: string;
+  historical_validation_evidence_id?: string | null;
+  no_severe_anomaly_evidence_id?: string | null;
+  auto_upgrade: false;
+};
+
+export type LayerOneUnlockRequest = {
+  request_id: string;
+  operator: string;
+  reason: string;
+  requested_at: string;
+  user_confirmed: boolean;
+};
+
+export type LayerOneUnlockRequestSubmission = {
+  request: LayerOneUnlockRequest;
+  two_layer_decision_contract_id: string;
+  layer_one_index_protocol_id: string;
+  data_snapshot_id: string;
+};
+
+export type LayerOneDeploymentEvidenceRequest = {
+  evidence_type: LayerOneEvidenceType;
+  observed_from: string;
+  observed_through: string;
+  recorded_at: string;
+  operator: string;
+  summary: string;
+  user_confirmed: boolean;
+  contract_schema_version?: "1";
+  two_layer_decision_contract_id: string;
+  layer_one_index_protocol_id: string;
+  data_snapshot_id: string;
+  historical_validation_pass?: true | null;
+  no_severe_anomaly?: true | null;
+};
+
+export type LayerOneAuditItem = {
+  audit_id: string;
+  sequence_no: number;
+  prior_audit_id: string | null;
+  event_type: string;
+  recorded_at_utc: string;
+  payload_digest?: string;
+  payload?: unknown;
+  decision_id?: string | null;
+  authorization_id?: string | null;
+  unlock_request_id?: string | null;
+  evidence_id?: string | null;
+  revision_after?: number;
+};
+
+export type LayerOneAuditPage = {
+  stream_name: string;
+  items: LayerOneAuditItem[];
+  next_after_sequence: number | null;
+  page_size: number;
+  research_only: true;
+  ready_for_orders: false;
+  ready_for_trading: false;
+  does_not_trade: true;
+};

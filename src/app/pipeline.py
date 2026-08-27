@@ -58,6 +58,16 @@ def load_research_store(settings: Settings, config_name: str, base_store: Market
                 "historical_all_a_share requires a fundamental overlay bound to the exact market snapshot"
             )
         market = FundamentalOverlayStore(market, fundamental_snapshot, tables)
+    if config.ownership is not None:
+        from app.storage.ownership_io import load_verified_ownership_snapshot
+        from app.storage.ownership_overlay import OwnershipOverlayStore
+
+        if settings.ownership_dir is None:
+            raise PreflightError(
+                "ownership strategy requires AIQ_OWNERSHIP_DIR pointing to a verified overlay"
+            )
+        ownership_snapshot, table = load_verified_ownership_snapshot(settings.ownership_dir)
+        market = OwnershipOverlayStore(market, ownership_snapshot, table)
     return market
 
 

@@ -29,6 +29,7 @@ IMPROVEMENT_METRICS = (
     ("dt_netprofit_yoy", True),
 )
 VALUE_METRICS = (("pe_ttm", False), ("pb", False), ("ps_ttm", False))
+SIZE_METRICS = (("circ_mv", True),)
 
 
 def enrich_fundamental_features(
@@ -38,6 +39,7 @@ def enrich_fundamental_features(
     as_of: date,
     available_by: datetime,
     config: FundamentalDataConfig,
+    require_size: bool = False,
 ) -> list[StockFeatureVector]:
     """Attach cross-sectional PIT ranks and drop incomplete rows fail-closed."""
     if not hasattr(store, "get_fundamental_reports") or not hasattr(store, "get_daily_valuation"):
@@ -71,10 +73,20 @@ def enrich_fundamental_features(
         config.min_improvement_components,
     )
     value = _component_scores(combined, VALUE_METRICS, config.min_value_components, positive_only=True)
+    size = (
+        _component_scores(combined, SIZE_METRICS, 1, positive_only=True)
+        if require_size
+        else {}
+    )
     out: list[StockFeatureVector] = []
     for vector in vectors:
         symbol = vector.symbol
-        if symbol not in quality or symbol not in improvement or symbol not in value:
+        if (
+            symbol not in quality
+            or symbol not in improvement
+            or symbol not in value
+            or (require_size and symbol not in size)
+        ):
             continue
         report = report_rows[symbol]
         valuation_row = valuation_rows[symbol]
@@ -92,6 +104,8 @@ def enrich_fundamental_features(
                 "valuation_age_days": float((as_of - valuation_date).days),
             }
         )
+        if require_size:
+            extra["size_score"] = size[symbol]
         out.append(vector.model_copy(update={"extra": extra}))
     return out
 

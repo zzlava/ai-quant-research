@@ -5,6 +5,13 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
+from app.persistence.layer_one_models import (  # noqa: F401 — register metadata
+    LayerOneAuditRecord,
+    LayerOneCurrentState,
+    LayerOneDeploymentEvidenceRow,
+    LayerOneManualCeilingAuthorizationRow,
+    LayerOneUnlockRequestRow,
+)
 from app.persistence.models import Base
 from app.settings import get_settings
 

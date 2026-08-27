@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import date
+from datetime import date, timedelta
 
 import polars as pl
 
@@ -88,7 +89,7 @@ class BacktestEngine:
                 positions[pos.symbol] = pos
                 bought_today.add(pos.symbol)
 
-            proceeds, closed = self._manage_exits(day, positions, bar_map, bought_today)
+            proceeds, closed = self._manage_exits(day, positions, bar_map, bought_today, signal_audit)
             cash += proceeds
             trades.extend(closed)
             cooldown_until.update(self._cooldown_dates(closed))
@@ -100,8 +101,17 @@ class BacktestEngine:
             ):
                 pending = self._generate_orders(day, positions, pending, cooldown_until, signal_audit)
 
-            mtm = self._mark_to_market(positions, bar_map)
-            equity_curve.append(EquityPoint(date=day, cash=cash, market_value=mtm, equity=cash + mtm))
+            mtm = self._mark_to_market(positions, bar_map, day)
+            equity_curve.append(
+                EquityPoint(
+                    date=day,
+                    cash=cash,
+                    market_value=mtm,
+                    equity=cash + mtm,
+                    open_positions=len(positions),
+                    pending_orders=len(pending),
+                )
+            )
 
         # A bounded backtest cannot execute orders after valuation_end. Record
         # rather than silently dropping any still-deferred entries.
@@ -161,9 +171,10 @@ class BacktestEngine:
         if slots <= 0 or not pending:
             return cash, opened, deferred
         candidates = [p for p in pending if p.symbol not in positions]
-        equity = cash + self._mark_to_market(positions, bar_map)
+        equity = cash + self._mark_to_market(positions, bar_map, day)
         target = equity / self.config.portfolio.max_positions
         for order in candidates[:slots]:
+            signal_audit.entry_attempts += 1
             bar = bar_map.get(order.symbol)
             if bar is None:
                 raise ValueError(f"pending entry {order.symbol} has no daily bar on {day}")
@@ -185,10 +196,12 @@ class BacktestEngine:
             if shares <= 0:
                 shares = shares_affordable(cash, raw_open, self.config.costs)
             if shares <= 0:
+                signal_audit.rejected_insufficient_cash += 1
                 continue
             fill_price = apply_slippage(raw_open, self.config.costs, "buy")
             total, comm = buy_cost(fill_price, shares, self.config.costs)
             if total > cash + 1e-9:
+                signal_audit.rejected_insufficient_cash += 1
                 continue
             cash -= total
             take_profit_price, stop_loss_price = self._barrier_prices(fill_price, order.atr_pct)
@@ -205,6 +218,14 @@ class BacktestEngine:
                 )
             )
             signal_audit.orders_filled += 1
+            # Budget identity (successful fills only):
+            # target + overallocated = actual + unallocated.
+            # actual includes buy slippage (via fill_price) and buy commission.
+            # Cash fallback may spend above target allocation; never let unallocated go negative.
+            signal_audit.target_entry_budget_total += allocation
+            signal_audit.actual_entry_cash_used_total += total
+            signal_audit.unallocated_entry_budget_total += max(allocation - total, 0.0)
+            signal_audit.overallocated_entry_budget_total += max(total - allocation, 0.0)
             if order.entry_delay_days > 0:
                 signal_audit.orders_filled_after_deferral += 1
         return cash, opened, deferred
@@ -233,6 +254,7 @@ class BacktestEngine:
         positions: dict[str, OpenPosition],
         bar_map: dict[str, dict[str, object]],
         bought_today: set[str],
+        signal_audit: SignalAttribution,
     ) -> tuple[float, list[TradeFill]]:
         proceeds = 0.0
         closed: list[TradeFill] = []
@@ -242,17 +264,24 @@ class BacktestEngine:
                 continue
             bar = bar_map.get(symbol)
             if bar is None:
-                continue
+                raise ValueError(f"open position {symbol} has no daily bar on {day}")
             pos.exit_eligible_days += 1
             if bool(bar.get("is_suspended")):
+                # Count only true blocked exits: past min hold and would exit if tradable.
+                if (
+                    pos.exit_eligible_days >= self.config.trade.min_holding_days
+                    and self._exit_decision(pos, bar) is not None
+                ):
+                    signal_audit.exit_blocked_suspended_days += 1
                 continue
             if pos.exit_eligible_days < self.config.trade.min_holding_days:
                 continue
-            prev_close = _optional_float(bar.get("prev_close"))
-            if is_open_at_limit(bar, prev_close, self.config.trade, "down"):
-                continue
             decision = self._exit_decision(pos, bar)
             if decision is None:
+                continue
+            prev_close = _optional_float(bar.get("prev_close"))
+            if is_open_at_limit(bar, prev_close, self.config.trade, "down"):
+                signal_audit.exit_blocked_limit_down_days += 1
                 continue
             reason, raw_price = decision
             fill = apply_slippage(raw_price, self.config.costs, "sell")
@@ -340,8 +369,10 @@ class BacktestEngine:
         cooldown_until: dict[str, date],
         signal_audit: SignalAttribution,
     ) -> list[PendingBuy]:
+        signal_audit.scheduled_signal_days += 1
         ranked = self.signal_fn(day)
         if not ranked:
+            signal_audit.empty_ranking_days += 1
             return pending
         signal_audit.scoring_days += 1
         signal_audit.names_ranked += len(ranked)
@@ -353,6 +384,10 @@ class BacktestEngine:
         if take <= 0:
             if allowed <= 0:
                 signal_audit.rejected_by_regime_gate += len(ranked)
+                signal_audit.regime_blocked_days += 1
+            else:
+                signal_audit.rejected_by_capacity += len(ranked)
+                signal_audit.capacity_blocked_days += 1
             return pending
         held = set(positions) | {order.symbol for order in pending}
         lookup = membership_lookup_options(self.config.universe)
@@ -364,9 +399,12 @@ class BacktestEngine:
             require_available_cross_section=bool(lookup["require_available_cross_section"]),
         )
         picks: list[PendingBuy] = []
-        for result in ranked:
+        return_series = self._correlation_return_series(day)
+        for index, result in enumerate(ranked):
             minimum = (
-                self.config.fundamental_ranking.min_score
+                self.config.balanced_ranking.min_score
+                if self.config.balanced_ranking is not None
+                else self.config.fundamental_ranking.min_score
                 if self.config.fundamental_ranking is not None
                 else self.config.ranking.min_score
                 if self.config.ranking is not None
@@ -376,21 +414,95 @@ class BacktestEngine:
                 signal_audit.rejected_by_ranking_threshold += 1
                 continue
             if result.symbol in held:
+                signal_audit.rejected_already_held_or_pending += 1
                 continue
             if result.symbol not in members:
+                signal_audit.rejected_not_in_membership += 1
                 continue
             until = cooldown_until.get(result.symbol)
             if until is not None and day <= until:
                 signal_audit.rejected_by_cooldown += 1
+                continue
+            comparison = held | {pick.symbol for pick in picks}
+            if not self._passes_correlation_cap(
+                result.symbol,
+                comparison,
+                return_series,
+            ):
+                signal_audit.rejected_by_correlation_cap += 1
                 continue
             atr_pct: float | None = None
             if result.feature is not None and result.feature.close > 0:
                 atr_pct = result.feature.atr_14 / result.feature.close
             picks.append(PendingBuy(symbol=result.symbol, signal_date=day, atr_pct=atr_pct))
             if len(picks) >= take:
+                remaining = len(ranked) - index - 1
+                if remaining > 0:
+                    signal_audit.not_evaluated_after_order_limit += remaining
                 break
         signal_audit.orders_generated += len(picks)
         return [*pending, *picks]
+
+    def _correlation_return_series(self, as_of: date) -> dict[str, dict[date, float]]:
+        lookback = self.config.portfolio.correlation_lookback_days
+        if self.config.portfolio.max_pairwise_correlation is None:
+            return {}
+        calendar = self.store.get_calendar(
+            as_of - timedelta(days=max(lookback * 3, 120)), as_of
+        )
+        if len(calendar) < lookback + 1:
+            return {}
+        start = calendar[-(lookback + 1)]
+        daily = self.store.get_daily_bars(as_of=as_of, start=start)
+        if daily.is_empty() or "adj_close" not in daily.columns:
+            return {}
+        returns = (
+            daily.select(["symbol", "date", "adj_close"])
+            .drop_nulls()
+            .sort(["symbol", "date"])
+            .with_columns(
+                (pl.col("adj_close") / pl.col("adj_close").shift(1).over("symbol") - 1.0)
+                .alias("return")
+            )
+            .drop_nulls("return")
+        )
+        out: dict[str, dict[date, float]] = {}
+        for row in returns.iter_rows(named=True):
+            symbol = str(row["symbol"])
+            day = row["date"]
+            value = row["return"]
+            if isinstance(day, date) and isinstance(value, int | float) and math.isfinite(float(value)):
+                out.setdefault(symbol, {})[day] = float(value)
+        return out
+
+    def _passes_correlation_cap(
+        self,
+        candidate: str,
+        comparison: set[str],
+        series: dict[str, dict[date, float]],
+    ) -> bool:
+        cap = self.config.portfolio.max_pairwise_correlation
+        if cap is None or not comparison:
+            return True
+        needed = self.config.portfolio.correlation_lookback_days
+        candidate_values = series.get(candidate)
+        if candidate_values is None:
+            return False
+        for other in comparison:
+            other_values = series.get(other)
+            if other_values is None:
+                return False
+            common = sorted(candidate_values.keys() & other_values.keys())
+            if len(common) < needed:
+                return False
+            dates = common[-needed:]
+            correlation = _pearson(
+                [candidate_values[day] for day in dates],
+                [other_values[day] for day in dates],
+            )
+            if correlation is None or correlation > cap:
+                return False
+        return True
 
     def _barrier_prices(self, entry_price: float, atr_pct: float | None) -> tuple[float | None, float | None]:
         trade = self.config.trade
@@ -418,16 +530,46 @@ class BacktestEngine:
         self,
         positions: dict[str, OpenPosition],
         bar_map: dict[str, dict[str, object]],
+        day: date,
     ) -> float:
         value = 0.0
         for symbol, pos in positions.items():
             bar = bar_map.get(symbol)
-            price = float(bar["close"]) if bar is not None else pos.entry_price  # type: ignore[arg-type]
+            if bar is None:
+                raise ValueError(f"open position {symbol} has no daily bar on {day}")
+            price = _require_finite_positive_close(bar.get("close"), symbol=symbol, day=day)
             value += price * pos.shares
         return value
 
 
 def _optional_float(value: object) -> float | None:
+    if isinstance(value, bool):
+        return None
     if isinstance(value, int | float):
         return float(value)
     return None
+
+
+def _require_finite_positive_close(value: object, *, symbol: str, day: date) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise ValueError(f"open position {symbol} has invalid close on {day}")
+    price = float(value)
+    if not math.isfinite(price) or price <= 0:
+        raise ValueError(f"open position {symbol} has invalid close on {day}")
+    return price
+
+
+def _pearson(left: list[float], right: list[float]) -> float | None:
+    if len(left) != len(right) or len(left) < 2:
+        return None
+    left_mean = sum(left) / len(left)
+    right_mean = sum(right) / len(right)
+    numerator = sum(
+        (a - left_mean) * (b - right_mean) for a, b in zip(left, right, strict=True)
+    )
+    left_ss = sum((value - left_mean) ** 2 for value in left)
+    right_ss = sum((value - right_mean) ** 2 for value in right)
+    denominator = math.sqrt(left_ss * right_ss)
+    if denominator <= 0:
+        return None
+    return numerator / denominator

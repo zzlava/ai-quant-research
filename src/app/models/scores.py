@@ -20,6 +20,9 @@ class ScoreBreakdown(BaseModel):
     quality_score: float = 0.0
     improvement_score: float = 0.0
     value_score: float = 0.0
+    momentum_score: float = 0.0
+    size_score: float = 0.0
+    institutional_score: float | None = None
 
 
 class ScoreResult(BaseModel):

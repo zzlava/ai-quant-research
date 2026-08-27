@@ -1,0 +1,60 @@
+{
+  "schema_version": "1",
+  "protocol_version": "layer-two-evaluation-machine-v1",
+  "protocol_id": "39938eeb05b07a8f80d76666fdb3c5c7192a25a184aa18209f3127c969c4ba2e",
+  "confirmation_as_of": "2026-08-27",
+  "development_window": {
+    "start": "2022-01-01",
+    "end": "2023-12-31"
+  },
+  "seen_robustness_window": {
+    "start": "2024-01-01",
+    "end": "2024-12-31",
+    "may_not_select_or_retune": true
+  },
+  "forbidden_consumed_oos": "2025-01-01..2026-08-21",
+  "four_arm": {
+    "holding_horizon_market_days": 40,
+    "anchor_stride_market_days": 20,
+    "research_portfolio_width": 50,
+    "monte_carlo_repeats": 512,
+    "seed": 20260827,
+    "r0": "candidate_eligible_random_equal_weight_before_financial_safety",
+    "r1": "candidate_eligible_and_financial_clean_or_halved_random_equal_weight",
+    "tilt": "same_r1_universe_top_defensive_low_vol_from_frozen_v2_selection",
+    "benchmark": "H00985.CSI_total_return",
+    "costs": "excluded_cross_section_research_only"
+  },
+  "left_tail": {
+    "horizon_market_days": 120,
+    "adverse_label": "future_adjusted_close_drawdown_at_or_below_minus_40pct_or_future_st_delist_fail",
+    "unknown_labels_excluded_not_zero": true,
+    "rules": [
+      "non_standard_audit",
+      "large_cash_and_interest_bearing_debt",
+      "receivables_inventory_growth_vs_revenue_two_periods",
+      "other_receivables_to_assets_over_5pct",
+      "goodwill_to_net_assets_over_30pct"
+    ]
+  },
+  "ic_decay": {
+    "horizons_market_days": [5, 10, 20, 40, 60],
+    "factors": [
+      "quality",
+      "value",
+      "medium_momentum_12_1",
+      "defensive_low_vol"
+    ],
+    "half_life_rule": "first_tested_horizon_abs_mean_ic_at_or_below_half_abs_5d_or_sign_reversal",
+    "holding_gate_market_days": 40
+  },
+  "readiness": {
+    "research_only": true,
+    "ready_for_scoring": false,
+    "ready_for_backtest": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_orders": false,
+    "ready_for_trading": false,
+    "auto_apply": false
+  }
+}

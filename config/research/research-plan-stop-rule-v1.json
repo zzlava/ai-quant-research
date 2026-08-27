@@ -1,0 +1,78 @@
+{
+  "schema_version": "1",
+  "contract_version": "research-plan-stop-rule-v1",
+  "contract_id": "422d300fbd7b3d36908bef6b2e7544b7afa689f64d6c0a741830e9b1dfcfec0a",
+  "confirmation_as_of": "2026-08-27",
+  "source_bindings": {
+    "layer_one_recovery": {
+      "path": "data/research/layer-one-recovery-counterfactual-v1/report.json",
+      "sha256": "37e9c9fa87c533e2a015aa29667fc28eb27bda7b9d160d722f726839a4f52e07",
+      "artifact_id": "87569bfb45ef30883782026fb3685d29b1ef994df2fe3a8736280e123267bd51",
+      "outcome": "hard_gates_failed"
+    },
+    "layer_two_evaluation_machine": {
+      "path": "data/all-a-share-historical-v1/research/layer-two-evaluation-machine-v1/report.json",
+      "sha256": "180de3d296b8c097e05229e4cbb70d496fcd3327672a50d6cd36ce88be44277d",
+      "artifact_id": "f8dd9c3fee425bc2e36cf95bfae91d65c3419352667320cd98e95bc69463629d",
+      "outcome": "confirmatory_not_evaluable"
+    },
+    "statistical_power": {
+      "path": "data/all-a-share-historical-v1/research/statistical-power-review-v1.json",
+      "sha256": "98b51ec2e9667e802c355f04dbe0b8c1bfb30d8ae983863f6806ed8739e3367c",
+      "artifact_id": "ec4f674299ef93bfe66ef6e5348046fb98e8cb7f0c664c22e0173abb1e296fde",
+      "outcome": "family_not_evaluable"
+    },
+    "deflated_sharpe": {
+      "path": "data/research/deflated-sharpe-audit-v1.json",
+      "sha256": "834230af67d2626e2eb19302ca2afe5af5339334e2cdba72888779fc02daf76a",
+      "artifact_id": "3b353d00103b96924bedccd96decfa23cb256473c6f1a3fad3d502f5d35edef8",
+      "outcome": "not_evaluable"
+    },
+    "trial_ledger": {
+      "path": "config/research/research-trial-ledger-v1.json",
+      "sha256": "40e12754af39d846c33e5c535ab1c236957aaa1c087bf9a249ec19f6c0dfb7f8",
+      "artifact_id": "1fc944251212da4972a087b4c54263912d621e43ad400b5936d6a492f1f9b9f4",
+      "outcome": "incomplete_historical_lower_bound"
+    }
+  },
+  "round_outcome": "no_detectable_deployable_advantage",
+  "deployment_decision": "no_go",
+  "architecture_target": "broad_index_etf_core_plus_validated_risk_layer_and_optional_satellite",
+  "architecture_current_status": "not_ready_layer_one_hard_gates_failed_layer_two_not_evaluable",
+  "individual_stock_alpha_moratorium": {
+    "starts": "2026-08-27",
+    "ends_not_before": "2028-08-27",
+    "new_factor_weight_or_sleeve_search_forbidden": true,
+    "post_hoc_reinterpretation_forbidden": true,
+    "consumed_oos_reuse_forbidden": true
+  },
+  "permitted_work": [
+    "data_integrity_and_pit_maintenance",
+    "passive_continuous_new_oos_recording_without_retuning",
+    "index_etf_execution_cost_and_tracking_error_data_engineering",
+    "fixing_proven_engineering_or_semantic_defects",
+    "design_only_work_that_makes_no_performance_claim"
+  ],
+  "reopen_conditions": {
+    "prominent_manual_user_confirmation_required": true,
+    "automatic_restart_forbidden": true,
+    "new_trial_family_and_new_pre_registration_required": true,
+    "fresh_unconsumed_evaluation_window_required": true,
+    "mde_must_be_evaluable_before_confirmation_test": true,
+    "early_override_must_state_reason_and_create_signed_audit_record": true
+  },
+  "capital_unlock": {
+    "thirty_percent_controlled_trial_authorized": false,
+    "sixty_percent_authorized": false,
+    "ninety_percent_authorized": false,
+    "manual_unlock_cannot_override_failed_research_gate_without_new_protocol": true
+  },
+  "readiness": {
+    "ready_for_scoring": false,
+    "ready_for_backtest": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_orders": false,
+    "ready_for_trading": false,
+    "auto_apply": false
+  }
+}

@@ -215,3 +215,169 @@ dd {
   font-size: 0.85rem;
   margin-top: 6px;
 }
+
+/* Layer-one risk-state UI (E9b-2) */
+
+.risk-banner {
+  width: 100%;
+  margin: 16px 0 0;
+  padding: 16px 18px;
+  border-width: 3px;
+  border-style: solid;
+}
+
+.risk-banner h2,
+.risk-banner-heading {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.risk-banner p {
+  margin: 0 0 8px;
+}
+
+.risk-banner-flags {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  margin: 8px 0 0 !important;
+}
+
+.risk-banner-detail {
+  white-space: pre-wrap;
+  margin: 8px 0 0;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.18);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+.risk-banner-critical {
+  background: #6b0f0f;
+  color: #fff8f6;
+  border-color: #2a0000;
+}
+
+.risk-banner-uninitialized {
+  background: #7a2e0a;
+  color: #fff8f0;
+  border-color: #3a1200;
+}
+
+.risk-banner-research {
+  background: #fff3de;
+  color: #3a2410;
+  border-color: #8a3d16;
+}
+
+.risk-banner-loading {
+  background: #ebe6dc;
+  color: #3a403c;
+  border-color: #2a332c;
+  border-width: 1px;
+}
+
+.layer-one-panel {
+  border: 2px dashed #5c2a1a;
+  background: #faf6f0;
+  margin-top: 8px;
+}
+
+.layer-one-panel > h2 {
+  color: #5c2a1a;
+}
+
+.layer-one-form {
+  border-top: 1px solid #d5c4b0;
+  padding-top: 12px;
+  margin-top: 12px;
+}
+
+.layer-one-form h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.bound-ids {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.confirm-phrase .confirm-hint {
+  font-size: 0.8rem;
+  color: #5c2a1a;
+}
+
+.confirm-phrase code {
+  display: inline;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.unlock-warning {
+  background: #6b0f0f;
+  color: #fff8f6;
+  border: 2px solid #2a0000;
+  padding: 10px 12px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.layer-one-advanced {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid #a89078;
+  background: #f3ebe0;
+}
+
+.layer-one-advanced summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #5c2a1a;
+}
+
+.checkbox-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.audit-viewer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #d5c4b0;
+}
+
+.audit-viewer h3 {
+  margin: 0 0 6px;
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 16px 12px 48px;
+  }
+
+  .status-row {
+    flex-direction: column;
+  }
+
+  .risk-banner-heading {
+    font-size: 1.15rem;
+  }
+
+  .badge {
+    max-width: 100%;
+  }
+
+  .row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  label.grow {
+    min-width: 0;
+  }
+}

@@ -1,0 +1,442 @@
+{
+  "schema_version": "1",
+  "protocol_version": "layer-two-alpha-development-protocol-v1",
+  "status": "confirmed_for_development_but_not_ready",
+  "confirmation_as_of": "2026-08-26",
+  "research_trial_ledger_id": "1fc944251212da4972a087b4c54263912d621e43ad400b5936d6a492f1f9b9f4",
+  "research_trial_ledger_path": "config/research/research-trial-ledger-v1.json",
+  "two_layer_decision_contract_id": "27a6fd11a8324aea2eca90353a5ca5ceeba69ee4d3d2ebee6445d72ef92a18d6",
+  "two_layer_decision_contract_path": "config/research/two-layer-strategy-decision-draft-v1.json",
+  "tranche_evaluation_protocol_id": "8ad6b70fa8e37501f6ab9e436b0698a591f25b2b4f3fc14329d97dff47bdea8a",
+  "tranche_evaluation_protocol_path": "config/research/tranche-evaluation-protocol-draft-v1.json",
+  "layer_two_allocation_protocol_id": "0cbde5a96ccbe89fe87613101fad5210d96c87142b1f1dc9e6bfd975ef2b60e2",
+  "layer_two_allocation_protocol_path": "config/research/layer-two-allocation-implementation-protocol-v1.json",
+  "factor_families": [
+    {
+      "family_id": "quality",
+      "quality": {
+        "family_id": "quality",
+        "high_is_good": true,
+        "aggregation": "equal_mean_of_cs_average_rank_percentiles",
+        "components": [
+          {
+            "metric": "roe",
+            "direction": "high"
+          },
+          {
+            "metric": "roic",
+            "direction": "high"
+          },
+          {
+            "metric": "grossprofit_margin",
+            "direction": "high"
+          },
+          {
+            "metric": "debt_to_assets",
+            "direction": "low"
+          },
+          {
+            "metric": "ocf_to_or",
+            "direction": "high"
+          }
+        ],
+        "min_known_components": 3,
+        "fundamental_timing": {
+          "mode": "strict_initial_as_announced",
+          "available_at_lte_decision_at": true,
+          "report_period_lte_as_of": true,
+          "max_report_age_days": 550
+        },
+        "formula": "equal_mean_cs_average_rank_percentiles(roe high, roic high, grossprofit_margin high, debt_to_assets low, ocf_to_or high)"
+      },
+      "value": null,
+      "medium_momentum_12_1": null,
+      "defensive_low_vol": null
+    },
+    {
+      "family_id": "value",
+      "quality": null,
+      "value": {
+        "family_id": "value",
+        "high_is_good": true,
+        "aggregation": "equal_mean_of_inverted_average_rank_percentiles_for_positive_metrics",
+        "metrics": [
+          "pe_ttm",
+          "pb",
+          "ps_ttm"
+        ],
+        "min_known_metrics": 2,
+        "daily_valuation_timing": {
+          "available_at_lte_decision_at": true,
+          "date_lte_as_of": true,
+          "max_age_days": 10
+        },
+        "formula": "equal_mean_inverted_cs_average_rank_percentiles(pe_ttm positive, pb positive, ps_ttm positive)"
+      },
+      "medium_momentum_12_1": null,
+      "defensive_low_vol": null
+    },
+    {
+      "family_id": "medium_momentum_12_1",
+      "quality": null,
+      "value": null,
+      "medium_momentum_12_1": {
+        "family_id": "medium_momentum_12_1",
+        "high_is_good": true,
+        "formula": "adjusted_close[t-21]/adjusted_close[t-242]-1",
+        "require_ordered_positive_finite_market_bars": 243,
+        "window_definition": "exactly_latest_243_consecutive_market_calendar_observations_ending_at_decision_t",
+        "formula_uses_fixed_indices": "t-242_and_t-21_within_that_window",
+        "any_missing_or_unverified_market_day_makes_factor_unknown": true,
+        "never_skip_compress_gaps": true,
+        "no_future_rows": true,
+        "note": "Momentum uses exactly the latest 243 consecutive market-calendar observations ending at decision t. The formula uses those fixed indices t-242 and t-21 inside that window. Any missing or unverified market day makes the factor unknown; gaps are never skip-compressed."
+      },
+      "defensive_low_vol": null
+    },
+    {
+      "family_id": "defensive_low_vol",
+      "quality": null,
+      "value": null,
+      "medium_momentum_12_1": null,
+      "defensive_low_vol": {
+        "family_id": "defensive_low_vol",
+        "high_is_good": true,
+        "formula": "negative_annualized_stdev_of_60_daily_adjusted_close_returns_using_sqrt_242",
+        "require_ordered_positive_finite_market_bars": 61,
+        "window_definition": "exactly_latest_61_consecutive_market_calendar_observations_ending_at_decision_t",
+        "any_missing_or_unverified_market_day_makes_factor_unknown": true,
+        "never_skip_compress_gaps": true,
+        "no_future_rows": true,
+        "return_count": 60,
+        "close_count": 61,
+        "sample_stdev_ddof": 1,
+        "annualization_sqrt_242": true,
+        "sign": "negative",
+        "note": "Low-vol uses exactly the latest 61 consecutive market-calendar observations ending at decision t to form exactly 60 simple returns. Negative sample stdev (ddof=1) is annualized by sqrt(242). Any missing or unverified market day makes the factor unknown; gaps are never skip-compressed."
+      }
+    }
+  ],
+  "windows": {
+    "development": {
+      "start": "2022-01-01",
+      "end": "2023-12-31"
+    },
+    "seen_robustness": {
+      "start": "2024-01-01",
+      "end": "2024-12-31"
+    },
+    "consumed_oos": {
+      "start": "2025-01-01",
+      "end": "2026-08-21"
+    },
+    "new_frozen_oos_begins": "2026-08-22",
+    "seen_robustness_report_only": true,
+    "seen_robustness_must_not_select_or_alter_weights": true,
+    "consumed_oos_forbidden": true,
+    "new_frozen_oos_cannot_be_evaluated_in_e11a": true,
+    "note": "Development is 2022-01-01..2023-12-31. 2024 is seen robustness report-only and must not select or alter weights. Consumed OOS 2025-01-01..2026-08-21 is forbidden. New frozen OOS begins 2026-08-22 and cannot be evaluated in E11a."
+  },
+  "ranking": {
+    "convert_raw_to_cs_average_rank_percentile_0_100": true,
+    "percentile_formula": "(average_rank_1_based - 1)/(n - 1)*100",
+    "n_equals_1_is_unknown": true,
+    "ties_averaged": true,
+    "missing_or_invalid_stays_unknown": true,
+    "missing_or_invalid_never_imputed": true,
+    "never_zero_or_neutral_fill": true,
+    "no_winsorization_at_any_stage": true,
+    "all_families_high_is_good": true,
+    "low_direction_inverted_percentile_formula": "100 - p",
+    "component_to_family_composite_rule": "mean_of_known_component_percentiles_then_rerank_family_composite_by_same_formula",
+    "note": "Convert each raw family to a 0..100 cross-sectional average-rank percentile using (average_rank_1_based - 1)/(n - 1)*100 with ties averaged; n=1 is unknown, not 50. Missing/invalid stays unknown and is never imputed or zero/neutral filled. No winsorization at any stage (not merely after rank). Low-direction/inverted percentiles use 100 - p. For multi-component families (quality, value) each component is percentile-ranked, the known component percentiles are averaged, and the resulting family composite is reranked by the same percentile formula to a final 0..100 value."
+  },
+  "cluster_companion": {
+    "statistical_risk_cluster": {
+      "lookback_trading_days": 120,
+      "correlation_threshold": 0.65,
+      "max_sleeve_weight_per_cluster": 0.35,
+      "max_positions_per_cluster": 2,
+      "uses_only_data_on_or_before_decision_date": true,
+      "required_when_pit_industry_history_missing": true,
+      "must_be_prominently_annotated": true,
+      "current_industry_backfill_forbidden": true
+    },
+    "lookback_trading_days": 120,
+    "required_close_points": 121,
+    "correlation_threshold": 0.65,
+    "linkage": "connected_components_chain",
+    "static_current_industry_labels_forbidden": true,
+    "no_current_industry_labels": true,
+    "statistical_clusters_pit_diagnostic_companion_only": true,
+    "not_replacement_for_industry_pit": true,
+    "not_automatic_weight_selector": true,
+    "recompute_anchor": "first_market_trading_day_of_each_calendar_month_using_data_through_that_decision_close",
+    "carry_assignment_until_before_next_anchor": true,
+    "new_unassigned_or_incomplete_is_unknown_no_backfill": true,
+    "companion_factor_definition": "same_final_raw_family_composite_reranked_within_each_complete_cluster_using_same_percentile_formula",
+    "singleton_clusters_unknown": true,
+    "companion_evidence_basis": "paired_known_names_same_daily_calendar_endpoint_coverage_quintile_spearman",
+    "companion_requires_both_pooled_h40_ic_and_spread_positive": true,
+    "safeguard_only_never_independent_weight": true,
+    "never_fifth_holm_hypothesis": true,
+    "note": "Companion clusters bind to the two-layer sealed StatisticalRiskClusterPolicyConfirmed: 120 trading-day lookback over 121 adjusted closes, Pearson threshold 0.65, connected-component chain linkage, no current industry labels. Cluster membership recomputes only at the first market trading day of each calendar month using data through that decision close; the prior assignment carries until just before the next monthly anchor. New, unassigned, or incomplete names are unknown with no backfill. The companion factor reranks the same final raw family composite within each complete cluster using the same percentile formula; singleton clusters are unknown. Companion evidence requires the same daily calendar, endpoint, coverage, quintile, and Spearman gates on paired known names, and requires both pooled h40 IC and pooled h40 spread to be positive. The companion is a safeguard only: it is never an independent weight and never a fifth Holm hypothesis."
+  },
+  "labels_and_evidence": {
+    "primary_label": {
+      "horizon_market_days": 40,
+      "definition": "adjusted_close_t_to_t_plus_40_close_to_close_forward_return",
+      "exact_endpoint_definition": "market_calendar_observation_t_plus_h_for_same_symbol",
+      "missing_or_unverified_endpoint_is_unknown": true,
+      "horizon_never_shifts": true,
+      "diagnostic_only": true,
+      "primary_selection_horizon": true
+    },
+    "secondary_horizons": {
+      "horizons_market_days": [
+        5,
+        20
+      ],
+      "exact_endpoint_definition": "market_calendar_observation_t_plus_h_for_same_symbol",
+      "missing_or_unverified_endpoint_is_unknown": true,
+      "horizon_never_shifts": true,
+      "diagnostic_only": true,
+      "cannot_select": true
+    },
+    "forward_label_and_pooling": {
+      "same_window_endpoint_required": true,
+      "never_shorten_horizon": true,
+      "exact_label_endpoint": "market_calendar_observation_t_plus_h_for_same_symbol",
+      "missing_or_unverified_endpoint_is_unknown": true,
+      "horizon_never_shifts": true,
+      "calendar_every_eligible_market_trading_day_not_tranche_phases": true,
+      "pool_arithmetic_mean_of_per_decision_day_observations": true,
+      "never_pool_at_name_row_level": true,
+      "development_labels_must_not_cross_2023_12_31": true,
+      "robustness_2024_labels_must_not_cross_2024_12_31": true,
+      "robustness_2024_must_never_read_consumed_oos": true,
+      "missing_exact_endpoint_is_unknown": true,
+      "note": "Every factor evidence observation requires decision t and label endpoint t+h inside the same evidence window. The exact h label endpoint is the market-calendar observation t+h for the same symbol; a missing or unverified endpoint is unknown and the horizon never shifts or shortens. Development 40d/20d/5d labels may not cross 2023-12-31; 2024 robustness labels may not cross 2024-12-31 and may never read consumed OOS. The evaluation calendar is every eligible market trading day, not tranche phases, subject to the same-window endpoint and coverage gates. Pooled metrics are arithmetic means of per-decision-day observations; pooling never happens at the name-row level."
+    },
+    "inference": {
+      "hac_lag_for_horizon_h_is_h_minus_1": true,
+      "primary_selection_horizon_market_days": 40,
+      "primary_hac_lag": 39,
+      "hac_kernel": "bartlett_newey_west",
+      "newey_west_bartlett_exact": {
+        "input_series": "chronologically_ordered_finite_per_decision_day_metric_series_x_1_to_x_n_no_gap_filling",
+        "mean_definition": "arithmetic_xbar",
+        "gamma_k_formula": "gamma_k=(1/n)*sum_{t=k+1..n}(x_t-xbar)*(x_{t-k}-xbar)_including_gamma_0_divisor_n",
+        "bartlett_weight_formula": "w_k=1-k/(L+1)",
+        "long_run_variance_formula": "LRV=gamma_0+2*sum_{k=1..min(L,n-1)}w_k*gamma_k",
+        "variance_of_mean_formula": "LRV/n",
+        "undefined_when": "n_le_L_or_LRV_or_variance_nonfinite_or_le_0_then_statistic_and_raw_hac_p_null",
+        "never_coerce_undefined_to_number": true,
+        "positive_test_statistic_formula": "xbar/sqrt(var_mean)",
+        "positive_p_value_formula": "1-Phi(stat)_standard_normal_cdf",
+        "negative_size_band_p_value_formula": "Phi(stat)_standard_normal_cdf",
+        "note": "Exact Newey-West/Bartlett HAC: input is the chronologically ordered finite per-decision-day metric series with no gap filling; xbar is the arithmetic mean; gamma_k uses divisor n including gamma_0; Bartlett weight w_k=1-k/(L+1); LRV=gamma_0+2*sum w_k*gamma_k for k=1..min(L,n-1); var(mean)=LRV/n. If n<=L or LRV/variance is nonfinite or <=0, the inference statistic and raw HAC p are null/undefined and must not be coerced. Positive one-sided test uses stat=xbar/sqrt(var_mean) and p=1-Phi(stat); negative size-band tests use p=Phi(stat)."
+      },
+      "variance_of_sample_mean_definition": "LRV/n",
+      "hypothesis_form": "one_sided_h0_mean_le_0_h1_gt_0",
+      "holm_family_wise_alpha": 0.05,
+      "holm_hypothesis_count": 4,
+      "holm_step_down_exact": {
+        "hypothesis_family": "exactly_four_pooled_h40_daily_ic_hypotheses",
+        "spread_positivity_and_yearly_direction_are_gates_not_holm_members": true,
+        "sort_key": "effective_p_ascending_then_frozen_factor_family_order_tie_break",
+        "tie_break_factor_family_order": [
+          "quality",
+          "value",
+          "medium_momentum_12_1",
+          "defensive_low_vol"
+        ],
+        "threshold_at_sorted_position_i": "alpha/(4-i+1)_for_i_equals_1_to_4",
+        "sequential_reject_until_first_failure_then_all_remaining_nonrejected": true,
+        "missing_or_undefined_raw_hac_leaves_raw_null_but_holm_input_p_equals_1": true,
+        "missing_or_undefined_raw_hac_rejection_false": true,
+        "report_per_factor_fields": [
+          "holm_sorted_position",
+          "holm_threshold",
+          "holm_input_p_value",
+          "hac_p_value",
+          "holm_rejection"
+        ],
+        "note": "Holm step-down covers exactly the four pooled h40 daily IC hypotheses. Spread positivity and yearly direction remain gates but are not Holm family members. Sort by effective p ascending with frozen factor-family order quality/value/medium_momentum_12_1/defensive_low_vol as the deterministic tie-break. At sorted position i=1..4 the threshold is alpha/(4-i+1). Reject sequentially only until the first failure; all remaining hypotheses stay non-rejected. When factor evidence/variance is missing, raw hac_statistic and hac_p_value stay null while holm_input_p_value=1 and rejection=false. Report each factor's sorted position, threshold, effective p, raw p, and rejection."
+      },
+      "holm_step_down_method": "holm_step_down_exactly_four_hypotheses",
+      "missing_evidence_rule": "raw_hac_statistic_and_hac_p_null_holm_input_p_equals_1_rejection_false",
+      "qualification_rule": "qualify_only_if_own_null_rejected",
+      "undefined_variance_rule": "raw_statistic_and_raw_p_null_do_not_coerce_holm_input_p_equals_1",
+      "required_report_fields": [
+        "sample_count",
+        "valid_dates",
+        "ic",
+        "spread",
+        "hac_statistic",
+        "hac_p_value",
+        "holm_input_p_value",
+        "holm_sorted_position",
+        "holm_threshold",
+        "holm_rejection"
+      ],
+      "one_sided_hac_inference_required": true,
+      "note": "Exact Newey-West/Bartlett HAC lag is h-1 (primary h=40 -> L=39) on the chronologically ordered finite per-decision-day metric series with no gap filling. gamma_k uses divisor n; Bartlett weight w_k=1-k/(L+1); LRV=gamma_0+2*sum w_k*gamma_k; var(mean)=LRV/n. If n<=L or LRV/variance is nonfinite or <=0, raw hac_statistic and hac_p_value are null (never coerced) while holm_input_p_value=1 and rejection=false. Positive test uses p=1-Phi(xbar/sqrt(var_mean)); negative size-band tests use p=Phi(stat). Holm step-down covers exactly the four pooled h40 daily IC hypotheses (spread/yearly direction are gates only), sorting by effective p then frozen family order, with threshold alpha/(4-i+1) and sequential reject-until-first-failure. A factor qualifies only if its own null is rejected."
+    },
+    "quintile_semantics": {
+      "rank_basis": "average_ranks_ties_averaged",
+      "bucket_formula": "min(floor((rank-1)/n*5),4)",
+      "quantile_count": 5,
+      "ties_never_split_across_buckets": true,
+      "all_equal_or_empty_extreme_bucket_invalid": true,
+      "bucket_weighting": "equal_weight_mean_within_bucket",
+      "note": "Quintiles are built from average ranks (ties averaged); bucket = min(floor((rank-1)/n*5), 4), matching quantile_portfolios.py. Ties are never split across buckets. An all-equal cross-section or an empty top/bottom bucket is invalid, not zero. Bucket means are equal-weight. quantile_count is fixed at 5."
+    },
+    "spearman_ic_semantics": {
+      "rank_basis": "average_ranks_on_paired_known_finite_factor_label_rows",
+      "pairwise_deletion_of_unknown_or_nonfinite": true,
+      "all_equal_factor_or_label_invalid": true,
+      "note": "Spearman IC uses average ranks computed only over the paired known finite factor/label rows for that decision day (pairwise deletion). An all-equal factor or all-equal label for that day is invalid/unknown, never coerced to a zero correlation."
+    },
+    "full_cs_quintiles_mandatory": true,
+    "spearman_ic_mandatory": true,
+    "factor_scoring_cannot_serve_as_evidence": true,
+    "tranche_portfolio_cannot_serve_as_evidence": true,
+    "note": "Primary factor label is adjusted-close t to t+40 close-to-close forward return (diagnostic). Secondary horizons 5 and 20 cannot select. Full CS quintiles and Spearman IC are mandatory. Factor scoring and 10-name/tranche portfolio cannot serve as factor evidence."
+  },
+  "coverage_gates": {
+    "min_factor_known_cs_per_decision": 500,
+    "min_factor_known_cs_fraction_of_eligible": 0.6,
+    "min_valid_primary_scoring_dates_pooled": 120,
+    "min_valid_primary_scoring_dates_in_2022": 40,
+    "min_valid_primary_scoring_dates_in_2023": 40,
+    "note": "Per decision: factor-known CS >= 500 and >= 60% of eligible names. Pooled primary scoring dates >= 120 with >= 40 in each of 2022 and 2023."
+  },
+  "pre_freeze_selection": {
+    "no_continuous_optimization": true,
+    "require_positive_pooled_40d_mean_ic": true,
+    "require_positive_pooled_top_minus_bottom_quintile_spread": true,
+    "require_positive_direction_in_2022_and_2023_for_both_metrics": true,
+    "require_positive_cluster_companion_pooled_direction": true,
+    "require_pooled_40d_ic_one_sided_hac_holm": true,
+    "holm_across_exactly_four_primary_hypotheses": true,
+    "holm_family_members_are_pooled_h40_daily_ic_only": true,
+    "spread_and_yearly_direction_are_gates_not_holm_members": true,
+    "note": "Each factor must have positive pooled 40d mean IC and top-minus-bottom quintile spread, positive direction separately in both 2022 and 2023 for both metrics, positive cluster-companion pooled direction, and pooled 40d IC passing one-sided HAC inference with Holm alpha 0.05 across exactly four primary hypotheses. Spread positivity and yearly direction are gates, but only pooled h40 daily IC forms the four-member Holm family. No continuous optimization."
+  },
+  "size_bands": {
+    "role": "diagnostic_safeguards_not_new_trials",
+    "free_float_market_cap_currency": "CNY",
+    "bands": [
+      {
+        "label": "3bn_5bn",
+        "min_inclusive": 3000000000.0,
+        "max_exclusive": 5000000000.0
+      },
+      {
+        "label": "5bn_10bn",
+        "min_inclusive": 5000000000.0,
+        "max_exclusive": 10000000000.0
+      },
+      {
+        "label": "10bn_plus",
+        "min_inclusive": 10000000000.0,
+        "max_exclusive": null
+      }
+    ],
+    "under_lowest_band_outside_safeguard": true,
+    "unknown_stays_unknown": true,
+    "min_valid_primary_dates_per_band": 40,
+    "band_below_min_dates_is_unknown_and_not_positive": true,
+    "positive_band_rule": "pooled_h40_mean_ic_and_pooled_h40_top_minus_bottom_spread_both_positive",
+    "require_at_least_two_bands_positive": true,
+    "min_bands_positive": 2,
+    "negative_significance_rule": "lower_tail_one_sided_nw_bartlett_h0_mean_ge_0_h1_lt_0_pooled_h40_daily_ic",
+    "negative_significance_alpha": 0.05,
+    "no_band_significantly_negative_one_sided_5pct": true,
+    "any_significant_negative_band_fails": true,
+    "note": "Size bands are exact free-float market-cap CNY ranges: [3e9,5e9), [5e9,1e10), [1e10,+inf). Below 3e9 is outside the safeguard; unknown stays unknown and never silently passes. A band is positive only when both pooled h40 mean IC and pooled h40 top-minus-bottom spread are positive, and at least two bands must be positive. A band is significantly negative when a lower-tail one-sided Newey-West/Bartlett test (H0 mean>=0 vs H1 mean<0) on pooled h40 daily IC rejects at 5%; any significantly negative band fails the safeguard. A band with fewer than 40 valid primary scoring dates is unknown and cannot count as positive."
+  },
+  "weighting": {
+    "qualifying_factors_equal_weight_summing_to_one": true,
+    "nonqualifying_weight_zero": true,
+    "if_none_qualify_weights_unavailable": true,
+    "if_none_qualify_not_ready": true,
+    "note": "Qualifying factors receive equal weights summing to 1; nonqualifying receive zero. If none qualify, weights are unavailable and the protocol remains not ready."
+  },
+  "robustness_2024": {
+    "may_only_test_frozen_qualifying_set_equal_weights": true,
+    "must_not_select_or_alter_weights": true,
+    "reversal_of_pooled_40d_ic_marks_failure": true,
+    "reversal_of_quintile_spread_marks_failure": true,
+    "failure_never_retunes": true,
+    "report_only": true,
+    "note": "2024 may only test the frozen qualifying set with equal weights. Reversal of pooled 40d IC or quintile spread marks robustness failure but never retunes weights."
+  },
+  "report_only_diagnostics": {
+    "secondary_horizons": true,
+    "raw_vs_cluster_companion": true,
+    "long_only_top_quintile_returns": true,
+    "cannot_select_or_alter_weights": true,
+    "note": "Report-only diagnostics include secondary horizons, raw vs cluster companion, and long-only top-quintile returns. They cannot select or alter weights."
+  },
+  "eligibility_denominator": {
+    "denominator_definition": "names_with_complete_verified_layer_two_candidate_eligibility_and_financial_negative_list_verdict_at_decision",
+    "entry_requires_eligible_for_new_entry_true": true,
+    "entry_requires_financial_verdict_not_hard_exclude_or_unknown": true,
+    "alpha_factor_must_not_determine_eligibility": true,
+    "note": "The evidence denominator is names with complete, verified layer-two candidate eligibility and a financial negative-list verdict at that decision. Only names with eligible_for_new_entry=true and a financial verdict that is neither hard-exclude nor unknown enter factor evidence. The alpha factor itself must never determine eligibility."
+  },
+  "pit_snapshot_binding": {
+    "all_as_of_decision_at_available_at_must_be_pit": true,
+    "must_share_exact_sealed_market_snapshot": true,
+    "protocol_describes_future_input_bindings_only": true,
+    "ready_flags_remain_false": true,
+    "note": "All relevant as_of/decision_at/available_at timestamps must be point-in-time and share the exact sealed market snapshot. This protocol may describe required future input bindings but remains protocol-only; all ready flags remain false."
+  },
+  "ledger_registration": {
+    "register_as_one_four_hypothesis_family_in_future_ledger_updates": true,
+    "e11a_does_not_modify_ledger": true,
+    "hypothesis_count": 4,
+    "note": "Register as one four-hypothesis family in future research-trial-ledger updates. E11a does not modify the ledger in this milestone."
+  },
+  "readiness": {
+    "research_only": true,
+    "ready_for_scoring": false,
+    "ready_for_backtest": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_data": false,
+    "ready_for_orders": false,
+    "ready_for_trading": false,
+    "auto_apply": false,
+    "does_not_run_data": true,
+    "does_not_score": true,
+    "does_not_wire_scoring": true,
+    "does_not_generate_strategy_config": true,
+    "note": "E11a is a read-only protocol freeze. All ready flags remain false. This milestone does not run data, score, wire scoring, or generate strategy config."
+  },
+  "evidence_blockers": [
+    {
+      "path": "factor_evidence_pipeline",
+      "category": "pending_implementation",
+      "detail": "E11a freezes factor evidence gates only; the pipeline that computes IC, quintiles, and coverage on real data is not implemented in this milestone."
+    },
+    {
+      "path": "research_trial_ledger_four_hypothesis_family",
+      "category": "pending_implementation",
+      "detail": "Future ledger update must register one four-hypothesis family before evaluation; E11a does not modify the research trial ledger."
+    },
+    {
+      "path": "pit_industry_history",
+      "category": "future_enhancement",
+      "detail": "Real PIT industry history remains a future enhancement; statistical clusters stay diagnostic companion only and must not silently rewrite this protocol."
+    },
+    {
+      "path": "alpha_weight_wiring",
+      "category": "pending_development_evidence",
+      "detail": "Qualifying equal weights remain pending development evidence; this protocol does not wire scoring or generate strategy config."
+    }
+  ],
+  "pending_user_decisions": [],
+  "protocol_id": "fa91f0e260beb59a7f639dd3650a3842c817e470e9c3614abf2583dd691d2f86"
+}

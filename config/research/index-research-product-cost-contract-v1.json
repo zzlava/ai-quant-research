@@ -1,0 +1,107 @@
+{
+  "schema_version": "1",
+  "contract_version": "index-research-product-cost-contract-v1",
+  "contract_id": "f3ec502cfc2056c7da4acbad61902e89f819a106d67aba480a578deecc70793c",
+  "sealed_as_of": "2026-08-27",
+  "role": "index_level_historical_research_cost_envelope",
+  "account_capital_cny": 80000,
+  "research_proxies": {
+    "equity_total_return_index": "H00985.CSI",
+    "defensive_total_return_index": "H11010.CSI"
+  },
+  "official_evidence": {
+    "equity_exact_product_query": {
+      "url": "https://www.csindex.com.cn/csindex-home/index-list/queryByIndexCode/H00985",
+      "raw_path": "data/raw/index-product-cost-evidence-v1/raw/equity-product-query.json",
+      "sha256": "8309cff714d5f872cea03bfa413b0270b30b5db6545e99d9dd2b59bc489344eb",
+      "evidence_role": "official_CSI_exact_linked_product_query"
+    },
+    "defensive_exact_product_query": {
+      "url": "https://www.csindex.com.cn/csindex-home/index-list/queryByIndexCode/H11010",
+      "raw_path": "data/raw/index-product-cost-evidence-v1/raw/defensive-product-query.json",
+      "sha256": "8309cff714d5f872cea03bfa413b0270b30b5db6545e99d9dd2b59bc489344eb",
+      "evidence_role": "official_CSI_exact_linked_product_query"
+    },
+    "sse_fee_schedule": {
+      "url": "https://www.sse.com.cn/services/tradingservice/charge/ssecharge/",
+      "raw_path": "data/raw/index-product-cost-evidence-v1/raw/sse-fees.html",
+      "sha256": "0428615e74c44fa4940d5ba4534f14d5d8215203ba18f3ecd6fa40e611f506a4",
+      "evidence_role": "official_SSE_current_fee_schedule"
+    },
+    "szse_fee_schedule": {
+      "url": "https://www.szse.cn/www/marketServices/deal/payFees/",
+      "raw_path": "data/raw/index-product-cost-evidence-v1/raw/szse-fees.html",
+      "sha256": "fbd7df3dfa07778b1318564563d22992f19d06bde415144fef248f27674f03c7",
+      "evidence_role": "official_SZSE_current_fee_schedule"
+    },
+    "szse_etf_investor_guide": {
+      "url": "https://investor.szse.cn/warning/activities/fundIntroduction/t20210104_584079.html",
+      "raw_path": "data/raw/index-product-cost-evidence-v1/raw/szse-etf-guide.html",
+      "sha256": "b82cba0d0e249cbac4d78b5325f6874ac5f2824a1598933d7b2e7624b201c47c",
+      "evidence_role": "official_SZSE_ETF_execution_guide"
+    }
+  },
+  "exact_live_product_findings": {
+    "equity_exact_linked_product_count": 0,
+    "defensive_exact_linked_product_count": 0,
+    "query_observed_as_of": "2026-08-27",
+    "absence_is_not_proof_no_market_product_exists": true,
+    "surrogate_product_substitution_requires_separate_user_confirmed_protocol": true
+  },
+  "official_execution_facts": {
+    "exchange_traded_fund_board_lot_units": 100,
+    "etf_stamp_tax_rate": 0.0,
+    "sse_etf_handling_fee_rate_bilateral": 0.00004,
+    "sse_bond_and_money_etf_handling_fee_temporarily_exempt": true,
+    "szse_guide_commission_ceiling_rate": 0.003,
+    "szse_guide_minimum_commission_cny": 5.0,
+    "actual_broker_tariff_is_unknown": true
+  },
+  "research_cost_scenarios": {
+    "base": {
+      "commission_rate_per_side": 0.00025,
+      "minimum_commission_cny_per_leg": 5.0,
+      "slippage_bps_per_side": 5.0,
+      "equity_proxy_annual_drag": 0.006,
+      "defensive_proxy_annual_drag": 0.003
+    },
+    "stress": {
+      "commission_rate_per_side": 0.00025,
+      "minimum_commission_cny_per_leg": 5.0,
+      "slippage_bps_per_side": 15.0,
+      "equity_proxy_annual_drag": 0.012,
+      "defensive_proxy_annual_drag": 0.006
+    }
+  },
+  "scenario_interpretation": {
+    "commission_and_slippage_follow_existing_project_research_assumptions": true,
+    "annual_drags_are_synthetic_penalties_not_product_facts": true,
+    "annual_drags_are_pre_result_conservative_envelopes": true,
+    "annual_drags_must_not_be_described_as_management_fee_or_tracking_difference_estimates": true,
+    "live_cost_claim_forbidden": true
+  },
+  "implementation_semantics": {
+    "same_scenario_applies_to_every_static_and_dynamic_arm": true,
+    "commission_and_slippage_apply_to_absolute_weight_turnover": true,
+    "minimum_commission_applies_once_per_traded_leg": true,
+    "annual_drag_accrues_daily_by_prior_weight": true,
+    "exchange_handling_fee_is_treated_as_included_in_commission_to_avoid_double_counting": true,
+    "fractional_index_weight_replay_only": true,
+    "board_lot_and_premium_discount_are_not_simulated_without_live_products": true,
+    "trading_days_per_year": 242
+  },
+  "product_policy": {
+    "fixed_research_index_pair": true,
+    "dynamic_product_rotation_forbidden": true,
+    "performance_chasing_forbidden": true,
+    "live_surrogate_pair_requires_separate_policy_and_user_confirmation": true,
+    "actual_broker_tariff_required_before_any_controlled_live_trial": true
+  },
+  "readiness": {
+    "ready_for_index_level_historical_replay": true,
+    "ready_for_live_product_mapping": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_orders": false,
+    "ready_for_trading": false
+  }
+}

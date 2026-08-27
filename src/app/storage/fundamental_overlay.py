@@ -44,6 +44,11 @@ class FundamentalOverlayStore:
     def fundamental_snapshot_id(self) -> str:
         return self._fundamental_snapshot.snapshot_id
 
+    @property
+    def base_market_snapshot_id(self) -> str:
+        """Exact raw market snapshot bound by this overlay."""
+        return self._base.snapshot().snapshot_id
+
     def __getattr__(self, name: str) -> object:
         return getattr(self._base, name)
 

@@ -1,0 +1,41 @@
+{
+  "schema_version": "1",
+  "policy_version": "layer-one-risk-lock-recovery-policy-v1",
+  "policy_id": "84c2734b0b418873b4c5dcf20890cb480c9861ea18996dba66e923847b610c8e",
+  "confirmation_as_of": "2026-08-27",
+  "layer_one_index_data_evidence_id": "6d7cdbb7ba25191f9d4718ec94b61acf6a18e0ca4ffa6a0984c1abbdc6e42e77",
+  "layer_one_index_protocol_id": "b7aa9de1539cdd791aee5b74ca8ec3f269b6ed809a070caa917686742c4b1b2f",
+  "two_layer_decision_contract_id": "27a6fd11a8324aea2eca90353a5ca5ceeba69ee4d3d2ebee6445d72ef92a18d6",
+  "problem_statement": "cash-only risk lock leaves account drawdown unchanged and makes the original unlock predicate unreachable",
+  "live_recovery": {
+    "min_cooling_trading_days": 20,
+    "index_trend_must_not_be_negative": true,
+    "realized_volatility_must_be_strictly_below": 0.27,
+    "explicit_user_confirmation_required": true,
+    "user_must_confirm_new_risk_capital_epoch": true,
+    "new_epoch_peak_equals_current_equity": true,
+    "pre_reset_peak_and_drawdown_remain_in_audit": true,
+    "red_line_breach_remains_latched": true,
+    "first_reentry_budget_cap": 0.3,
+    "first_reentry_only_on_first_market_trading_day_of_week": true,
+    "auto_clear_forbidden": true,
+    "reset_without_lock_forbidden": true
+  },
+  "historical_counterfactual": {
+    "purpose": "historical_validation_recovery_sensitivity_only",
+    "simulate_confirmation_at_first_eligible_weekly_action": true,
+    "simulated_confirmation_is_not_observed_user_action": true,
+    "same_live_eligibility_and_epoch_reset_rules": true,
+    "may_be_used_for_frozen_2013_2021_gate_evidence": true,
+    "may_not_be_used_for_oos_claim": true,
+    "may_not_auto_apply_live": true
+  },
+  "policy_overlay_only": true,
+  "upstream_loss_history_not_rewritten": true,
+  "requires_engine_and_persistence_implementation_before_controlled_trial": true,
+  "ready_for_scoring": false,
+  "ready_for_backtest": false,
+  "ready_for_orders": false,
+  "ready_for_trading": false,
+  "auto_apply": false
+}

@@ -1,0 +1,190 @@
+{
+  "base_ledger_file_sha256": "40e12754af39d846c33e5c535ab1c236957aaa1c087bf9a249ec19f6c0dfb7f8",
+  "base_ledger_id": "1fc944251212da4972a087b4c54263912d621e43ad400b5936d6a492f1f9b9f4",
+  "base_ledger_path": "config/research/research-trial-ledger-v1.json",
+  "contract_id": "f892b76c2140009e3b6dcad6599def52aaa1f0b62acc91bed747136d92e09df0",
+  "contract_version": "layer-two-alpha-diagnostic-run-contract-v1",
+  "e11a_file_sha256": "88e586191d4217645eee0a975f8ea613506d3cd59468234f793a512c0f3f158d",
+  "e11a_protocol_id": "fa91f0e260beb59a7f639dd3650a3842c817e470e9c3614abf2583dd691d2f86",
+  "e11a_protocol_path": "config/research/layer-two-alpha-development-protocol-v1.json",
+  "engine_file_sha256": "4680affb9521e68f027f1dda3e3c8b68e593653275df8b170ae0a8b2079a2bff",
+  "engine_path": "src/app/research/layer_two_alpha_diagnostic_engine.py",
+  "engine_version": "layer-two-alpha-diagnostic-engine-v0a",
+  "future_input_slots": [
+    {
+      "kind": "sealed_market_snapshot",
+      "note": "PIT sealed adjusted-close market snapshot for all eligible names",
+      "repo_relative_path": null,
+      "required": true,
+      "sha256": null,
+      "snapshot_id": null,
+      "state": "unbound"
+    },
+    {
+      "kind": "candidate_eligibility_reports",
+      "note": "Layer-two candidate eligibility verdicts per decision date",
+      "repo_relative_path": null,
+      "required": true,
+      "sha256": null,
+      "snapshot_id": null,
+      "state": "unbound"
+    },
+    {
+      "kind": "financial_negative_list_reports",
+      "note": "Financial negative-list verdicts per decision date",
+      "repo_relative_path": null,
+      "required": true,
+      "sha256": null,
+      "snapshot_id": null,
+      "state": "unbound"
+    },
+    {
+      "kind": "pit_fundamental_overlay",
+      "note": "PIT fundamental overlay (quality family components)",
+      "repo_relative_path": null,
+      "required": true,
+      "sha256": null,
+      "snapshot_id": null,
+      "state": "unbound"
+    },
+    {
+      "kind": "pit_daily_valuation",
+      "note": "PIT daily valuation multiples (value family components)",
+      "repo_relative_path": null,
+      "required": true,
+      "sha256": null,
+      "snapshot_id": null,
+      "state": "unbound"
+    },
+    {
+      "kind": "statistical_cluster_companion_reports",
+      "note": "Statistical risk cluster assignments per monthly anchor",
+      "repo_relative_path": null,
+      "required": true,
+      "sha256": null,
+      "snapshot_id": null,
+      "state": "unbound"
+    }
+  ],
+  "holm_family": {
+    "cluster_companion_is_gate_not_holm_member": true,
+    "family_wise_alpha": 0.05,
+    "hypotheses": [
+      {
+        "direction": "positive",
+        "factor_family_id": "quality",
+        "h0": "mean<=0",
+        "h1": "mean>0",
+        "hac_kernel": "bartlett_newey_west",
+        "hac_lag": 39,
+        "hypothesis_id": "h40-ic-quality",
+        "is_gate_only": false,
+        "is_holm_family_member": true,
+        "primary_horizon": 40
+      },
+      {
+        "direction": "positive",
+        "factor_family_id": "value",
+        "h0": "mean<=0",
+        "h1": "mean>0",
+        "hac_kernel": "bartlett_newey_west",
+        "hac_lag": 39,
+        "hypothesis_id": "h40-ic-value",
+        "is_gate_only": false,
+        "is_holm_family_member": true,
+        "primary_horizon": 40
+      },
+      {
+        "direction": "positive",
+        "factor_family_id": "medium_momentum_12_1",
+        "h0": "mean<=0",
+        "h1": "mean>0",
+        "hac_kernel": "bartlett_newey_west",
+        "hac_lag": 39,
+        "hypothesis_id": "h40-ic-medium_momentum_12_1",
+        "is_gate_only": false,
+        "is_holm_family_member": true,
+        "primary_horizon": 40
+      },
+      {
+        "direction": "positive",
+        "factor_family_id": "defensive_low_vol",
+        "h0": "mean<=0",
+        "h1": "mean>0",
+        "hac_kernel": "bartlett_newey_west",
+        "hac_lag": 39,
+        "hypothesis_id": "h40-ic-defensive_low_vol",
+        "is_gate_only": false,
+        "is_holm_family_member": true,
+        "primary_horizon": 40
+      }
+    ],
+    "hypothesis_count": 4,
+    "spread_positivity_is_gate_not_holm_member": true,
+    "yearly_direction_is_gate_not_holm_member": true
+  },
+  "readiness": {
+    "auto_apply": false,
+    "does_not_run_data": true,
+    "ready_for_backtest": false,
+    "ready_for_data": false,
+    "ready_for_orders": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_scoring": false,
+    "ready_for_trading": false,
+    "research_only": true
+  },
+  "schema_version": "1",
+  "windows": {
+    "consumed_oos": {
+      "forbidden": true,
+      "label_horizons": [
+        5,
+        20,
+        40
+      ],
+      "report_only": false,
+      "role": "consumed_oos",
+      "selectable": false,
+      "window": {
+        "end": "2026-08-21",
+        "start": "2025-01-01"
+      }
+    },
+    "development": {
+      "forbidden": false,
+      "label_horizons": [
+        5,
+        20,
+        40
+      ],
+      "report_only": false,
+      "role": "development",
+      "selectable": true,
+      "window": {
+        "end": "2023-12-31",
+        "start": "2022-01-01"
+      }
+    },
+    "horizon_never_shifts_or_shortens": true,
+    "label_endpoint_must_remain_within_same_window": true,
+    "missing_or_unverified_endpoint_is_unknown": true,
+    "new_frozen_oos_begins": "2026-08-22",
+    "new_frozen_oos_cannot_be_evaluated": true,
+    "seen_robustness": {
+      "forbidden": false,
+      "label_horizons": [
+        5,
+        20,
+        40
+      ],
+      "report_only": true,
+      "role": "seen_robustness",
+      "selectable": false,
+      "window": {
+        "end": "2024-12-31",
+        "start": "2024-01-01"
+      }
+    }
+  }
+}

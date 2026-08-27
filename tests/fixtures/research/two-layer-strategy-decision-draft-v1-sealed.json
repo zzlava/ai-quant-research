@@ -1,0 +1,53 @@
+{
+  "schema_version": "1",
+  "contract_version": "two-layer-strategy-decision-draft-v1",
+  "status": "blocked_pending_user_decisions",
+  "research_trial_ledger_id": "1fc944251212da4972a087b4c54263912d621e43ad400b5936d6a492f1f9b9f4",
+  "research_trial_ledger_path": "config/research/research-trial-ledger-v1.json",
+  "confirmed": {
+    "initial_cash": 80000,
+    "initial_cash_confirmed": true,
+    "initial_cash_is_blocker": false,
+    "note": "initial_cash=80000 is confirmed for account-scale research and is not a pending user decision blocker."
+  },
+  "consumed_oos": {
+    "reuse_forbidden": true,
+    "note": "Consumed one-shot OOS windows are terminal. They must not be reused to select parameters, re-run evaluations, or authorize new strategy configs."
+  },
+  "layer_one": {
+    "objective": null,
+    "primary_benchmark": null,
+    "cash_asset_scope": null,
+    "etf_asset_scope": null,
+    "max_acceptable_drawdown": null,
+    "min_stock_budget": null,
+    "max_stock_budget": null,
+    "risk_budget_levels": null,
+    "trend_lookback": null,
+    "volatility_lookback": null,
+    "volatility_target": null
+  },
+  "layer_two": {
+    "pit_industry_source_requirement": null,
+    "statistical_risk_cluster_lookback": null,
+    "statistical_risk_cluster_correlation_threshold": null,
+    "statistical_risk_cluster_max_weight": null,
+    "max_positions_per_cluster": null,
+    "ownership_proxy_role": null,
+    "max_positions": null,
+    "holding_period_bars": null,
+    "tranche_count": null,
+    "rebalance_semantics": null,
+    "exit_semantics": null
+  },
+  "execution": {
+    "suspension_holding_day_clock": null,
+    "delisting_settlement_contract": null,
+    "minimum_commission_lot_handling_policy": null
+  },
+  "ready_for_scoring": false,
+  "ready_for_backtest": false,
+  "ready_for_trading": false,
+  "auto_deploy": false,
+  "contract_id": "6c09646958f19872f3625c1026a8426c2c81e3b4f0dd8122a08544bc2c0856b4"
+}

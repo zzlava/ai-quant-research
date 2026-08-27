@@ -1,0 +1,18 @@
+{
+  "schema_version": "1",
+  "authorization_version": "index-risk-budget-run-authorization-v1",
+  "authorization_id": "80c6f09cc4551d85a817689e1c93fe3d33e0d9233235ce47ba15899328ce7911",
+  "confirmed_at": "2026-08-27T22:08:36+08:00",
+  "confirmation_text": "我确认按照已封印的指数风险预算协议执行2005-01-04至2024-12-31一次性历史回放；该回放仅为已见历史研究，不是OOS、评分、荐股、组合指令或交易授权。",
+  "protocol_id": "3a71730753c88889833bc5df06790d3a062d194eb497d0216ec7fc903cfd3cb2",
+  "trial_ledger_id": "bfde96cc1647fb7ed150f6b7fbbab3b440a50bde77d5d679384edd98db57b347",
+  "defensive_snapshot_id": "4cfd36b96f972d582735e5d1bc9323fbccf6addcbc1710e9f5a647341fb34ba2",
+  "product_cost_contract_id": "f3ec502cfc2056c7da4acbad61902e89f819a106d67aba480a578deecc70793c",
+  "power_review_id": "507dfa1b1b0d14b23990d6cc7559f73f69515d5a1465b5d03af8a9c5829c3913",
+  "historical_window": "2005-01-04..2024-12-31",
+  "one_time_historical_replay_authorized": true,
+  "prospective_or_oos_evaluation_authorized": false,
+  "scoring_or_stock_selection_authorized": false,
+  "portfolio_construction_authorized": false,
+  "orders_or_trading_authorized": false
+}

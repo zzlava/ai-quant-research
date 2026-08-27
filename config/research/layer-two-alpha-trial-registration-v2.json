@@ -1,0 +1,53 @@
+{
+  "additive_registration_only": true,
+  "base_ledger": {
+    "artifact_id": "1fc944251212da4972a087b4c54263912d621e43ad400b5936d6a492f1f9b9f4",
+    "file_sha256": "40e12754af39d846c33e5c535ab1c236957aaa1c087bf9a249ec19f6c0dfb7f8",
+    "path": "config/research/research-trial-ledger-v1.json"
+  },
+  "base_ledger_remains_immutable": true,
+  "declared_before_factor_or_forward_return_observation": true,
+  "family_id": "all-a-share-layer-two-alpha-v2",
+  "holm_family_wise_alpha": 0.05,
+  "holm_hypothesis_count": 4,
+  "hypotheses": [
+    "h40-ic-quality",
+    "h40-ic-value",
+    "h40-ic-medium_momentum_12_1",
+    "h40-ic-defensive_low_vol"
+  ],
+  "primary_hac_lag": 39,
+  "primary_horizon_market_days": 40,
+  "readiness": {
+    "auto_apply": false,
+    "no_outcome_observed_by_this_artifact": true,
+    "ready_for_alpha_diagnostic_execution": false,
+    "ready_for_backtest": false,
+    "ready_for_orders": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_scoring": false,
+    "ready_for_trading": false,
+    "research_only": true
+  },
+  "registration_id": "8a5a2e03595f7df48a6da0d01317e27c9cb189aadd4ca5d4df96dfe0df36012a",
+  "registration_version": "layer-two-alpha-trial-registration-v2",
+  "schema_version": "1",
+  "separation_policy": {
+    "artifact_id": "de7a805c3092b0c12fc10ffd33397b959009f71b186cf7e430487e60d2f5b915",
+    "file_sha256": "9af300e95e5bb6000c330f6ea215b06e65d5b39df40f399d94b9402604b0d6f7",
+    "path": "config/research/layer-two-alpha-coverage-separation-policy-v1.json"
+  },
+  "status": "registered_pre_outcome_not_executed",
+  "trial_id": "layer-two-alpha-four-family-v2-development",
+  "windows": {
+    "consumed_oos_forbidden": "2025-01-01..2026-08-21",
+    "development": "2022-01-01..2023-12-31",
+    "exact_label_horizons_market_days": [
+      5,
+      20,
+      40
+    ],
+    "new_frozen_oos_begins": "2026-08-22",
+    "seen_robustness_report_only": "2024-01-01..2024-12-31"
+  }
+}

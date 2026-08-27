@@ -1,0 +1,64 @@
+{
+  "auto_apply": false,
+  "availability_policy": "trade-date 15:00 Asia/Shanghai encoded as 07:00Z; T+1 action only",
+  "calendar_rows": 4858,
+  "calendar_table_sha256": "ddebb65c627bdfb552ce0c092949ee9da20aad012d4ca5920c15d7895f886abb",
+  "confirmation_as_of": "2026-08-27",
+  "does_not_use_consumed_oos": true,
+  "evidence_id": "6d7cdbb7ba25191f9d4718ec94b61acf6a18e0ca4ffa6a0984c1abbdc6e42e77",
+  "evidence_version": "layer-one-index-data-evidence-v1",
+  "identity_contract": {
+    "artifact_id": "85ef3834da78d3642bfbb7009bbd0c5e1c1c5c2b3af1cf01a6d9e21038f32b22",
+    "path": "config/research/csi-all-share-index-identity-v1.json",
+    "sha256": "19cd70a7834ae8b76fc2a3e1677ca996a41eadba6c523408add8975f0467ff29"
+  },
+  "no_interpolation_or_forward_fill": true,
+  "official_override_dates": [
+    "2011-08-02",
+    "2011-08-03"
+  ],
+  "performance_benchmark": {
+    "coverage_end": "2024-12-31",
+    "coverage_start": "2005-01-04",
+    "exact_identity_verified": true,
+    "return_definition": "total_return",
+    "role": "performance_comparison",
+    "row_count": 4858,
+    "symbol": "H00985.CSI",
+    "table": "total_return_index.parquet",
+    "table_sha256": "7353ad2573e6cc148ee1ea2221457e3dd28b48e8cc85e8cfbefa365a9e1b79c3"
+  },
+  "raw_collection_manifest": {
+    "artifact_id": "36ce1fe87e8cd42ba5640ae8ab21d180cf9b2a4e9e91fc5b39e937b0c9a18dfc",
+    "path": "data/raw/csi-all-share-index-2005-2024-v1/collection_manifest.json",
+    "sha256": "3df7f25e0d00dcecbae28c61d53e86c21d1ccf03c213977335d0b244da302869"
+  },
+  "ready_for_layer_one_historical_evaluation": true,
+  "ready_for_orders": false,
+  "ready_for_stock_scoring": false,
+  "ready_for_trading": false,
+  "risk_state_index": {
+    "coverage_end": "2024-12-31",
+    "coverage_start": "2005-01-04",
+    "exact_identity_verified": true,
+    "return_definition": "price_index",
+    "role": "market_risk_state",
+    "row_count": 4858,
+    "symbol": "000985.CSI",
+    "table": "price_index.parquet",
+    "table_sha256": "d61e5d20804244231881bc9c6407026e6eb5b4277c613c2634d39b8cb3651bad"
+  },
+  "schema_version": "1",
+  "snapshot_full_raw_recomputation_verified": true,
+  "snapshot_manifest": {
+    "artifact_id": "9dbc0032539be62518bbc7f64e67cf9deb64e0564dcaca8aecc65bdc1d3890d0",
+    "path": "data/research/csi-all-share-index-2005-2024-v1/manifest.json",
+    "sha256": "9ed42710e0a315539b1ac4db5becef772b2fb1f39afe2b3b1f6c43bc97393d38"
+  },
+  "stamp_tax_contract": {
+    "artifact_id": "a5bfd11fec6543b58c761996781ac584e69e4263bc9688281bf4e1f0187735f0",
+    "path": "config/research/a-share-stamp-tax-schedule-v1.json",
+    "sha256": "dab708835fca7d5cc456cd6a671e196edd9852e051c6e947ef52a053c45a54c2"
+  },
+  "stamp_tax_schedule_verified": true
+}

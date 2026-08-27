@@ -108,6 +108,62 @@ class FundamentalRankingConfig(StrictModel):
         return self
 
 
+class OwnershipDataConfig(StrictModel):
+    """PIT contract for the separately hashed ownership overlay."""
+
+    required: bool = True
+    proxy: Literal["top10_float_non_individual_ratio"] = (
+        "top10_float_non_individual_ratio"
+    )
+    max_report_age_days: int = Field(default=200, gt=0)
+    min_complete_holders: int = Field(default=10, ge=1, le=10)
+    min_cross_section_coverage: float = Field(default=0.80, gt=0, le=1)
+    personal_holder_types: list[str] = Field(
+        default_factory=lambda: ["个人", "自然人"], min_length=1
+    )
+
+    @model_validator(mode="after")
+    def normalized_personal_types(self) -> OwnershipDataConfig:
+        values = [item.strip() for item in self.personal_holder_types]
+        if any(not item for item in values) or len(values) != len(set(values)):
+            raise ValueError("ownership personal_holder_types must be nonblank and unique")
+        self.personal_holder_types = values
+        return self
+
+
+class BalancedRankingConfig(StrictModel):
+    """Quality/improvement/value/momentum with size and sponsorship support."""
+
+    quality_weight: float = Field(default=0.25, ge=0)
+    improvement_weight: float = Field(default=0.20, ge=0)
+    value_weight: float = Field(default=0.15, ge=0)
+    momentum_weight: float = Field(default=0.20, ge=0)
+    size_weight: float = Field(default=0.10, ge=0)
+    institutional_weight: float = Field(default=0.10, ge=0)
+    momentum_style: Literal["continuation", "reversal"] = "continuation"
+    crowding_penalty: float = Field(default=0.02, ge=0)
+    execution_penalty: float = Field(default=0.05, ge=0)
+    attention_penalty: float = Field(default=0.03, ge=0)
+    min_quality_score: float = Field(default=30.0, ge=0, le=100)
+    min_improvement_score: float = Field(default=30.0, ge=0, le=100)
+    min_continuation_score: float = Field(default=0.0, ge=0, le=100)
+    min_score: float = Field(default=50.0, ge=0, le=100)
+
+    @model_validator(mode="after")
+    def has_component_weight(self) -> BalancedRankingConfig:
+        total = (
+            self.quality_weight
+            + self.improvement_weight
+            + self.value_weight
+            + self.momentum_weight
+            + self.size_weight
+            + self.institutional_weight
+        )
+        if total <= 0:
+            raise ValueError("balanced_ranking requires a positive component weight")
+        return self
+
+
 class TradeConfig(StrictModel):
     exit_policy: Literal["barrier_or_timeout", "fixed_horizon"] = "barrier_or_timeout"
     take_profit: float = Field(default=0.03, gt=0)
@@ -147,6 +203,8 @@ class PortfolioConfig(StrictModel):
     initial_cash: float = Field(default=80_000, gt=0)
     max_positions: int = Field(default=3, gt=0)
     weighting: Literal["equal_weight"] = "equal_weight"
+    max_pairwise_correlation: float | None = Field(default=None, gt=-1, lt=1)
+    correlation_lookback_days: int = Field(default=120, ge=20)
 
 
 class StampTaxRateBand(StrictModel):
@@ -202,6 +260,8 @@ class StrategyConfig(StrictModel):
     ranking: RankingConfig | None = None
     fundamental: FundamentalDataConfig | None = None
     fundamental_ranking: FundamentalRankingConfig | None = None
+    ownership: OwnershipDataConfig | None = None
+    balanced_ranking: BalancedRankingConfig | None = None
     universe: UniverseConfig
     market_gate: list[MarketGateBand]
     trade: TradeConfig
@@ -244,6 +304,15 @@ class StrategyConfig(StrictModel):
             raise ValueError(
                 "quality_value_v1 requires fundamental and fundamental_ranking configuration"
             )
+        if self.name in {"balanced_multifactor_v1", "balanced_value_reversal_v2"} and (
+            self.fundamental is None
+            or self.ownership is None
+            or self.balanced_ranking is None
+        ):
+            raise ValueError(
+                f"{self.name} requires fundamental, ownership, and "
+                "balanced_ranking configuration"
+            )
         return self
 
     def run_id(self) -> str:
@@ -272,6 +341,26 @@ class StrategyConfig(StrictModel):
             payload.pop("fundamental", None)
         if payload.get("fundamental_ranking") is None:
             payload.pop("fundamental_ranking", None)
+        if payload.get("ownership") is None:
+            payload.pop("ownership", None)
+        balanced = payload.get("balanced_ranking")
+        if (
+            isinstance(balanced, dict)
+            and balanced.get("momentum_style") == "continuation"
+        ):
+            balanced.pop("momentum_style")
+        if (
+            isinstance(balanced, dict)
+            and balanced.get("min_continuation_score") == 0.0
+        ):
+            balanced.pop("min_continuation_score")
+        if payload.get("balanced_ranking") is None:
+            payload.pop("balanced_ranking", None)
+        portfolio = payload.get("portfolio")
+        if isinstance(portfolio, dict) and portfolio.get("max_pairwise_correlation") is None:
+            portfolio.pop("max_pairwise_correlation", None)
+            if portfolio.get("correlation_lookback_days") == 120:
+                portfolio.pop("correlation_lookback_days", None)
         raw = json.dumps(payload, sort_keys=True, default=str)
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 

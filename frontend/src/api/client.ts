@@ -2,6 +2,13 @@ import type {
   BacktestCreated,
   BacktestRecord,
   HealthResponse,
+  LayerOneAuditPage,
+  LayerOneDeploymentEvidenceRequest,
+  LayerOneInitializeRequest,
+  LayerOneManualCeilingAuthorizationRequest,
+  LayerOneMutationReceipt,
+  LayerOneRiskStateView,
+  LayerOneUnlockRequestSubmission,
   RankingResponse,
   StrategyInfo,
 } from "./types";
@@ -98,4 +105,55 @@ export function createBacktest(body: {
 
 export function getBacktest(id: string): Promise<BacktestRecord> {
   return request<BacktestRecord>(`/backtests/${encodeURIComponent(id)}`);
+}
+
+export function getLayerOneRiskState(): Promise<LayerOneRiskStateView> {
+  return request<LayerOneRiskStateView>("/layer-one/risk-state");
+}
+
+export function initializeLayerOneRiskState(
+  body: LayerOneInitializeRequest,
+): Promise<LayerOneMutationReceipt> {
+  return request<LayerOneMutationReceipt>("/layer-one/risk-state/initialize", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function registerLayerOneDeploymentEvidence(
+  body: LayerOneDeploymentEvidenceRequest,
+): Promise<LayerOneMutationReceipt> {
+  return request<LayerOneMutationReceipt>("/layer-one/deployment-evidence", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function authorizeLayerOneManualCeiling(
+  body: LayerOneManualCeilingAuthorizationRequest,
+): Promise<LayerOneMutationReceipt> {
+  return request<LayerOneMutationReceipt>("/layer-one/manual-ceiling-authorizations", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function submitLayerOneUnlockRequest(
+  body: LayerOneUnlockRequestSubmission,
+): Promise<LayerOneMutationReceipt> {
+  return request<LayerOneMutationReceipt>("/layer-one/unlock-requests", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getLayerOneAudit(params?: {
+  after_sequence?: number;
+  page_size?: number;
+}): Promise<LayerOneAuditPage> {
+  const query = new URLSearchParams({
+    after_sequence: String(params?.after_sequence ?? 0),
+    page_size: String(params?.page_size ?? 20),
+  });
+  return request<LayerOneAuditPage>(`/layer-one/audit?${query.toString()}`);
 }

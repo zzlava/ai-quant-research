@@ -129,7 +129,13 @@ def _members_on(store: MarketStore, config: StrategyConfig, as_of: date) -> set[
     )
 
 
-def _listed_members(store: MarketStore, members: set[str], as_of: date) -> set[str]:
+def _listed_members(
+    store: MarketStore,
+    members: set[str],
+    as_of: date,
+    *,
+    min_listing_days: int,
+) -> set[str]:
     listing = {
         inst.symbol: inst.listing_date
         for inst in store.get_instruments()
@@ -139,6 +145,8 @@ def _listed_members(store: MarketStore, members: set[str], as_of: date) -> set[s
     for symbol in members:
         listed = listing.get(symbol)
         if listed is not None and listed > as_of:
+            continue
+        if listed is not None and (as_of - listed).days < min_listing_days:
             continue
         checked.add(symbol)
     return checked
@@ -168,7 +176,12 @@ def _day_ready_reason(
             f"global series '{config.data.global_symbol}' needs {bench_needed} "
             f"available bars as of {as_of.isoformat()}"
         )
-    tradable = _listed_members(store, members, as_of)
+    tradable = _listed_members(
+        store,
+        members,
+        as_of,
+        min_listing_days=config.universe.min_listing_days,
+    )
     if not tradable:
         return f"universe {config.universe.id} has no available members on {as_of.isoformat()}"
     for symbol in sorted(tradable):
@@ -317,6 +330,9 @@ def preflight_research(
                     f"fundamental overlay has no complete PIT quality/value cross-section on {day}; "
                     "refusing to treat missing fundamentals as zero-signal"
                 )
+
+    if config.ownership is not None and not hasattr(store, "ownership_snapshot_id"):
+        raise PreflightError("ownership strategy requires a verified ownership overlay")
 
     sector_weight = (
         config.ranking.sector_weight

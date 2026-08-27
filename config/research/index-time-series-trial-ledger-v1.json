@@ -1,0 +1,46 @@
+{
+  "schema_version": "1",
+  "ledger_version": "index-time-series-trial-ledger-v1",
+  "ledger_id": "bfde96cc1647fb7ed150f6b7fbbab3b440a50bde77d5d679384edd98db57b347",
+  "created_as_of": "2026-08-27",
+  "family_id": "index_time_series_risk_budget_v1",
+  "separate_from_closed_individual_stock_family": true,
+  "inherited_individual_stock_trial_count": 0,
+  "complete_for_current_family": true,
+  "familywise_alpha": 0.05,
+  "correction": "holm",
+  "hypotheses": [
+    {
+      "trial_id": "index-vol-target-20d-12pct-weekly-v1",
+      "candidate_id": "vol_target_20d_12pct_weekly_v1",
+      "declared_before_historical_replay": true,
+      "status": "registered_not_run",
+      "realized_volatility_lookback_trading_days": 20,
+      "annualized_target_volatility": 0.12,
+      "rebalance_frequency": "weekly_first_market_trading_day",
+      "signal_lag": "prior_market_close_only_T_plus_1_action",
+      "primary_endpoint": "net_of_cost_calmar_difference_vs_best_static_grid_arm",
+      "historical_replay_consumed": false,
+      "prospective_record_consumed": false
+    },
+    {
+      "trial_id": "index-vol-target-60d-12pct-weekly-v1",
+      "candidate_id": "vol_target_60d_12pct_weekly_v1",
+      "declared_before_historical_replay": true,
+      "status": "registered_not_run",
+      "realized_volatility_lookback_trading_days": 60,
+      "annualized_target_volatility": 0.12,
+      "rebalance_frequency": "weekly_first_market_trading_day",
+      "signal_lag": "prior_market_close_only_T_plus_1_action",
+      "primary_endpoint": "net_of_cost_calmar_difference_vs_best_static_grid_arm",
+      "historical_replay_consumed": false,
+      "prospective_record_consumed": false
+    }
+  ],
+  "parameter_scanning_forbidden": true,
+  "result_dependent_additions_forbidden": true,
+  "ready_for_historical_replay": false,
+  "ready_for_prospective_evaluation": false,
+  "ready_for_orders": false,
+  "ready_for_trading": false
+}

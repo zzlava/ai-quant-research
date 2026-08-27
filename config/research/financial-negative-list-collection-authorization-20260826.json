@@ -1,0 +1,29 @@
+{
+  "allows_resume_until_collection_manifest_complete": true,
+  "authorization_date": "2026-08-26",
+  "authorization_id": "11723f6d82d119fc384e1fdf53e9d9bdf8235e2e8c20ee210373e8d5a016fa97",
+  "authorization_scope": "historical_financial_negative_list_collection_only",
+  "authorization_time": "23:40:05",
+  "authorization_timezone": "Asia/Shanghai",
+  "authorization_version": "financial-negative-list-collection-authorization-v1",
+  "canonical_symbol_count": 5544,
+  "canonical_symbols_sha256": "b31f379c0689cad9eeea14e807b01ee8aea23f0812c4e7e804fc4a4656ab9b51",
+  "expected_partition_count": 22176,
+  "network_collection_allowed": true,
+  "not_trading_authorization": true,
+  "protocol_file_sha256": "b3e8310e158979fc0f1d22fd5122d6ca0cf694908d78d3ef96af3c1fec6d72c2",
+  "protocol_id": "314e9d644b897ed4398cc349e3772b09bbe6f80cfd2d518a7cdbf19bb651d2ea",
+  "ready_for_backtest": false,
+  "ready_for_scoring": false,
+  "ready_for_trading": false,
+  "run_contract_id": "71c2420c5444b1d5961cf7604a87495fdc7edf45a6cc41cf0f225ca33a7e8513",
+  "schema_version": "1",
+  "source_endpoints": [
+    "balancesheet",
+    "income",
+    "fina_indicator",
+    "fina_audit"
+  ],
+  "staging_dir": "data/raw/a-share-financial-negative-list-20200101-20241231-v1",
+  "user_authorization_phrase": "我授权按照运行契约 71c2420c5444b1d5961cf7604a87495fdc7edf45a6cc41cf0f225ca33a7e8513，通过 Tushare 联网采集 2020-01-01 至 2024-12-31 的四类财务数据，写入固定 staging；仅用于历史研究，不用于评分、回测或交易。"
+}

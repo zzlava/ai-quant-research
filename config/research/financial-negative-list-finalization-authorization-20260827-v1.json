@@ -1,0 +1,28 @@
+{
+  "authorization_date": "2026-08-27",
+  "authorization_id": "a4342dfda394312ac2830457f5eb98312e0fceb8399fd25fe391a01acdcc569e",
+  "authorization_scope": "offline_response_boundary_finalization_only",
+  "authorization_time": "10:12:15",
+  "authorization_timezone": "Asia/Shanghai",
+  "authorization_version": "financial-negative-list-finalization-authorization-v1",
+  "does_not_rewrite_receipts": true,
+  "finalization_policy_file_sha256": "462fd6eab68f0aef450c5c5056f27bd75ae8040afaa98285ec0ec23f155f6cc9",
+  "finalization_policy_id": "8bbd97f40320d0b3670f1ca3244001870b8d8d1aabcc9c7846493b47da04ea5a",
+  "finalization_policy_path": "config/research/financial-negative-list-response-boundary-policy-v3.json",
+  "future_payload_values_allowed": false,
+  "network_access_allowed": false,
+  "nullable_end_type_endpoints": [
+    "balancesheet",
+    "income"
+  ],
+  "original_collection_authorization_id": "505c88aa3fee39b2c78c09bf5684ef3bdf6f87bea159f9f59ff4616fdf77af83",
+  "original_request_id": "465f7d74a30a463b67746134430b629ec7d6b7d4c181c76c4fad95c8675aa75f",
+  "original_response_boundary_policy_id": "dd5ad210aab073d8dc5b625535be57df75c7c8c2026b52dc61c2210a3d96598c",
+  "original_run_contract_id": "ca092dafc663ae8b125b1183977e2c42c6874b5342367e212ac5fbbacdb2310b",
+  "ready_for_backtest": false,
+  "ready_for_scoring": false,
+  "ready_for_trading": false,
+  "requires_original_receipt_source_row_hash": true,
+  "schema_version": "1",
+  "user_authorization_phrase": "授权制定政策 v3 并完成封印验收。"
+}

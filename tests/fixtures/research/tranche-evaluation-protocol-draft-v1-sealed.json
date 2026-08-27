@@ -1,0 +1,40 @@
+{
+  "schema_version": "1",
+  "protocol_version": "tranche-evaluation-protocol-draft-v1",
+  "status": "blocked_pending_user_decisions",
+  "research_trial_ledger_id": "1fc944251212da4972a087b4c54263912d621e43ad400b5936d6a492f1f9b9f4",
+  "research_trial_ledger_path": "config/research/research-trial-ledger-v1.json",
+  "confirmed": {
+    "initial_cash": 80000,
+    "initial_cash_confirmed": true,
+    "initial_cash_is_blocker": false,
+    "note": "initial_cash=80000 is confirmed for account-scale tranche research and is not a pending user decision blocker."
+  },
+  "consumed_oos": {
+    "reuse_forbidden": true,
+    "note": "Consumed one-shot OOS windows and receipts are terminal. Tranche evaluation development must not bind to them or reuse their evaluation windows."
+  },
+  "tranche_count": null,
+  "holding_period_bars": null,
+  "decision_entry_timing": null,
+  "exit_timing": null,
+  "windows": {
+    "development": null,
+    "validation_oos": null
+  },
+  "benchmark": null,
+  "costs_minimum_commission_lot_handling": null,
+  "capital_allocation_policy": null,
+  "candidate_availability_policy": null,
+  "go_no_go_metrics": null,
+  "phase_comparison_policy": null,
+  "trial_family_registration": null,
+  "bound_consumed_oos_receipt_path": null,
+  "bound_consumed_oos_freeze_id": null,
+  "bound_consumed_oos_authorization_id": null,
+  "ready_for_scoring": false,
+  "ready_for_backtest": false,
+  "ready_for_trading": false,
+  "auto_apply": false,
+  "protocol_id": "9a0e17907cec7732d6248c54aa0e06ec04b0b423bb02ff2e7810b13fc47855c0"
+}

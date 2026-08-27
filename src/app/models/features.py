@@ -16,6 +16,7 @@ class StockFeatureVector(BaseModel):
     ret_1d: float
     ret_5d: float
     ret_20d: float
+    ret_120d: float = 0.0
 
     ma20_distance: float
     ma60_distance: float
@@ -41,6 +42,7 @@ class StockFeatureVector(BaseModel):
     is_suspended: bool
     attention_risk: float = 0.0
     index_ret_20d: float = 0.0
+    index_ret_120d: float = 0.0
     global_ret_20d: float = 0.0
 
     extra: dict[str, float] = Field(default_factory=dict)

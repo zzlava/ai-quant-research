@@ -1,0 +1,118 @@
+{
+  "schema_version": "1",
+  "protocol_version": "index-risk-budget-closeout-protocol-v1",
+  "closeout_id": "d14149395f0061b3b6b9295339653a2af62c746b5844c55a94956821bf155328",
+  "decided_as_of": "2026-08-27",
+  "user_utility_decision": "maximum_drawdown_budget_relaxed_to_minus_30_percent",
+  "source_bindings": {
+    "sealed_research_protocol": {
+      "path": "config/research/index-etf-risk-budget-research-protocol-v1.json",
+      "sha256": "c3bdf0e85c40dad83248e467cef1f8fd4b9aed929e5c615815d9679d1eb1a446",
+      "artifact_id": "3a71730753c88889833bc5df06790d3a062d194eb497d0216ec7fc903cfd3cb2"
+    },
+    "historical_replay_report": {
+      "path": "data/research/index-risk-budget-historical-replay-v1/report.json",
+      "sha256": "cf25f4c577212fa81cae670065d07b635d25dfd3ef065e59460c3b15546fb823",
+      "artifact_id": "9625cf9261465489a8a92fd4d0749b3c78bbbe68eb3445e0da5d2da3d7dae1bd"
+    },
+    "authorization_consumption_receipt": {
+      "path": "data/research/index-risk-budget-historical-replay-v1/authorization-consumption.json",
+      "sha256": "5e1449d5faaad57bd391dd346e84527c30de8ebec42dc5df23771941a20bead1",
+      "artifact_id": "60aaa2a467ba37c37c4d5e19c41b4c2f1e28fd724203dfb3e5e021b25e13a7d6"
+    },
+    "product_cost_contract": {
+      "path": "config/research/index-research-product-cost-contract-v1.json",
+      "sha256": "7f18a2713547469c9bd7792f783a81a957a88dc60826f105a834e3083f127ac3",
+      "artifact_id": "f3ec502cfc2056c7da4acbad61902e89f819a106d67aba480a578deecc70793c"
+    }
+  },
+  "file_bindings": {
+    "historical_daily_path": {
+      "path": "data/research/index-risk-budget-historical-replay-v1/daily-path.parquet",
+      "sha256": "3ab07c871e27b80886ebd62dc1e8234f6ed3f39dedcede556239131d1f6f0017"
+    },
+    "historical_replay_engine": {
+      "path": "src/app/research/index_risk_budget_evaluator.py",
+      "sha256": "7f7ba74ac68f8a00f2a599ceac9c68e3d219bc0f286a959dfb5c7bf315071fa4"
+    }
+  },
+  "family_closure": {
+    "family_id": "index_time_series_risk_budget_v1",
+    "outcome": "effect_real_but_insufficient_and_too_costly",
+    "family_closed": true,
+    "parameter_rescue_forbidden": true,
+    "monthly_or_threshold_or_alternative_target_scan_forbidden": true,
+    "trend_or_drawdown_add_on_in_consumed_history_forbidden": true,
+    "automatic_restart_forbidden": true
+  },
+  "mechanism_archive": {
+    "high_volatility_crash_deleveraging_effect_observed": true,
+    "equal_average_exposure_drawdown_reduction_observed": true,
+    "low_volatility_slow_decline_blindness_observed": true,
+    "2014_2015_high_volatility_rally_miss_prediction_supported": false,
+    "volatility_is_not_a_directional_trend_measure": true,
+    "mechanism_effect_was_insufficient_for_utility_gate": true
+  },
+  "cost_archive": {
+    "vol_target_20d_base_explicit_cny": 26739.4055121966,
+    "vol_target_20d_stress_explicit_cny": 50409.60095995553,
+    "vol_target_60d_base_explicit_cny": 15193.352089808934,
+    "vol_target_60d_stress_explicit_cny": 24440.826986691252,
+    "cost_totals_alone_are_not_zero_cost_counterfactuals": true,
+    "base_cost_mde_gate_still_not_met": true
+  },
+  "static_control_limitations": {
+    "role": "confirmatory_benchmark_abstraction_only",
+    "implicit_frictionless_daily_constant_mix": true,
+    "not_buy_and_hold": true,
+    "not_annual_calendar_rebalance": true,
+    "not_a_live_implementable_upper_or_lower_bound": true,
+    "reported_implementation_cost_understates_constant_mix_turnover": true
+  },
+  "allocation_policy": {
+    "policy_status": "unfunded_execution_design_not_historical_claim",
+    "maximum_drawdown_utility_budget": -0.3,
+    "equity_policy_starting_weight": 0.3,
+    "defensive_policy_starting_weight": 0.7,
+    "dynamic_risk_signal_enabled": false,
+    "live_products_selected": false
+  },
+  "rebalance_policy": {
+    "rule": "annual_calendar",
+    "signal_observation": "prior_calendar_year_final_market_close",
+    "implementation_attempt": "next_calendar_year_first_market_trading_day_close",
+    "target_equity_weight": 0.3,
+    "target_defensive_weight": 0.7,
+    "intrayear_threshold_rebalancing": false,
+    "intrayear_signal_rebalancing": false,
+    "natural_weight_drift_between_annual_events": true,
+    "historical_performance_claim": false,
+    "execution_validation_required": true
+  },
+  "consumed_data_boundaries": {
+    "seen_history": "2005-01-04..2024-12-31",
+    "consumed_oos": "2025-01-01..2026-08-21",
+    "reuse_for_new_dynamic_rule_development_forbidden": true,
+    "annual_rebalance_policy_was_not_backtested": true
+  },
+  "future_evidence_policy": {
+    "role": "execution_validation_and_slow_evidence_accumulation",
+    "new_trend_or_drawdown_rule_requires_new_protocol": true,
+    "new_rule_record_starts_only_after_its_own_seal": true,
+    "one_year_cannot_confirm_predictive_value": true
+  },
+  "authorization_boundary": {
+    "capital_deployment_authorized": false,
+    "portfolio_construction_authorized": false,
+    "product_selection_authorized": false,
+    "orders_authorized": false,
+    "broker_connection_authorized": false,
+    "trading_authorized": false
+  },
+  "readiness": {
+    "ready_for_live_product_mapping": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_orders": false,
+    "ready_for_trading": false
+  }
+}

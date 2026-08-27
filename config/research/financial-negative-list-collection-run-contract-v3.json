@@ -1,0 +1,102 @@
+{
+  "schema_version": "1",
+  "run_contract_version": "financial-negative-list-collection-run-contract-v3",
+  "status": "prepared_not_authorized",
+  "network_authorized": false,
+  "requires_fresh_user_authorization": true,
+  "not_authorization_file": true,
+  "historical_collection_only": true,
+  "collected_at_not_available_at": true,
+  "e11b_2a_protocol_path": "config/research/layer-two-financial-negative-list-data-protocol-v1.json",
+  "prepared_at": "2026-08-27",
+  "e11b_2a_protocol_id": "314e9d644b897ed4398cc349e3772b09bbe6f80cfd2d518a7cdbf19bb651d2ea",
+  "e11b_2a_protocol_file_sha256": "b3e8310e158979fc0f1d22fd5122d6ca0cf694908d78d3ef96af3c1fec6d72c2",
+  "announcement_window_start": "2020-01-01",
+  "announcement_window_end": "2024-12-31",
+  "source_endpoints": [
+    {
+      "tushare_api": "balancesheet",
+      "official_doc": "https://tushare.pro/document/2?doc_id=36",
+      "fields": [
+        "ts_code",
+        "ann_date",
+        "f_ann_date",
+        "end_date",
+        "report_type",
+        "comp_type",
+        "end_type",
+        "money_cap",
+        "notes_receiv",
+        "accounts_receiv",
+        "oth_receiv",
+        "inventories",
+        "goodwill",
+        "total_assets",
+        "st_borr",
+        "lt_borr",
+        "st_bonds_payable",
+        "non_cur_liab_due_1y",
+        "bond_payable",
+        "total_hldr_eqy_exc_min_int",
+        "update_flag"
+      ]
+    },
+    {
+      "tushare_api": "income",
+      "official_doc": "https://tushare.pro/document/2?doc_id=33",
+      "fields": [
+        "ts_code",
+        "ann_date",
+        "f_ann_date",
+        "end_date",
+        "report_type",
+        "comp_type",
+        "end_type",
+        "revenue",
+        "total_revenue",
+        "update_flag"
+      ]
+    },
+    {
+      "tushare_api": "fina_indicator",
+      "official_doc": "https://tushare.pro/document/2?doc_id=79",
+      "fields": [
+        "ts_code",
+        "ann_date",
+        "end_date",
+        "interestdebt",
+        "update_flag"
+      ]
+    },
+    {
+      "tushare_api": "fina_audit",
+      "official_doc": "https://tushare.pro/document/2?doc_id=80",
+      "fields": [
+        "ts_code",
+        "ann_date",
+        "end_date",
+        "audit_result",
+        "audit_fees",
+        "audit_agency",
+        "audit_sign"
+      ]
+    }
+  ],
+  "raw_stock_basic_source_path": "data/raw/all-a-share-history-20211008-20241231-v1/reference/stock_basic.parquet",
+  "candidate_pack_id": "cd904a7974d019689d933bcb0c0e329e51e38f96a26e30cdea4c5b15aaa4d09e",
+  "candidate_pack_parquet_sha256": "6f6518828df99f7111b6632e0fad51335e6feaa8e06a65dc06457e062a65ffd4",
+  "fixed_staging_dir": "data/raw/a-share-financial-negative-list-20200101-20241231-v3",
+  "response_boundary_policy_path": "config/research/financial-negative-list-response-boundary-policy-v2.json",
+  "response_boundary_policy_id": "dd5ad210aab073d8dc5b625535be57df75c7c8c2026b52dc61c2210a3d96598c",
+  "response_boundary_policy_file_sha256": "3d26508977f03149ef57eed34ee94a1f91bc098c81f6cf853b9e392a1dbb51c9",
+  "response_boundary_reason_code": "FNLD-013",
+  "canonical_symbol_count": 5544,
+  "canonical_symbols_sha256": "b31f379c0689cad9eeea14e807b01ee8aea23f0812c4e7e804fc4a4656ab9b51",
+  "expected_partition_count": 22176,
+  "readiness": {
+    "ready_for_scoring": false,
+    "ready_for_backtest": false,
+    "ready_for_trading": false
+  },
+  "run_contract_id": "ca092dafc663ae8b125b1183977e2c42c6874b5342367e212ac5fbbacdb2310b"
+}
