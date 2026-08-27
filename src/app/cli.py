@@ -1836,6 +1836,124 @@ def verify_index_risk_budget_closeout_cmd(
     typer.echo("ready_for_trading=false")
 
 
+@app.command("verify-index-shadow-execution-protocol")
+def verify_index_shadow_execution_protocol_cmd(
+    protocol_file: Annotated[
+        Path,
+        typer.Option("--protocol-file", dir_okay=False),
+    ] = Path("config/research/index-shadow-execution-protocol-v1.json"),
+    repo_root: Annotated[
+        Path | None,
+        typer.Option("--repo-root", file_okay=False),
+    ] = None,
+) -> None:
+    """Verify the sealed shadow-only ETF mapping and execution boundary."""
+    from app.research.index_shadow_execution import verify_index_shadow_execution_protocol
+
+    typer.echo(
+        "SHADOW ONLY. Read-only protocol verification; no capital, broker credentials, "
+        "broker connection, order submission, or trading is authorized."
+    )
+    try:
+        protocol = verify_index_shadow_execution_protocol(
+            repo_root=repo_root or Path.cwd(), path=protocol_file
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"protocol_id={protocol.protocol_id}")
+    typer.echo(f"equity_shadow_surrogate={protocol.product_mappings['equity'].symbol}")
+    typer.echo(f"defensive_shadow_surrogate={protocol.product_mappings['defensive'].symbol}")
+    typer.echo("exact_research_proxy_match=false")
+    typer.echo("ready_for_shadow_initialization=true")
+    typer.echo("capital_deployment_authorized=false")
+    typer.echo("ready_for_orders=false")
+    typer.echo("ready_for_trading=false")
+
+
+@app.command("initialize-index-shadow-execution")
+def initialize_index_shadow_execution_cmd(
+    protocol_file: Annotated[
+        Path,
+        typer.Option("--protocol-file", dir_okay=False),
+    ] = Path("config/research/index-shadow-execution-protocol-v1.json"),
+    output_file: Annotated[
+        Path,
+        typer.Option("--output-file", dir_okay=False),
+    ] = Path("data/shadow/index-risk-budget-shadow-v1/initialization-20260827.json"),
+    repo_root: Annotated[
+        Path | None,
+        typer.Option("--repo-root", file_okay=False),
+    ] = None,
+) -> None:
+    """Create a sealed hypothetical board-lot allocation from official close quotes."""
+    from app.research.index_shadow_execution import materialize_index_shadow_initialization
+
+    typer.echo(
+        "⚠️ SHADOW ONLY: this writes a local hypothetical ledger artifact. It does not "
+        "access broker credentials, connect to a broker, submit an order, deploy capital, or trade."
+    )
+    try:
+        report = materialize_index_shadow_initialization(
+            repo_root=repo_root or Path.cwd(),
+            protocol_path=protocol_file,
+            output_path=output_file,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"report_id={report.report_id}")
+    typer.echo(f"observed_at_cst={report.observed_at_cst.isoformat()}")
+    for leg in report.legs:
+        typer.echo(
+            f"shadow_leg={leg.role} symbol={leg.symbol} quantity={leg.quantity} "
+            f"assumed_fill_price={leg.assumed_fill_price} initial_weight={leg.initial_weight}"
+        )
+    typer.echo(f"residual_virtual_cash_cny={report.residual_virtual_cash_cny}")
+    typer.echo(f"estimated_total_commission_cny={report.estimated_total_commission_cny}")
+    typer.echo("capital_deployment_authorized=false")
+    typer.echo("broker_connection_authorized=false")
+    typer.echo("ready_for_orders=false")
+    typer.echo("ready_for_trading=false")
+    typer.echo(str(report.prominent_warning))
+
+
+@app.command("verify-index-shadow-initialization")
+def verify_index_shadow_initialization_cmd(
+    report_file: Annotated[
+        Path,
+        typer.Option("--report-file", dir_okay=False),
+    ] = Path("data/shadow/index-risk-budget-shadow-v1/initialization-20260827.json"),
+    protocol_file: Annotated[
+        Path,
+        typer.Option("--protocol-file", dir_okay=False),
+    ] = Path("config/research/index-shadow-execution-protocol-v1.json"),
+    repo_root: Annotated[
+        Path | None,
+        typer.Option("--repo-root", file_okay=False),
+    ] = None,
+) -> None:
+    """Verify a shadow initialization against the sealed official inputs."""
+    from app.research.index_shadow_execution import verify_index_shadow_initialization_report
+
+    typer.echo(
+        "SHADOW ONLY. Read-only report verification; no broker access, order, capital, or trading."
+    )
+    try:
+        report = verify_index_shadow_initialization_report(
+            repo_root=repo_root or Path.cwd(),
+            report_path=report_file,
+            protocol_path=protocol_file,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"report_id={report.report_id}")
+    typer.echo("verification=passed")
+    typer.echo("ready_for_orders=false")
+    typer.echo("ready_for_trading=false")
+
+
 @app.command("collect-csi-all-share-long-history")
 def collect_csi_all_share_long_history_cmd(
     staging_dir: Annotated[

@@ -1,0 +1,167 @@
+{
+  "schema_version": "1",
+  "protocol_version": "index-shadow-execution-protocol-v1",
+  "protocol_id": "acc3fa5aa2f65f5d5ccd0a0a13e52bf7cb30bbad4ac689b09c8eab5d368654f1",
+  "authorized_as_of": "2026-08-27",
+  "user_authorization_text": "进行下一步 进入影子执行验证",
+  "role": "shadow_only_execution_semantics_and_cost_validation",
+  "source_bindings": {
+    "closeout_protocol": {
+      "path": "config/research/index-risk-budget-closeout-protocol-v1.json",
+      "sha256": "ee5ffcb50f9126f61a301428fbf962a1a534ea357bfa272f86df3866bb65c1ee",
+      "artifact_id": "d14149395f0061b3b6b9295339653a2af62c746b5844c55a94956821bf155328"
+    },
+    "product_cost_contract": {
+      "path": "config/research/index-research-product-cost-contract-v1.json",
+      "sha256": "7f18a2713547469c9bd7792f783a81a957a88dc60826f105a834e3083f127ac3",
+      "artifact_id": "f3ec502cfc2056c7da4acbad61902e89f819a106d67aba480a578deecc70793c"
+    }
+  },
+  "product_mappings": {
+    "equity": {
+      "symbol": "510300.SH",
+      "exchange": "SSE",
+      "official_name": "华泰柏瑞沪深300ETF",
+      "tracked_benchmark_name": "沪深300指数",
+      "original_research_proxy": "H00985.CSI",
+      "mapping_role": "liquid_broad_equity_surrogate_for_shadow_execution_only",
+      "exact_research_proxy_match": false,
+      "surrogate_difference_acknowledged": true,
+      "board_lot_units": 100,
+      "evidence_keys": [
+        "equity_product_summary",
+        "equity_scale_report",
+        "equity_market_maker_notice",
+        "equity_initial_quote"
+      ]
+    },
+    "defensive": {
+      "symbol": "511010.SH",
+      "exchange": "SSE",
+      "official_name": "国泰上证5年期国债ETF",
+      "tracked_benchmark_name": "上证5年期国债指数",
+      "original_research_proxy": "H11010.CSI",
+      "mapping_role": "sovereign_bond_surrogate_for_shadow_execution_only",
+      "exact_research_proxy_match": false,
+      "surrogate_difference_acknowledged": true,
+      "board_lot_units": 100,
+      "evidence_keys": [
+        "defensive_product_summary",
+        "defensive_scale_report",
+        "defensive_market_maker_notice",
+        "defensive_initial_quote"
+      ]
+    }
+  },
+  "official_evidence": {
+    "equity_product_summary": {
+      "url": "https://www.sse.com.cn/disclosure/fund/announcement/c/new/2025-03-25/510300_20250325_W5NO.pdf",
+      "raw_path": "data/raw/index-shadow-execution-v1/official/510300-product-summary-20250325.pdf",
+      "sha256": "2eb272eb1c489362dc4574de5b3be4830eccea33e8a75a3866f3006ea06bc6cc",
+      "evidence_role": "official_product_identity_and_fee_summary"
+    },
+    "equity_scale_report": {
+      "url": "https://www.sse.com.cn/disclosure/fund/announcement/c/new/2026-01-22/510300_20260122_ZDUH.pdf",
+      "raw_path": "data/raw/index-shadow-execution-v1/official/510300-q4-2025.pdf",
+      "sha256": "5196e2f438f25c0d4adf1a1b8f5b5310e573559cbfabaccadc89cfbfc0e26537",
+      "evidence_role": "official_recent_fund_scale_and_identity_report"
+    },
+    "equity_market_maker_notice": {
+      "url": "https://www.sse.com.cn/disclosure/announcement/general/jjzssgg/c/c_20250804_10787499.shtml",
+      "raw_path": "data/raw/index-shadow-execution-v1/official/510300-market-maker-20250804.html",
+      "sha256": "5b05e9f395fa5b661a3cd16a89fde05bea55f5ff1ec8d630c15298467eebb27e",
+      "evidence_role": "official_market_maker_support_notice"
+    },
+    "equity_initial_quote": {
+      "url": "https://yunhq.sse.com.cn:32042/v1/sh1/snap/510300?select=name,last,open,high,low,volume,amount,bid,ask",
+      "raw_path": "data/raw/index-shadow-execution-v1/official/510300-sse-snap-20260827.json",
+      "sha256": "5cb214dbb525c1ff119c5a7b90264efa7de112a04d3f205c746fbc72300d27ab",
+      "evidence_role": "official_initial_after_close_market_snapshot"
+    },
+    "defensive_product_summary": {
+      "url": "https://www.sse.com.cn/disclosure/fund/announcement/c/new/2026-03-19/511010_20260319_W8OE.pdf",
+      "raw_path": "data/raw/index-shadow-execution-v1/official/511010-product-summary-20260319.pdf",
+      "sha256": "a239534cd25671a4dfd8eda196052ccfeee5bff1d4c8bbb049510199775c6935",
+      "evidence_role": "official_product_identity_and_fee_summary"
+    },
+    "defensive_scale_report": {
+      "url": "https://www.sse.com.cn/disclosure/fund/announcement/c/new/2026-04-22/511010_20260422_P387.pdf",
+      "raw_path": "data/raw/index-shadow-execution-v1/official/511010-q1-2026.pdf",
+      "sha256": "29e7b43bb5441f29ca3871c68a98718051e3515cac912e0f596dc0652f5b2d68",
+      "evidence_role": "official_recent_fund_scale_and_identity_report"
+    },
+    "defensive_market_maker_notice": {
+      "url": "https://www.sse.com.cn/disclosure/announcement/general/jjzssgg/c/c_20260224_10810165.shtml",
+      "raw_path": "data/raw/index-shadow-execution-v1/official/511010-market-maker-20260224.html",
+      "sha256": "d2cffe1822fcd81090cb3b578c89a73edc5f42e92c7710eada38356b5c86f3cf",
+      "evidence_role": "official_market_maker_support_notice"
+    },
+    "defensive_initial_quote": {
+      "url": "https://yunhq.sse.com.cn:32042/v1/sh1/snap/511010?select=name,last,open,high,low,volume,amount,bid,ask",
+      "raw_path": "data/raw/index-shadow-execution-v1/official/511010-sse-snap-20260827.json",
+      "sha256": "c192c4e7d6a3aae0cd4c5b8e5431e2d00477e2948aba192a7de5dd4e59972a9c",
+      "evidence_role": "official_initial_after_close_market_snapshot"
+    }
+  },
+  "allocation_policy": {
+    "virtual_initial_capital_cny": 80000.0,
+    "target_equity_weight": 0.3,
+    "target_defensive_weight": 0.7,
+    "cash_weight_target": 0.0,
+    "annual_calendar_rebalance_only": true,
+    "intrayear_signal_or_threshold_rebalance_forbidden": true,
+    "integer_board_lots_required": true,
+    "leverage_forbidden": true,
+    "short_sales_forbidden": true
+  },
+  "cost_policy": {
+    "broker_tariff_status": "unknown_research_assumption_only",
+    "commission_rate_per_side": 0.00025,
+    "minimum_commission_cny_per_leg": 5.0,
+    "slippage_bps_per_side": 5.0,
+    "stamp_tax_rate": 0.0,
+    "exchange_handling_fee_treated_as_included_in_commission": true,
+    "live_cost_claim_forbidden": true
+  },
+  "observation_policy": {
+    "initial_snapshot_date": "2026-08-27",
+    "official_sse_after_close_quote_required": true,
+    "best_ask_used_for_hypothetical_initial_purchase": true,
+    "best_bid_and_last_recorded_for_spread_diagnostics": true,
+    "quote_hashes_must_be_sealed_in_report": true,
+    "initial_shadow_ledger_creation_is_not_a_policy_rebalance": true,
+    "future_observations_must_be_append_only": true,
+    "performance_claim_forbidden": true
+  },
+  "selection_policy": {
+    "pair_frozen_for_shadow_validation": true,
+    "dynamic_etf_rotation_forbidden": true,
+    "performance_chasing_forbidden": true,
+    "surrogate_mapping_is_not_an_investment_recommendation": true,
+    "real_capital_use_requires_new_product_review_and_user_confirmation": true
+  },
+  "manual_promotion_gate": {
+    "required": true,
+    "confirmation_present": false,
+    "prominent_warning": "⚠️ 影子验证不授权真实资金、券商连接或下单。升级前必须重新人工确认。",
+    "future_exact_confirmation_template": "⚠️ 我确认将影子执行升级为受控真实资金试运行，并理解这不是收益保证；本次仅授权指定日期、产品和金额，不授权自动交易。"
+  },
+  "authorization_boundary": {
+    "shadow_math_authorized": true,
+    "local_shadow_artifact_write_authorized": true,
+    "capital_deployment_authorized": false,
+    "broker_connection_authorized": false,
+    "broker_credential_access_authorized": false,
+    "order_submission_authorized": false,
+    "trading_authorized": false,
+    "automatic_promotion_authorized": false
+  },
+  "readiness": {
+    "ready_for_shadow_initialization": true,
+    "ready_for_shadow_observation": true,
+    "ready_for_live_product_mapping": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_orders": false,
+    "ready_for_trading": false
+  }
+}
