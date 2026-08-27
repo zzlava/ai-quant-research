@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 import polars as pl
 import pytest
+from click.utils import strip_ansi
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
@@ -453,7 +454,7 @@ def test_index_universe_cli_is_disabled(tmp_path: Path, monkeypatch: pytest.Monk
         ],
     )
     assert result.exit_code != 0
-    combined = ((result.stdout or "") + (result.stderr or "")).lower()
+    combined = strip_ansi((result.stdout or "") + (result.stderr or "")).lower()
     assert "no such option" in combined
     assert "index-universe" in combined
 

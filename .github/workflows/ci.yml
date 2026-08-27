@@ -20,4 +20,6 @@ jobs:
       - name: Mypy
         run: mypy src
       - name: Pytest
-        run: pytest
+        # GitHub runners do not contain the hash-bound, git-ignored data/ snapshots.
+        # The complete local suite still runs these integration/audit modules.
+        run: pytest -m "not local_data"

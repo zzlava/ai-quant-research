@@ -5,6 +5,7 @@ from pathlib import Path
 
 import polars as pl
 import pytest
+from click.utils import strip_ansi
 from typer.testing import CliRunner
 
 from app.backtest.engine import BacktestEngine
@@ -450,7 +451,7 @@ def test_historical_membership_fails_before_live_client(
         ],
     )
     assert result.exit_code != 0
-    combined = ((result.stdout or "") + (result.stderr or "")).lower()
+    combined = strip_ansi((result.stdout or "") + (result.stderr or "")).lower()
     assert "historical_membership" in combined
     assert "should-not-be-read" not in combined
     assert created == []
@@ -479,7 +480,7 @@ def test_cli_still_rejects_index_universe(tmp_path: Path, monkeypatch: pytest.Mo
         ],
     )
     assert result.exit_code != 0
-    combined = ((result.stdout or "") + (result.stderr or "")).lower()
+    combined = strip_ansi((result.stdout or "") + (result.stderr or "")).lower()
     assert "no such option" in combined
     assert "index-universe" in combined
 
