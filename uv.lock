@@ -20,6 +20,7 @@ source = { editable = "." }
 dependencies = [
     { name = "duckdb" },
     { name = "fastapi" },
+    { name = "numpy" },
     { name = "polars" },
     { name = "pyarrow" },
     { name = "pydantic" },
@@ -38,6 +39,7 @@ bigquant = [
 dev = [
     { name = "httpx" },
     { name = "mypy" },
+    { name = "pandas" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "types-pyyaml" },
@@ -53,6 +55,8 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13.0" },
+    { name = "numpy", specifier = ">=2.0.0" },
+    { name = "pandas", marker = "extra == 'dev'", specifier = ">=2.2.0" },
     { name = "polars", specifier = ">=1.12.0" },
     { name = "pyarrow", specifier = ">=17.0.0" },
     { name = "pydantic", specifier = ">=2.9.0" },
