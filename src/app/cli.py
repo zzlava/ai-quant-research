@@ -1954,6 +1954,229 @@ def verify_index_shadow_initialization_cmd(
     typer.echo("ready_for_trading=false")
 
 
+@app.command("verify-index-shadow-observation-plan")
+def verify_index_shadow_observation_plan_cmd(
+    plan_file: Annotated[
+        Path,
+        typer.Option("--plan-file", dir_okay=False),
+    ] = Path("config/research/index-shadow-observation-plan-v1.json"),
+    repo_root: Annotated[
+        Path | None,
+        typer.Option("--repo-root", file_okay=False),
+    ] = None,
+) -> None:
+    """Verify the sealed append-only shadow observation plan."""
+    from app.research.index_shadow_observation import verify_index_shadow_observation_plan
+
+    typer.echo(
+        "SHADOW ONLY. This verifies a broker-free execution-diagnostic plan; it does not "
+        "connect to a broker, submit an order, deploy capital, or trade."
+    )
+    try:
+        plan = verify_index_shadow_observation_plan(repo_root=repo_root or Path.cwd(), path=plan_file)
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"plan_id={plan.plan_id}")
+    typer.echo("cadence=weekly_friday_after_close")
+    typer.echo("after_close_quote_is_executable=false")
+    typer.echo("broker_tariff_status=missing_user_supplied_evidence")
+    typer.echo("ready_for_orders=false")
+    typer.echo("ready_for_trading=false")
+
+
+@app.command("collect-index-shadow-observation")
+def collect_index_shadow_observation_cmd(
+    expected_date: Annotated[str, typer.Option("--expected-date", help="YYYY-MM-DD")],
+    record_reason: Annotated[
+        Literal["weekly", "year_end", "year_start"],
+        typer.Option("--record-reason"),
+    ] = "weekly",
+    plan_file: Annotated[
+        Path,
+        typer.Option("--plan-file", dir_okay=False),
+    ] = Path("config/research/index-shadow-observation-plan-v1.json"),
+    repo_root: Annotated[
+        Path | None,
+        typer.Option("--repo-root", file_okay=False),
+    ] = None,
+) -> None:
+    """Append one official after-close SSE quote observation to the shadow ledger."""
+    from app.research.index_shadow_observation import collect_index_shadow_observation
+
+    typer.echo(
+        "⚠️ SHADOW ONLY: this fetches public SSE after-close quotes and appends a local "
+        "diagnostic record. The quote is not executable; no broker access, order, capital, "
+        "fill, performance claim, or trading is authorized."
+    )
+    try:
+        market_date = date.fromisoformat(expected_date)
+        report = collect_index_shadow_observation(
+            repo_root=repo_root or Path.cwd(),
+            expected_date=market_date,
+            record_reason=record_reason,
+            plan_path=plan_file,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"observation_id={report.observation_id}")
+    typer.echo(f"sequence={report.sequence}")
+    typer.echo(f"market_date={report.market_date.isoformat()}")
+    typer.echo(f"observed_at_cst={report.observed_at_cst}")
+    typer.echo(f"allocation_l1_error_from_30_70={report.allocation_l1_error_from_30_70}")
+    typer.echo("hypothetical_order_status=not_submitted")
+    typer.echo("after_close_quote_is_executable=false")
+    typer.echo("ready_for_orders=false")
+    typer.echo("ready_for_trading=false")
+    typer.echo(report.prominent_warning)
+
+
+@app.command("collect-index-shadow-year-boundary")
+def collect_index_shadow_year_boundary_cmd(
+    calendar_year: Annotated[int, typer.Option("--calendar-year", min=2026, max=2100)],
+    record_reason: Annotated[
+        Literal["year_end", "year_start"],
+        typer.Option("--record-reason"),
+    ],
+    repo_root: Annotated[
+        Path | None,
+        typer.Option("--repo-root", file_okay=False),
+    ] = None,
+) -> None:
+    """Append a final- or first-market-day shadow record from the current SSE snapshot."""
+    from app.research.index_shadow_observation import (
+        collect_index_shadow_year_boundary_observation,
+    )
+
+    typer.echo(
+        "⚠️ SHADOW ONLY: this discovers an annual boundary from public SSE after-close "
+        "quotes. It does not connect to a broker, submit an order, deploy capital, or trade."
+    )
+    try:
+        report = collect_index_shadow_year_boundary_observation(
+            repo_root=repo_root or Path.cwd(),
+            calendar_year=calendar_year,
+            record_reason=record_reason,
+        )
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"observation_id={report.observation_id}")
+    typer.echo(f"market_date={report.market_date.isoformat()}")
+    typer.echo(f"record_reason={report.record_reason}")
+    typer.echo("hypothetical_order_status=not_submitted")
+    typer.echo("ready_for_orders=false")
+    typer.echo("ready_for_trading=false")
+
+
+@app.command("verify-index-shadow-observation-chain")
+def verify_index_shadow_observation_chain_cmd(
+    plan_file: Annotated[
+        Path,
+        typer.Option("--plan-file", dir_okay=False),
+    ] = Path("config/research/index-shadow-observation-plan-v1.json"),
+    repo_root: Annotated[
+        Path | None,
+        typer.Option("--repo-root", file_okay=False),
+    ] = None,
+) -> None:
+    """Recompute every append-only shadow observation from its official raw quote."""
+    from app.research.index_shadow_observation import verify_index_shadow_observation_chain
+
+    typer.echo(
+        "SHADOW ONLY. Read-only append-chain verification; no broker access, order, capital, "
+        "performance claim, or trading."
+    )
+    try:
+        reports = verify_index_shadow_observation_chain(repo_root=repo_root or Path.cwd(), plan_path=plan_file)
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"observations={len(reports)}")
+    typer.echo(f"ledger_tail={reports[-1].observation_id if reports else '-'}")
+    typer.echo("verification=passed")
+    typer.echo("ready_for_orders=false")
+    typer.echo("ready_for_trading=false")
+
+
+@app.command("review-index-shadow-observation-readiness")
+def review_index_shadow_observation_readiness_cmd(
+    plan_file: Annotated[
+        Path,
+        typer.Option("--plan-file", dir_okay=False),
+    ] = Path("config/research/index-shadow-observation-plan-v1.json"),
+    repo_root: Annotated[
+        Path | None,
+        typer.Option("--repo-root", file_okay=False),
+    ] = None,
+) -> None:
+    """Report whether the shadow ledger has enough evidence for a manual execution review."""
+    from app.research.index_shadow_observation import (
+        summarize_index_shadow_observation_readiness,
+        verify_index_shadow_observation_chain,
+    )
+
+    typer.echo(
+        "SHADOW ONLY. Evidence-floor review does not prove performance and cannot authorize "
+        "broker access, orders, capital, or trading."
+    )
+    try:
+        reports = verify_index_shadow_observation_chain(repo_root=repo_root or Path.cwd(), plan_path=plan_file)
+        status = summarize_index_shadow_observation_readiness(reports)
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"observation_count={status.observation_count}")
+    typer.echo(f"elapsed_calendar_days={status.elapsed_calendar_days}")
+    typer.echo(f"year_end_observation_present={str(status.year_end_observation_present).lower()}")
+    typer.echo(f"next_year_start_observation_present={str(status.next_year_start_observation_present).lower()}")
+    typer.echo(
+        "consecutive_annual_boundary_pair_present="
+        f"{str(status.consecutive_annual_boundary_pair_present).lower()}"
+    )
+    typer.echo(f"execution_review_eligible={str(status.execution_review_eligible).lower()}")
+    typer.echo("performance_or_alpha_proven=false")
+    typer.echo("ready_for_orders=false")
+    typer.echo("ready_for_trading=false")
+
+
+@app.command("verify-index-controlled-live-input-gate")
+def verify_index_controlled_live_input_gate_cmd(
+    gate_file: Annotated[
+        Path,
+        typer.Option("--gate-file", dir_okay=False),
+    ] = Path("config/research/index-controlled-live-input-gate-v1.json"),
+    repo_root: Annotated[
+        Path | None,
+        typer.Option("--repo-root", file_okay=False),
+    ] = None,
+) -> None:
+    """Verify the intentionally incomplete manual input and authorization gate."""
+    from app.research.index_controlled_live_gate import (
+        verify_index_controlled_live_input_gate,
+    )
+
+    typer.echo(
+        "⚠️ MANUAL GATE ONLY. This verifies that broker tariff, eligibility, exact capital, "
+        "date, products, and user confirmation are still missing. It cannot connect, order, "
+        "deploy capital, or trade."
+    )
+    try:
+        gate = verify_index_controlled_live_input_gate(repo_root=repo_root or Path.cwd(), path=gate_file)
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(sanitize_error_message(exc), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"gate_id={gate.gate_id}")
+    typer.echo("manual_inputs_complete=false")
+    typer.echo("minimum_shadow_evidence_complete=false")
+    typer.echo("capital_deployment_authorized=false")
+    typer.echo("ready_for_portfolio_construction=false")
+    typer.echo("ready_for_orders=false")
+    typer.echo("ready_for_trading=false")
+    typer.echo(gate.manual_confirmation_template)
+
+
 @app.command("collect-csi-all-share-long-history")
 def collect_csi_all_share_long_history_cmd(
     staging_dir: Annotated[

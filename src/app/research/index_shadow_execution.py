@@ -192,7 +192,9 @@ class SseQuote(_StrictModel):
     observed_at_cst: datetime
     last: Decimal = Field(gt=0)
     best_bid: Decimal = Field(gt=0)
+    best_bid_size: int = Field(ge=0)
     best_ask: Decimal = Field(gt=0)
+    best_ask_size: int = Field(ge=0)
     volume: int = Field(gt=0)
     amount: Decimal = Field(gt=0)
     source_path: str
@@ -315,11 +317,34 @@ def verify_index_shadow_execution_protocol(
 
 
 def _parse_sse_quote(
-    *, protocol: IndexShadowExecutionProtocol, role: str, source: Path
+    *,
+    protocol: IndexShadowExecutionProtocol,
+    role: str,
+    source: Path,
+    expected_date: date | None = None,
+) -> SseQuote:
+    return parse_index_shadow_sse_quote_bytes(
+        protocol=protocol,
+        role=role,
+        payload_bytes=source.read_bytes(),
+        source_path=source.as_posix(),
+        source_sha256=_sha256_file(source),
+        expected_date=expected_date,
+    )
+
+
+def parse_index_shadow_sse_quote_bytes(
+    *,
+    protocol: IndexShadowExecutionProtocol,
+    role: str,
+    payload_bytes: bytes,
+    source_path: str,
+    source_sha256: str,
+    expected_date: date | None = None,
 ) -> SseQuote:
     product = protocol.product_mappings[role]
     try:
-        payload = json.loads(source.read_text())
+        payload = json.loads(payload_bytes)
         snap = payload["snap"]
         bids = snap[7]
         asks = snap[8]
@@ -333,18 +358,20 @@ def _parse_sse_quote(
             observed_at_cst=observed,
             last=Decimal(str(snap[1])),
             best_bid=Decimal(str(bids[0])),
+            best_bid_size=int(bids[1]),
             best_ask=Decimal(str(asks[0])),
+            best_ask_size=int(asks[1]),
             volume=int(snap[5]),
             amount=Decimal(str(snap[6])),
-            source_path=source.as_posix(),
-            source_sha256=_sha256_file(source),
+            source_path=source_path,
+            source_sha256=source_sha256,
         )
     except Exception as exc:
         raise ValueError(f"invalid official SSE quote snapshot: {role}") from exc
     if payload.get("code") != product.symbol.split(".", 1)[0]:
         raise ValueError(f"official SSE quote symbol mismatch: {role}")
-    expected_date = date.fromisoformat(str(protocol.observation_policy["initial_snapshot_date"]))
-    if quote.observed_at_cst.date() != expected_date:
+    required_date = expected_date or date.fromisoformat(str(protocol.observation_policy["initial_snapshot_date"]))
+    if quote.observed_at_cst.date() != required_date:
         raise ValueError(f"official SSE quote date mismatch: {role}")
     if quote.observed_at_cst.time().hour < 15:
         raise ValueError(f"official SSE quote is not an after-close snapshot: {role}")
@@ -585,6 +612,7 @@ __all__ = [
     "compute_shadow_protocol_id",
     "compute_shadow_report_id",
     "materialize_index_shadow_initialization",
+    "parse_index_shadow_sse_quote_bytes",
     "verify_index_shadow_execution_protocol",
     "verify_index_shadow_initialization_report",
 ]

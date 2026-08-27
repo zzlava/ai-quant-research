@@ -1,0 +1,82 @@
+{
+  "schema_version": "1",
+  "gate_version": "index-controlled-live-input-gate-v1",
+  "gate_id": "7a3a35cb47dea3401c7cfc0af05fe0b34dc23b3b279d8ab3bb67fd1ec23df9e2",
+  "sealed_on": "2026-08-28",
+  "role": "manual_inputs_and_authorization_gate_only",
+  "shadow_protocol_binding": {
+    "path": "config/research/index-shadow-execution-protocol-v1.json",
+    "sha256": "3d894bc844032b96375f11ff087a032f830328e3fc0a209a1aef5ba728bb8ff4",
+    "artifact_id": "acc3fa5aa2f65f5d5ccd0a0a13e52bf7cb30bbad4ac689b09c8eab5d368654f1"
+  },
+  "observation_plan_binding": {
+    "path": "config/research/index-shadow-observation-plan-v1.json",
+    "sha256": "76ec562cb4af6071e0d442b1503f82eda567372a90cadb9d397f1cf1af239550",
+    "artifact_id": "606ec8e16aaadf14f7d9fa1647023ba4a4bea5cb09d17bf833ce7f2523563d33"
+  },
+  "product_review": {
+    "shadow_pair": [
+      "510300.SH",
+      "511010.SH"
+    ],
+    "official_identity_and_fee_evidence_verified": true,
+    "recent_reported_fund_scale_cny": {
+      "510300.SH@2025-12-31": 422257732361.57,
+      "511010.SH@2026-03-31": 3813258240.94
+    },
+    "published_management_fee_rate": {
+      "510300.SH": 0.0015,
+      "511010.SH": 0.0015
+    },
+    "published_custody_fee_rate": {
+      "510300.SH": 0.0005,
+      "511010.SH": 0.0005
+    },
+    "official_market_maker_notice_verified": {
+      "510300.SH": true,
+      "511010.SH": true
+    },
+    "exact_research_proxy_match": false,
+    "shadow_product_selection_is_investment_recommendation": false,
+    "final_live_product_mapping_status": "pending_manual_broker_eligibility_and_user_decision"
+  },
+  "minimum_shadow_evidence_before_review": {
+    "minimum_observations": 12,
+    "minimum_elapsed_calendar_days": 84,
+    "year_end_final_market_day_observation_required": true,
+    "next_year_first_market_day_observation_required": true,
+    "performance_or_alpha_proof": false
+  },
+  "missing_manual_inputs": {
+    "broker_legal_name": null,
+    "broker_tariff_evidence_path": null,
+    "broker_tariff_evidence_sha256": null,
+    "actual_etf_commission_rate_per_side": null,
+    "actual_minimum_commission_cny_per_order": null,
+    "exchange_and_regulatory_fees_included_in_commission": null,
+    "broker_confirms_510300_buy_sell_eligibility": null,
+    "broker_confirms_511010_buy_sell_eligibility": null,
+    "exact_controlled_capital_cny": null,
+    "exact_intended_execution_date": null,
+    "exact_authorized_products": null,
+    "user_live_promotion_confirmation_text": null
+  },
+  "manual_confirmation_template": "⚠️ 我确认将影子执行升级为受控真实资金试运行，并理解这不是收益保证；本次仅授权指定日期、产品和金额，不授权自动交易。",
+  "authorization_boundary": {
+    "broker_credential_access_authorized": false,
+    "broker_connection_authorized": false,
+    "capital_deployment_authorized": false,
+    "portfolio_construction_authorized": false,
+    "order_submission_authorized": false,
+    "trading_authorized": false,
+    "automatic_promotion_authorized": false
+  },
+  "readiness": {
+    "manual_inputs_complete": false,
+    "minimum_shadow_evidence_complete": false,
+    "ready_for_live_product_mapping": false,
+    "ready_for_portfolio_construction": false,
+    "ready_for_orders": false,
+    "ready_for_trading": false
+  }
+}

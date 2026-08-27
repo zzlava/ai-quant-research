@@ -60,6 +60,9 @@ cd /Users/janlei/Desktop/quant/ai-quant-research
 PYTHONPATH=src .venv/bin/python -m app.cli verify-index-shadow-execution-protocol
 PYTHONPATH=src .venv/bin/python -m app.cli initialize-index-shadow-execution
 PYTHONPATH=src .venv/bin/python -m app.cli verify-index-shadow-initialization
+PYTHONPATH=src .venv/bin/python -m app.cli verify-index-shadow-observation-plan
+PYTHONPATH=src .venv/bin/python -m app.cli verify-index-shadow-observation-chain
+PYTHONPATH=src .venv/bin/python -m app.cli verify-index-controlled-live-input-gate
 ```
 
 影子初始化文件默认写入：
@@ -80,3 +83,7 @@ PYTHONPATH=src .venv/bin/python -m app.cli verify-index-shadow-initialization
 - `broker_connection_authorized=false`；
 - `ready_for_orders=false`；
 - `ready_for_trading=false`。
+
+追加式观察计划、产品复核结论和受控真实资金输入门见
+`docs/research/index-shadow-observation-and-controlled-live-gate-v1.md`。至少完成 12 次、
+跨越至少 84 个自然日的观察，只代表可以审查执行语义，不代表自动晋级，更不证明收益。

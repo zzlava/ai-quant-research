@@ -1,0 +1,63 @@
+{
+  "schema_version": "1",
+  "plan_version": "index-shadow-observation-plan-v1",
+  "plan_id": "606ec8e16aaadf14f7d9fa1647023ba4a4bea5cb09d17bf833ce7f2523563d33",
+  "sealed_on": "2026-08-28",
+  "role": "append_only_execution_semantics_monitoring",
+  "shadow_protocol_binding": {
+    "path": "config/research/index-shadow-execution-protocol-v1.json",
+    "sha256": "3d894bc844032b96375f11ff087a032f830328e3fc0a209a1aef5ba728bb8ff4",
+    "protocol_id": "acc3fa5aa2f65f5d5ccd0a0a13e52bf7cb30bbad4ac689b09c8eab5d368654f1"
+  },
+  "cadence": {
+    "rule": "weekly_friday_after_close",
+    "timezone": "Asia/Shanghai",
+    "scheduled_local_time": "16:30",
+    "non_trading_friday_policy": "skip_without_backfill",
+    "minimum_observations_before_execution_review": 12,
+    "minimum_elapsed_calendar_days_before_execution_review": 84,
+    "year_end_final_market_day_observation_required": true,
+    "next_year_first_market_day_observation_required": true
+  },
+  "diagnostic_scope": {
+    "quoted_spread": true,
+    "visible_level1_depth": true,
+    "integer_board_lot_allocation_error": true,
+    "minimum_commission_floor": true,
+    "assumed_slippage_coverage": true,
+    "mark_to_market_weight_drift": true,
+    "after_close_quote_is_executable": false,
+    "actual_fill_claim": false,
+    "performance_or_alpha_claim": false
+  },
+  "append_only_policy": {
+    "one_record_per_market_date": true,
+    "strictly_increasing_market_dates": true,
+    "previous_record_hash_chain_required": true,
+    "raw_quote_hashes_required": true,
+    "overwrite_or_reseal_forbidden": true
+  },
+  "broker_tariff_input": {
+    "status": "missing_user_supplied_evidence",
+    "current_values_are_research_assumptions_only": true,
+    "actual_commission_rate_unknown": true,
+    "actual_minimum_commission_unknown": true,
+    "actual_etf_eligibility_unknown": true
+  },
+  "authorization_boundary": {
+    "official_sse_public_quote_network_access_authorized": true,
+    "local_append_only_artifact_write_authorized": true,
+    "broker_credential_access_authorized": false,
+    "broker_connection_authorized": false,
+    "order_submission_authorized": false,
+    "capital_deployment_authorized": false,
+    "trading_authorized": false
+  },
+  "readiness": {
+    "ready_for_scheduled_shadow_observation": true,
+    "ready_for_execution_review": false,
+    "ready_for_live_product_mapping": false,
+    "ready_for_orders": false,
+    "ready_for_trading": false
+  }
+}
