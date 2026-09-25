@@ -26,6 +26,15 @@ from app.manual.etf_allocation import (
     save_plan,
 )
 from app.manual.etf_report import save_plan_html
+from app.manual.notify import (
+    CHAT_ID_ENV,
+    TOKEN_ENV,
+    NotifyMode,
+    TelegramNotifier,
+    discover_chat_ids,
+    plan_summary,
+    should_notify,
+)
 
 etf_app = typer.Typer(help="Manual multi-asset ETF allocation: order tickets and an append-only fill ledger.")
 
@@ -71,35 +80,122 @@ def plan_cmd(
     ] = None,
     fetch_sse: Annotated[bool, typer.Option("--fetch-sse", help="Fetch quotes from the SSE public snapshot")] = False,
     force_rebalance: Annotated[bool, typer.Option("--force-rebalance")] = False,
+    notify: Annotated[
+        NotifyMode,
+        typer.Option("--notify", help="Telegram push: never, action (only when orders/blocks), always"),
+    ] = "never",
+    skip_stale_quotes: Annotated[
+        bool,
+        typer.Option("--skip-stale-quotes", help="Exit quietly when SSE quotes are not from today (holidays)"),
+    ] = False,
     policy_file: PolicyOpt = DEFAULT_POLICY_PATH,
     ledger_dir: LedgerOpt = DEFAULT_LEDGER_DIR,
     on: Annotated[str | None, typer.Option("--date", help="YYYY-MM-DD, default today (Asia/Shanghai)")] = None,
 ) -> None:
-    """Print a manual order ticket. It never sends orders."""
+    """Print a manual order ticket, optionally pushing it to Telegram. It never sends orders."""
     if (quotes_file is None) == (not fetch_sse):
         raise _fail(ValueError("pass exactly one of --quotes-file or --fetch-sse"))
+    notifier = None
     try:
+        if notify != "never":
+            notifier = TelegramNotifier.from_env()
+        as_of = date.fromisoformat(on) if on else _today()
         policy, policy_sha = load_policy(policy_file)
         state = load_ledger(ledger_dir)
         quotes = fetch_sse_quotes(policy) if fetch_sse else load_quotes_csv(quotes_file)  # type: ignore[arg-type]
+        stale = sorted({q.quote_date for q in quotes.values() if q.quote_date is not None and q.quote_date != as_of})
+        if skip_stale_quotes and stale:
+            typer.echo(f"quotes are from {stale[0]}, not {as_of} (market closed?); nothing to do")
+            return
         plan = build_plan(
             policy=policy,
             policy_sha256=policy_sha,
             state=state,
             quotes=quotes,
-            as_of=date.fromisoformat(on) if on else _today(),
+            as_of=as_of,
             force_rebalance=force_rebalance,
         )
         path = save_plan(plan, ledger_dir)
         html_path = save_plan_html(plan, path)
         annual_done = mark_annual_rebalance_done(ledger_dir, plan)
     except Exception as exc:  # noqa: BLE001
+        if notifier is not None:
+            try:
+                notifier.send_text(f"❗ ETF 调仓检查运行失败：{sanitize_error_message(exc)}")
+            except Exception:  # noqa: BLE001
+                typer.echo("telegram alert also failed", err=True)
         raise _fail(exc) from None
     typer.echo(render_plan(plan))
     if annual_done is not None:
         typer.echo(f"\n年度再平衡已完成，已写入账本（seq={annual_done.seq}），今年不会再次触发。")
     typer.echo(f"\nplan saved: {path}")
     typer.echo(f"图形报告（用浏览器打开）: {html_path.resolve()}")
+    if notifier is not None and should_notify(plan, notify):
+        try:
+            notifier.send_text(plan_summary(plan))
+            notifier.send_document(html_path, caption=f"ETF 调仓报告 {plan.as_of} · {plan.plan_id}")
+        except Exception as exc:  # noqa: BLE001
+            raise _fail(exc) from None
+        typer.echo("telegram: sent")
+
+
+@etf_app.command("telegram-chat-id")
+def telegram_chat_id_cmd() -> None:
+    """After you message your bot once, list chat ids that can receive notifications."""
+    import os
+
+    token = os.environ.get(TOKEN_ENV, "").strip()
+    if not token:
+        raise _fail(ValueError(f"set {TOKEN_ENV} first"))
+    try:
+        chats = discover_chat_ids(token)
+    except Exception as exc:  # noqa: BLE001
+        raise _fail(exc) from None
+    if not chats:
+        typer.echo("no chats found: open Telegram, send any message to your bot, then rerun")
+    for chat_id, name in chats:
+        typer.echo(f"{CHAT_ID_ENV}={chat_id}    # {name}")
+
+
+@etf_app.command("telegram-test")
+def telegram_test_cmd() -> None:
+    """Send a test message to the configured chat."""
+    try:
+        TelegramNotifier.from_env().send_text("✅ ai-quant ETF 提醒已连通。之后调仓提醒会发到这里。")
+    except Exception as exc:  # noqa: BLE001
+        raise _fail(exc) from None
+    typer.echo("telegram: sent")
+
+
+@etf_app.command("check-network")
+def check_network_cmd(policy_file: PolicyOpt = DEFAULT_POLICY_PATH) -> None:
+    """Check that this machine can reach both the SSE quote API and Telegram."""
+    import os
+    from urllib.request import urlopen
+
+    ok = True
+    try:
+        policy, _ = load_policy(policy_file)
+        quotes = fetch_sse_quotes(policy)
+        first = next(iter(quotes.values()))
+        typer.echo(f"SSE quotes: OK ({len(quotes)} symbols, {first.symbol} last={first.last} date={first.quote_date})")
+    except Exception as exc:  # noqa: BLE001
+        ok = False
+        typer.echo(f"SSE quotes: FAILED ({sanitize_error_message(exc)})")
+    try:
+        token = os.environ.get(TOKEN_ENV, "").strip() or "0:invalid"
+        with urlopen(f"https://api.telegram.org/bot{token}/getMe", timeout=15) as response:  # noqa: S310
+            response.read(4096)
+        typer.echo("Telegram API: OK")
+    except Exception as exc:  # noqa: BLE001
+        status = getattr(exc, "code", None)
+        if status in (401, 404):
+            typer.echo("Telegram API: reachable (token missing or invalid)")
+        else:
+            ok = False
+            typer.echo(f"Telegram API: FAILED ({exc.__class__.__name__})")
+    if not ok:
+        raise typer.Exit(code=1)
 
 
 @etf_app.command("record-fill")

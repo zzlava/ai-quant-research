@@ -1,0 +1,11 @@
+[Unit]
+Description=ai-quant ETF daily rebalance check (Telegram only when action is needed)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=aiq
+WorkingDirectory=/opt/ai-quant-research
+EnvironmentFile=/etc/ai-quant/telegram.env
+ExecStart=/opt/ai-quant-research/.venv/bin/ai-quant etf plan --fetch-sse --skip-stale-quotes --notify action

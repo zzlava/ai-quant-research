@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the ETF check on weekdays after the SSE close
+
+[Timer]
+OnCalendar=Mon..Fri 15:20 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

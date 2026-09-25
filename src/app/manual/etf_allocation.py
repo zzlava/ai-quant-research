@@ -315,6 +315,7 @@ class Quote(_StrictModel):
     bid: Decimal | None = Field(default=None, gt=0)
     ask: Decimal | None = Field(default=None, gt=0)
     iopv: Decimal | None = Field(default=None, gt=0)
+    quote_date: date | None = None
     source: str
 
 
@@ -371,6 +372,7 @@ def parse_sse_snapshot(symbol: str, payload: bytes) -> Quote:
             last=Decimal(str(snap[1])),
             bid=Decimal(str(snap[7][0])) if Decimal(str(snap[7][0])) > 0 else None,
             ask=Decimal(str(snap[8][0])) if Decimal(str(snap[8][0])) > 0 else None,
+            quote_date=datetime.strptime(str(data["date"]), "%Y%m%d").date(),
             source=f"sse:{data['date']}T{str(data['time']).zfill(6)}",
         )
     except Exception as exc:

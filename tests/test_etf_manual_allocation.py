@@ -227,3 +227,45 @@ def test_html_report_shows_orders_bands_and_escapes_text(tmp_path: Path) -> None
     assert "<script>" in html and "prefers-color-scheme: dark" in html
     quiet = render_plan_html(_plan(load_ledger(tmp_path), _quotes()))
     assert "今天不用交易" in quiet and "调仓单（" not in quiet
+
+
+def test_telegram_notifier_sends_summary_and_report(tmp_path: Path) -> None:
+    from app.manual.etf_report import save_plan_html
+    from app.manual.notify import TelegramNotifier, plan_summary, should_notify
+
+    ledger = tmp_path / "ledger"
+    _deployed_ledger(ledger)
+    plan = _plan(load_ledger(ledger), _quotes({"510300.SH": Decimal("8.00")}), as_of=date(2026, 11, 2))
+    quiet = _plan(load_ledger(ledger), _quotes())
+    assert should_notify(plan, "action") and not should_notify(quiet, "action")
+    assert should_notify(quiet, "always") and not should_notify(plan, "never")
+    text = plan_summary(plan)
+    assert "需要调仓" in text and "卖出 510300" in text and plan.plan_id in text
+
+    calls: list[tuple[str, bytes, str]] = []
+
+    def fake_post(url: str, body: bytes, content_type: str) -> bytes:
+        calls.append((url, body, content_type))
+        return b'{"ok": true}'
+
+    notifier = TelegramNotifier(token="123:abc", chat_id="42", post=fake_post)
+    notifier.send_text(text)
+    report = save_plan_html(plan, tmp_path / "plan.json")
+    notifier.send_document(report, caption="report")
+    assert calls[0][0].endswith("/bot123:abc/sendMessage")
+    assert json.loads(calls[0][1])["chat_id"] == "42"
+    assert calls[1][0].endswith("/sendDocument") and calls[1][2].startswith("multipart/form-data")
+    assert b'filename="plan.html"' in calls[1][1] and b"<!doctype html>" in calls[1][1]
+
+    failing = TelegramNotifier(token="123:abc", chat_id="42", post=lambda *_: b'{"ok": false}')
+    with pytest.raises(ValueError, match="sendMessage failed"):
+        failing.send_text("x")
+
+
+def test_notifier_requires_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.manual.notify import CHAT_ID_ENV, TOKEN_ENV, TelegramNotifier
+
+    monkeypatch.delenv(TOKEN_ENV, raising=False)
+    monkeypatch.setenv(CHAT_ID_ENV, "42")
+    with pytest.raises(ValueError, match=TOKEN_ENV):
+        TelegramNotifier.from_env()

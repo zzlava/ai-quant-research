@@ -18,6 +18,7 @@ A 股低频、半自动量化**研究**系统 MVP。
 当前唯一用于真实资金的部分：固定比例的多资产 ETF 组合（沪深300 / 标普500 / 黄金 / 5 年国债 / 现金），
 由 `ai-quant etf plan` 生成手动调仓单，用户在券商 App 自己下单后用 `etf record-fill` 记账。
 不连接券商、不自动下单。用法与规则见 [`docs/etf-multi-asset-manual.md`](docs/etf-multi-asset-manual.md)。
+部署到 VPS 并用 Telegram 接收调仓提醒，见 [`docs/vps-telegram-deploy.md`](docs/vps-telegram-deploy.md)。
 
 ## 架构
 
