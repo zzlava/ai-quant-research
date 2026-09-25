@@ -282,3 +282,50 @@ def bot_cmd(
     )
     typer.echo("telegram bot running (Ctrl+C to stop)")
     bot.run_forever()
+
+
+@etf_app.command("repo-check")
+def repo_check_cmd(
+    notify: Annotated[
+        NotifyMode,
+        typer.Option("--notify", help="Telegram push: never, action (only when a reminder fires), always"),
+    ] = "never",
+    rate: Annotated[
+        str | None, typer.Option("--rate", help="Annualized rate in %, skips fetching from SSE")
+    ] = None,
+    repo_policy_file: Annotated[Path, typer.Option("--repo-policy-file", dir_okay=False)] = Path(
+        "config/manual/reverse-repo-v1.json"
+    ),
+    ledger_dir: LedgerOpt = DEFAULT_LEDGER_DIR,
+    on: Annotated[str | None, typer.Option("--date", help="YYYY-MM-DD, default today (Asia/Shanghai)")] = None,
+) -> None:
+    """Remind to lend idle cash via 1-day exchange reverse repo on Thursdays or when the rate is high."""
+    from app.manual.reverse_repo import advise, fetch_repo_rate, load_repo_policy, repo_message
+
+    try:
+        notifier = TelegramNotifier.from_env() if notify != "never" else None
+        policy = load_repo_policy(repo_policy_file)
+        state = load_ledger(ledger_dir)
+        as_of = date.fromisoformat(on) if on else _today()
+    except Exception as exc:  # noqa: BLE001
+        raise _fail(exc) from None
+    rate_pct, rate_date = (Decimal(rate), as_of) if rate is not None else (None, None)
+    if rate is None:
+        try:
+            rate_pct, rate_date = fetch_repo_rate(policy)
+        except Exception as exc:  # noqa: BLE001
+            typer.echo(f"repo rate unavailable: {sanitize_error_message(exc)}", err=True)
+    advice = advise(policy, cash=state.cash, as_of=as_of, rate_pct=rate_pct, rate_date=rate_date)
+    rate_text = f"{advice.rate_pct}%" if advice.rate_pct is not None else "未知"
+    text = (
+        repo_message(policy, advice)
+        if advice.remind
+        else f"今天不提醒逆回购（可借出 {advice.lendable_cny:,.0f} 元，利率 {rate_text}）"
+    )
+    typer.echo(text)
+    if notifier is not None and (notify == "always" or advice.remind):
+        try:
+            notifier.send_text(text)
+        except Exception as exc:  # noqa: BLE001
+            raise _fail(exc) from None
+        typer.echo("telegram: sent")

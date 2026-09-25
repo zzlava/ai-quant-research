@@ -37,6 +37,14 @@ from app.manual.etf_allocation import (
     simulate,
 )
 from app.manual.notify import TelegramNotifier, plan_summary
+from app.manual.reverse_repo import (
+    DEFAULT_REPO_POLICY_PATH,
+    RepoPolicy,
+    advise,
+    fetch_repo_rate,
+    load_repo_policy,
+    repo_message,
+)
 from app.manual.service import run_plan
 
 _CST = timezone(timedelta(hours=8))
@@ -60,6 +68,7 @@ HELP_TEXT = """ETF 记账机器人（只记账，不下单）
     /cash -5000 取出
 
 /status  查看现金和持仓
+/repo    看今天是否适合做国债逆回购、能借出多少
 /plan    抓上交所行情重新生成调仓单（带图形报告）
 /help    显示本说明
 
@@ -163,6 +172,8 @@ class LedgerBot:
     clock: Callable[[], float] = time.time
     fetch_quotes: Callable[[EtfPolicy], dict[str, Quote]] = fetch_sse_quotes
     notifier_factory: Callable[[], TelegramNotifier] | None = None
+    repo_policy_file: Path = DEFAULT_REPO_POLICY_PATH
+    fetch_repo_rate: Callable[[RepoPolicy], tuple[Decimal, date | None]] = fetch_repo_rate
     pending: dict[str, Pending] = field(default_factory=dict)
     offset: int | None = None
 
@@ -215,6 +226,7 @@ class LedgerBot:
             "/cash": self._cmd_cash,
             "/status": lambda _: self._cmd_status(),
             "/plan": lambda _: self._cmd_plan(),
+            "/repo": lambda _: self._cmd_repo(),
             "/start": lambda _: self._say(HELP_TEXT),
             "/help": lambda _: self._say(HELP_TEXT),
         }
@@ -277,6 +289,23 @@ class LedgerBot:
         lines += [f"{symbol[:6]}：{quantity} 份" for symbol, quantity in sorted(state.holdings.items())]
         lines.append(f"账本共 {len(state.events)} 条记录，校验通过。")
         self._say("\n".join(lines))
+
+    def _cmd_repo(self) -> None:
+        policy = load_repo_policy(self.repo_policy_file)
+        state = load_ledger(self.ledger_dir)
+        try:
+            rate_pct, rate_date = self.fetch_repo_rate(policy)
+        except Exception:  # noqa: BLE001
+            rate_pct, rate_date = None, None
+        advice = advise(policy, cash=state.cash, as_of=self._today(), rate_pct=rate_pct, rate_date=rate_date)
+        if advice.remind:
+            self._say(repo_message(policy, advice))
+            return
+        rate = f"{advice.rate_pct}%" if advice.rate_pct is not None else "未取到"
+        self._say(
+            f"今天没有触发逆回购提醒（周四或利率 ≥ {policy.rate_threshold_pct}% 时提醒）。\n"
+            f"可借出 {advice.lendable_cny:,.0f} 元，当前利率 {rate}。想做也可以照常在 App 里借出。"
+        )
 
     def _cmd_plan(self) -> None:
         policy, _ = load_policy(self.policy_file)
