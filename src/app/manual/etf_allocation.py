@@ -111,7 +111,7 @@ def commission(notional: Decimal, cost: CostPolicy) -> Decimal:
 
 class LedgerEvent(_StrictModel):
     seq: int = Field(ge=0)
-    kind: Literal["init", "fill", "cash"]
+    kind: Literal["init", "fill", "cash", "annual_rebalance_done"]
     event_date: date
     recorded_at: datetime
     symbol: str | None = None
@@ -130,7 +130,7 @@ class LedgerEvent(_StrictModel):
         if self.kind == "fill":
             if None in (self.symbol, self.side, self.quantity, self.price, self.commission):
                 raise ValueError("fill events need symbol, side, quantity, price and commission")
-        elif self.cash_amount is None:
+        elif self.kind in ("init", "cash") and self.cash_amount is None:
             raise ValueError(f"{self.kind} events need cash_amount")
         return self
 
@@ -149,11 +149,18 @@ class LedgerState(_StrictModel):
     def last_hash(self) -> str:
         return self.events[-1].event_hash if self.events else _GENESIS_HASH
 
-    def fill_dates(self) -> list[date]:
-        return [event.event_date for event in self.events if event.kind == "fill"]
+    def annual_rebalance_pending(self, as_of: date, annual_month: int) -> bool:
+        """The calendar rebalance stays pending for a year until it is explicitly marked done."""
+        if as_of.month < annual_month or self.events[0].event_date.year >= as_of.year:
+            return False
+        return not any(
+            event.kind == "annual_rebalance_done" and event.event_date.year == as_of.year for event in self.events
+        )
 
 
 def _apply(state_cash: Decimal, holdings: dict[str, int], event: LedgerEvent) -> Decimal:
+    if event.kind == "annual_rebalance_done":
+        return state_cash
     if event.kind in ("init", "cash"):
         assert event.cash_amount is not None
         state_cash += event.cash_amount
@@ -270,6 +277,22 @@ def record_fill(
             "note": note,
         },
     )
+
+
+def mark_annual_rebalance_done(ledger_dir: Path, plan: EtfPlan) -> LedgerEvent | None:
+    """Close the year's calendar rebalance once a plan that carries it needs no more orders."""
+    if "annual_calendar_rebalance" not in plan.triggers or plan.orders or plan.blocked:
+        return None
+    state = load_ledger(ledger_dir)
+    if state.last_hash != plan.ledger_head_hash:
+        raise ValueError("ledger changed after this plan was built; rerun `etf plan`")
+    fields = {
+        "kind": "annual_rebalance_done",
+        "event_date": plan.as_of.isoformat(),
+        "plan_id": plan.plan_id,
+        "note": "annual calendar rebalance complete: holdings match the board-lot target",
+    }
+    return _append(ledger_dir, state, fields)
 
 
 def record_cash(ledger_dir: Path, *, amount: Decimal, event_date: date, note: str) -> LedgerEvent:
@@ -494,7 +517,7 @@ def build_plan(
         )
     if not any(state.holdings.values()):
         triggers.insert(0, "initial_deployment")
-    elif as_of.month == policy.rebalance.annual_month and not any(d.year == as_of.year for d in state.fill_dates()):
+    elif state.annual_rebalance_pending(as_of, policy.rebalance.annual_month):
         triggers.insert(0, "annual_calendar_rebalance")
     if force_rebalance:
         triggers.insert(0, "user_forced")

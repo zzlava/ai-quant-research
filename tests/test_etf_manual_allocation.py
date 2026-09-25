@@ -18,6 +18,7 @@ from app.manual.etf_allocation import (
     load_ledger,
     load_policy,
     load_quotes_csv,
+    mark_annual_rebalance_done,
     parse_sse_snapshot,
     record_cash,
     record_fill,
@@ -126,8 +127,39 @@ def test_band_breach_sells_winner_before_buying(tmp_path: Path) -> None:
 
 def test_annual_calendar_rebalance_fires_once_per_year(tmp_path: Path) -> None:
     _deployed_ledger(tmp_path)
+    assert "annual_calendar_rebalance" not in _plan(load_ledger(tmp_path), _quotes(), as_of=date(2026, 10, 5)).triggers
     plan = _plan(load_ledger(tmp_path), _quotes(), as_of=date(2027, 1, 5))
     assert plan.triggers[0] == "annual_calendar_rebalance"
+    assert plan.orders == []
+    assert mark_annual_rebalance_done(tmp_path, plan) is not None
+    later = _plan(load_ledger(tmp_path), _quotes(), as_of=date(2027, 1, 20))
+    assert "annual_calendar_rebalance" not in later.triggers
+
+
+def test_partial_annual_fill_keeps_remaining_orders(tmp_path: Path) -> None:
+    policy, _ = _policy()
+    _deployed_ledger(tmp_path)
+    moved = _quotes({"510300.SH": Decimal("3.60"), "518880.SH": Decimal("10.00")})
+    plan = _plan(load_ledger(tmp_path), moved, as_of=date(2027, 1, 5))
+    assert plan.triggers == ["annual_calendar_rebalance"]
+    assert len(plan.orders) >= 2
+    assert not any(leg.out_of_band for leg in plan.legs)
+    assert mark_annual_rebalance_done(tmp_path, plan) is None
+    first = plan.orders[0]
+    record_fill(
+        tmp_path,
+        policy,
+        symbol=first.symbol,
+        side=first.side,
+        quantity=first.quantity,
+        price=first.limit_price,
+        commission_paid=None,
+        event_date=date(2027, 1, 5),
+        plan_id=plan.plan_id,
+    )
+    rerun = _plan(load_ledger(tmp_path), moved, as_of=date(2027, 1, 6))
+    assert rerun.triggers == ["annual_calendar_rebalance"]
+    assert {order.symbol for order in rerun.orders} == {order.symbol for order in plan.orders[1:]}
 
 
 def test_qdii_buy_is_blocked_above_premium_limit(tmp_path: Path) -> None:

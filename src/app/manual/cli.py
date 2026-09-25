@@ -19,6 +19,7 @@ from app.manual.etf_allocation import (
     load_ledger,
     load_policy,
     load_quotes_csv,
+    mark_annual_rebalance_done,
     record_cash,
     record_fill,
     render_plan,
@@ -91,9 +92,12 @@ def plan_cmd(
         )
         path = save_plan(plan, ledger_dir)
         html_path = save_plan_html(plan, path)
+        annual_done = mark_annual_rebalance_done(ledger_dir, plan)
     except Exception as exc:  # noqa: BLE001
         raise _fail(exc) from None
     typer.echo(render_plan(plan))
+    if annual_done is not None:
+        typer.echo(f"\n年度再平衡已完成，已写入账本（seq={annual_done.seq}），今年不会再次触发。")
     typer.echo(f"\nplan saved: {path}")
     typer.echo(f"图形报告（用浏览器打开）: {html_path.resolve()}")
 
