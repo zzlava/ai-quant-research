@@ -22,6 +22,7 @@ from app.manual.etf_allocation import (
     record_cash,
     record_fill,
 )
+from app.manual.etf_report import render_plan_html
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PRICES = {
@@ -183,3 +184,14 @@ def test_quotes_csv_and_sse_snapshot_parsing(tmp_path: Path) -> None:
     assert parsed.bid == Decimal("4.699") and parsed.ask == Decimal("4.7")
     with pytest.raises(ValueError, match="mismatch"):
         parse_sse_snapshot("518880.SH", payload)
+
+
+def test_html_report_shows_orders_bands_and_escapes_text(tmp_path: Path) -> None:
+    _deployed_ledger(tmp_path)
+    plan = _plan(load_ledger(tmp_path), _quotes({"510300.SH": Decimal("8.00")}), as_of=date(2026, 11, 2))
+    html = render_plan_html(plan)
+    assert "需要下单" in html and "超出容忍带" in html and plan.plan_id in html
+    assert html.count('class="row-hit"') == len(plan.legs) + 1
+    assert "<script>" in html and "prefers-color-scheme: dark" in html
+    quiet = render_plan_html(_plan(load_ledger(tmp_path), _quotes()))
+    assert "今天不用交易" in quiet and "调仓单（" not in quiet

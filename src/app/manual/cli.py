@@ -24,6 +24,7 @@ from app.manual.etf_allocation import (
     render_plan,
     save_plan,
 )
+from app.manual.etf_report import save_plan_html
 
 etf_app = typer.Typer(help="Manual multi-asset ETF allocation: order tickets and an append-only fill ledger.")
 
@@ -89,10 +90,12 @@ def plan_cmd(
             force_rebalance=force_rebalance,
         )
         path = save_plan(plan, ledger_dir)
+        html_path = save_plan_html(plan, path)
     except Exception as exc:  # noqa: BLE001
         raise _fail(exc) from None
     typer.echo(render_plan(plan))
     typer.echo(f"\nplan saved: {path}")
+    typer.echo(f"图形报告（用浏览器打开）: {html_path.resolve()}")
 
 
 @etf_app.command("record-fill")
