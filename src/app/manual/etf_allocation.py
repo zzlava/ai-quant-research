@@ -8,9 +8,13 @@ records the fills the user reports back.
 from __future__ import annotations
 
 import csv
+import fcntl
 import hashlib
 import itertools
 import json
+import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from decimal import ROUND_FLOOR, Decimal
 from pathlib import Path
@@ -232,14 +236,82 @@ def _append(ledger_dir: Path, state: LedgerState | None, fields: dict[str, Any])
     return event
 
 
+@contextmanager
+def ledger_lock(ledger_dir: Path) -> Iterator[None]:
+    """Serialize ledger writers (CLI, scheduled job, Telegram bot) on one machine."""
+    directory = Path(ledger_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+    # Read-only open: a lock file created by another user (e.g. root) is still usable.
+    fd = os.open(directory / ".lock", os.O_RDONLY | os.O_CREAT, 0o666)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
+
+
+def _load_expected(ledger_dir: Path, expected_head: str | None) -> LedgerState:
+    state = load_ledger(ledger_dir)
+    if expected_head is not None and state.last_hash != expected_head:
+        raise ValueError("账本在预览之后有变化，为安全起见请重新发送 (ledger changed since preview)")
+    return state
+
+
 def init_ledger(ledger_dir: Path, *, cash: Decimal, event_date: date, note: str = "") -> LedgerEvent:
-    if (Path(ledger_dir) / LEDGER_FILENAME).exists():
-        raise ValueError("ledger already exists; it is append-only and cannot be re-initialized")
     if cash <= 0:
         raise ValueError("initial cash must be positive")
-    return _append(
-        ledger_dir, None, {"kind": "init", "event_date": event_date.isoformat(), "cash_amount": str(cash), "note": note}
-    )
+    with ledger_lock(ledger_dir):
+        if (Path(ledger_dir) / LEDGER_FILENAME).exists():
+            raise ValueError("ledger already exists; it is append-only and cannot be re-initialized")
+        fields = {"kind": "init", "event_date": event_date.isoformat(), "cash_amount": str(cash), "note": note}
+        return _append(ledger_dir, None, fields)
+
+
+def fill_fields(
+    policy: EtfPolicy,
+    *,
+    symbol: str,
+    side: Literal["buy", "sell"],
+    quantity: int,
+    price: Decimal,
+    commission_paid: Decimal | None,
+    event_date: date,
+    plan_id: str | None = None,
+    note: str = "",
+) -> dict[str, Any]:
+    """Validate a fill against the policy and return the ledger fields it would append."""
+    asset = policy.asset(symbol)
+    if quantity <= 0:
+        raise ValueError("quantity must be positive")
+    if price <= 0:
+        raise ValueError("price must be positive")
+    if side == "buy" and quantity % asset.board_lot:
+        raise ValueError(f"buy quantity must be a multiple of the {asset.board_lot}-unit board lot")
+    fee = commission_paid if commission_paid is not None else commission(price * quantity, policy.cost)
+    if fee < 0:
+        raise ValueError("commission cannot be negative")
+    return {
+        "kind": "fill",
+        "event_date": event_date.isoformat(),
+        "symbol": symbol,
+        "side": side,
+        "quantity": quantity,
+        "price": str(price),
+        "commission": str(fee),
+        "plan_id": plan_id,
+        "note": note,
+    }
+
+
+def simulate(state: LedgerState, fields: dict[str, Any]) -> tuple[Decimal, dict[str, int]]:
+    """Cash and holdings after appending `fields`, raising on oversell or negative cash. Writes nothing."""
+    payload = {"seq": len(state.events), "recorded_at": datetime.now(_CST).isoformat(), "note": "", **fields}
+    payload["prev_hash"] = state.last_hash
+    payload = json.loads(_canonical(payload))
+    payload["event_hash"] = _event_hash(payload)
+    holdings = dict(state.holdings)
+    cash = _apply(state.cash, holdings, LedgerEvent.model_validate(payload))
+    return cash.quantize(Decimal("0.01")), holdings
 
 
 def record_fill(
@@ -254,55 +326,59 @@ def record_fill(
     event_date: date,
     plan_id: str | None = None,
     note: str = "",
+    expected_head: str | None = None,
 ) -> LedgerEvent:
-    asset = policy.asset(symbol)
-    if quantity <= 0:
-        raise ValueError("quantity must be positive")
-    if side == "buy" and quantity % asset.board_lot:
-        raise ValueError(f"buy quantity must be a multiple of the {asset.board_lot}-unit board lot")
-    fee = commission_paid if commission_paid is not None else commission(price * quantity, policy.cost)
-    state = load_ledger(ledger_dir)
-    return _append(
-        ledger_dir,
-        state,
-        {
-            "kind": "fill",
-            "event_date": event_date.isoformat(),
-            "symbol": symbol,
-            "side": side,
-            "quantity": quantity,
-            "price": str(price),
-            "commission": str(fee),
-            "plan_id": plan_id,
-            "note": note,
-        },
+    fields = fill_fields(
+        policy,
+        symbol=symbol,
+        side=side,
+        quantity=quantity,
+        price=price,
+        commission_paid=commission_paid,
+        event_date=event_date,
+        plan_id=plan_id,
+        note=note,
     )
+    with ledger_lock(ledger_dir):
+        return _append(ledger_dir, _load_expected(ledger_dir, expected_head), fields)
 
 
 def mark_annual_rebalance_done(ledger_dir: Path, plan: EtfPlan) -> LedgerEvent | None:
     """Close the year's calendar rebalance once a plan that carries it needs no more orders."""
     if "annual_calendar_rebalance" not in plan.triggers or plan.orders or plan.blocked:
         return None
-    state = load_ledger(ledger_dir)
-    if state.last_hash != plan.ledger_head_hash:
-        raise ValueError("ledger changed after this plan was built; rerun `etf plan`")
     fields = {
         "kind": "annual_rebalance_done",
         "event_date": plan.as_of.isoformat(),
         "plan_id": plan.plan_id,
         "note": "annual calendar rebalance complete: holdings match the board-lot target",
     }
-    return _append(ledger_dir, state, fields)
+    with ledger_lock(ledger_dir):
+        state = load_ledger(ledger_dir)
+        if state.last_hash != plan.ledger_head_hash:
+            raise ValueError("ledger changed after this plan was built; rerun `etf plan`")
+        return _append(ledger_dir, state, fields)
 
 
-def record_cash(ledger_dir: Path, *, amount: Decimal, event_date: date, note: str) -> LedgerEvent:
+def cash_fields(*, amount: Decimal, event_date: date, note: str) -> dict[str, Any]:
     if amount == 0:
         raise ValueError("cash adjustment must be non-zero")
     if not note.strip():
         raise ValueError("cash adjustments need a reason (deposit, withdrawal, 逆回购利息, 分红 …)")
-    state = load_ledger(ledger_dir)
-    fields = {"kind": "cash", "event_date": event_date.isoformat(), "cash_amount": str(amount), "note": note}
-    return _append(ledger_dir, state, fields)
+    return {"kind": "cash", "event_date": event_date.isoformat(), "cash_amount": str(amount), "note": note}
+
+
+def record_cash(
+    ledger_dir: Path, *, amount: Decimal, event_date: date, note: str, expected_head: str | None = None
+) -> LedgerEvent:
+    fields = cash_fields(amount=amount, event_date=event_date, note=note)
+    with ledger_lock(ledger_dir):
+        return _append(ledger_dir, _load_expected(ledger_dir, expected_head), fields)
+
+
+def latest_plan(ledger_dir: Path) -> EtfPlan | None:
+    plans = sorted((Path(ledger_dir) / "plans").glob("*.json"), key=lambda p: p.stat().st_mtime)
+    return EtfPlan.model_validate_json(plans[-1].read_text(encoding="utf-8")) if plans else None
 
 
 # --------------------------------------------------------------------------- quotes

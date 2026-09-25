@@ -72,6 +72,8 @@ PYTHONPATH=src .venv/bin/python -m app.cli etf record-fill --symbol 510300 --sid
 
 # 没有全部成交时，只记实际成交的部分，然后重新运行 plan 即可。
 
+# 部署到 VPS 后，也可以直接在 Telegram 里给机器人发 /fill 记账，见 docs/vps-telegram-deploy.md
+
 # 4. 现金变动：入金/出金/逆回购利息/ETF 分红
 PYTHONPATH=src .venv/bin/python -m app.cli etf cash --amount 3.21 --note "逆回购利息"
 

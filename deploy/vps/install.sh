@@ -31,7 +31,13 @@ if [[ ! -f "$ENV_DIR/telegram.env" ]]; then
 fi
 
 install -m 644 deploy/vps/aiq-etf-daily.service deploy/vps/aiq-etf-daily.timer \
-  deploy/vps/aiq-etf-weekly.service deploy/vps/aiq-etf-weekly.timer /etc/systemd/system/
+  deploy/vps/aiq-etf-weekly.service deploy/vps/aiq-etf-weekly.timer deploy/vps/aiq-etf-bot.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now aiq-etf-daily.timer aiq-etf-weekly.timer
+if grep -q '^AIQ_TELEGRAM_CHAT_ID=[0-9-]' "$ENV_DIR/telegram.env" && [[ -f "$APP_DIR/data/manual/etf-multi-asset-v1/ledger.jsonl" ]]; then
+  systemctl enable aiq-etf-bot.service
+  systemctl restart aiq-etf-bot.service
+else
+  echo "bot not started yet: fill $ENV_DIR/telegram.env and create the ledger, then rerun this script"
+fi
 systemctl list-timers 'aiq-etf-*' --no-pager

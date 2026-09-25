@@ -13,19 +13,15 @@ from app.errors import sanitize_error_message
 from app.manual.etf_allocation import (
     DEFAULT_LEDGER_DIR,
     DEFAULT_POLICY_PATH,
-    build_plan,
     fetch_sse_quotes,
     init_ledger,
     load_ledger,
     load_policy,
     load_quotes_csv,
-    mark_annual_rebalance_done,
     record_cash,
     record_fill,
     render_plan,
-    save_plan,
 )
-from app.manual.etf_report import save_plan_html
 from app.manual.notify import (
     CHAT_ID_ENV,
     TOKEN_ENV,
@@ -35,6 +31,7 @@ from app.manual.notify import (
     plan_summary,
     should_notify,
 )
+from app.manual.service import run_plan, stale_quote_dates
 
 etf_app = typer.Typer(help="Manual multi-asset ETF allocation: order tickets and an append-only fill ledger.")
 
@@ -100,24 +97,20 @@ def plan_cmd(
         if notify != "never":
             notifier = TelegramNotifier.from_env()
         as_of = date.fromisoformat(on) if on else _today()
-        policy, policy_sha = load_policy(policy_file)
-        state = load_ledger(ledger_dir)
+        policy, _ = load_policy(policy_file)
         quotes = fetch_sse_quotes(policy) if fetch_sse else load_quotes_csv(quotes_file)  # type: ignore[arg-type]
-        stale = sorted({q.quote_date for q in quotes.values() if q.quote_date is not None and q.quote_date != as_of})
+        stale = stale_quote_dates(quotes, as_of)
         if skip_stale_quotes and stale:
             typer.echo(f"quotes are from {stale[0]}, not {as_of} (market closed?); nothing to do")
             return
-        plan = build_plan(
-            policy=policy,
-            policy_sha256=policy_sha,
-            state=state,
+        run = run_plan(
+            policy_file=policy_file,
+            ledger_dir=ledger_dir,
             quotes=quotes,
             as_of=as_of,
             force_rebalance=force_rebalance,
         )
-        path = save_plan(plan, ledger_dir)
-        html_path = save_plan_html(plan, path)
-        annual_done = mark_annual_rebalance_done(ledger_dir, plan)
+        plan, path, html_path, annual_done = run.plan, run.json_path, run.html_path, run.annual_done
     except Exception as exc:  # noqa: BLE001
         if notifier is not None:
             try:
@@ -265,3 +258,27 @@ def status_cmd(ledger_dir: LedgerOpt = DEFAULT_LEDGER_DIR) -> None:
     typer.echo(f"cash={state.cash}")
     for symbol, quantity in sorted(state.holdings.items()):
         typer.echo(f"{symbol} {quantity}")
+
+
+@etf_app.command("bot")
+def bot_cmd(
+    policy_file: PolicyOpt = DEFAULT_POLICY_PATH,
+    ledger_dir: LedgerOpt = DEFAULT_LEDGER_DIR,
+) -> None:
+    """Run the Telegram bookkeeping bot (long polling). Only the configured chat can use it."""
+    from app.manual.telegram_bot import LedgerBot, TelegramApi
+
+    try:
+        notifier = TelegramNotifier.from_env()
+        load_ledger(ledger_dir)
+    except Exception as exc:  # noqa: BLE001
+        raise _fail(exc) from None
+    bot = LedgerBot(
+        api=TelegramApi(notifier.token),
+        chat_id=notifier.chat_id,
+        policy_file=policy_file,
+        ledger_dir=ledger_dir,
+        notifier_factory=lambda: notifier,
+    )
+    typer.echo("telegram bot running (Ctrl+C to stop)")
+    bot.run_forever()
