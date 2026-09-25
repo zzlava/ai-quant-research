@@ -10,6 +10,7 @@ import typer
 
 from app.demo.generator import DEMO_SEED, generate_demo_market, write_demo_parquet
 from app.errors import sanitize_error_message
+from app.manual.cli import etf_app
 from app.pipeline import run_backtest, run_score
 from app.research.position_utilization import summarize_position_utilization
 from app.settings import get_settings
@@ -18,6 +19,7 @@ from app.strategies.loader import load_strategy_config
 from app.strategies.registry import StrategyRegistry
 
 app = typer.Typer(help="A-share research scoring and historical backtest CLI.")
+app.add_typer(etf_app, name="etf")
 
 
 @app.command("generate-demo")
