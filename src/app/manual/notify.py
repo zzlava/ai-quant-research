@@ -1,4 +1,4 @@
-"""Telegram push notifications for ETF plans. Outbound only: the bot never receives or executes commands."""
+"""Notifications for ETF plans: Telegram push, or a local outbox that another agent relays (e.g. Muse)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import json
 import os
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, Protocol
 from urllib.request import Request, urlopen
@@ -131,3 +132,85 @@ def plan_summary(plan: EtfPlan) -> str:
     lines.append("")
     lines.append("完整图形报告见附件。本消息只是提醒，不会自动下单。")
     return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------- outbox (e.g. relayed by Muse)
+
+CHANNEL_ENV = "AIQ_NOTIFY_CHANNEL"
+OUTBOX_DIRNAME = "outbox"
+
+
+class Notifier(Protocol):
+    def send_text(self, text: str) -> None: ...
+
+    def send_document(self, path: Path, caption: str = "") -> None: ...
+
+
+@dataclass(frozen=True)
+class OutboxNotifier:
+    """Writes each notification as a JSON file under outbox/pending for another agent to relay.
+
+    Nothing leaves the machine from here; the relaying agent (e.g. Muse in WhatsApp) reads pending
+    messages with `etf outbox` and marks them sent with `etf outbox --ack`.
+    """
+
+    outbox_dir: Path
+
+    def _write(self, payload: dict[str, object]) -> Path:
+        pending = self.outbox_dir / "pending"
+        pending.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+        path = pending / f"{stamp}-{uuid.uuid4().hex[:6]}.json"
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"id": path.stem, **payload}, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(path)
+        return path
+
+    def send_text(self, text: str) -> None:
+        self._write({"created_at": datetime.now(UTC).isoformat(), "text": text, "attachments": []})
+
+    def send_document(self, path: Path, caption: str = "") -> None:
+        self._write(
+            {
+                "created_at": datetime.now(UTC).isoformat(),
+                "text": caption,
+                "attachments": [str(Path(path).resolve())],
+            }
+        )
+
+
+def notifier_from_env(ledger_dir: Path) -> Notifier:
+    """Pick the channel from AIQ_NOTIFY_CHANNEL (telegram|outbox); default telegram when a token is set."""
+    channel = os.environ.get(CHANNEL_ENV, "").strip().lower()
+    if not channel:
+        channel = "telegram" if os.environ.get(TOKEN_ENV, "").strip() else "outbox"
+    if channel == "telegram":
+        return TelegramNotifier.from_env()
+    if channel == "outbox":
+        return OutboxNotifier(Path(ledger_dir) / OUTBOX_DIRNAME)
+    raise ValueError(f"{CHANNEL_ENV} must be telegram or outbox, got {channel!r}")
+
+
+def pending_messages(outbox_dir: Path) -> list[dict[str, object]]:
+    pending = Path(outbox_dir) / "pending"
+    if not pending.exists():
+        return []
+    messages: list[dict[str, object]] = []
+    for path in sorted(pending.glob("*.json")):
+        messages.append(json.loads(path.read_text(encoding="utf-8")))
+    return messages
+
+
+def ack_messages(outbox_dir: Path, ids: list[str]) -> int:
+    """Move the given pending messages (or all when ids is empty) to outbox/sent."""
+    pending = Path(outbox_dir) / "pending"
+    sent = Path(outbox_dir) / "sent"
+    sent.mkdir(parents=True, exist_ok=True)
+    wanted = set(ids)
+    moved = 0
+    for path in sorted(pending.glob("*.json")) if pending.exists() else []:
+        if wanted and path.stem not in wanted:
+            continue
+        path.replace(sent / path.name)
+        moved += 1
+    return moved

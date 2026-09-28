@@ -13,7 +13,9 @@ from app.errors import sanitize_error_message
 from app.manual.etf_allocation import (
     DEFAULT_LEDGER_DIR,
     DEFAULT_POLICY_PATH,
+    cash_fields,
     fetch_sse_quotes,
+    fill_fields,
     init_ledger,
     load_ledger,
     load_policy,
@@ -21,13 +23,18 @@ from app.manual.etf_allocation import (
     record_cash,
     record_fill,
     render_plan,
+    simulate,
 )
 from app.manual.notify import (
     CHAT_ID_ENV,
     TOKEN_ENV,
+    Notifier,
     NotifyMode,
     TelegramNotifier,
+    ack_messages,
     discover_chat_ids,
+    notifier_from_env,
+    pending_messages,
     plan_summary,
     should_notify,
 )
@@ -79,7 +86,7 @@ def plan_cmd(
     force_rebalance: Annotated[bool, typer.Option("--force-rebalance")] = False,
     notify: Annotated[
         NotifyMode,
-        typer.Option("--notify", help="Telegram push: never, action (only when orders/blocks), always"),
+        typer.Option("--notify", help="Notify via AIQ_NOTIFY_CHANNEL: never, action (orders/blocks only), always"),
     ] = "never",
     skip_stale_quotes: Annotated[
         bool,
@@ -92,10 +99,10 @@ def plan_cmd(
     """Print a manual order ticket, optionally pushing it to Telegram. It never sends orders."""
     if (quotes_file is None) == (not fetch_sse):
         raise _fail(ValueError("pass exactly one of --quotes-file or --fetch-sse"))
-    notifier = None
+    notifier: Notifier | None = None
     try:
         if notify != "never":
-            notifier = TelegramNotifier.from_env()
+            notifier = notifier_from_env(ledger_dir)
         as_of = date.fromisoformat(on) if on else _today()
         policy, _ = load_policy(policy_file)
         quotes = fetch_sse_quotes(policy) if fetch_sse else load_quotes_csv(quotes_file)  # type: ignore[arg-type]
@@ -116,7 +123,7 @@ def plan_cmd(
             try:
                 notifier.send_text(f"❗ ETF 调仓检查运行失败：{sanitize_error_message(exc)}")
             except Exception:  # noqa: BLE001
-                typer.echo("telegram alert also failed", err=True)
+                typer.echo("failure alert also failed", err=True)
         raise _fail(exc) from None
     typer.echo(render_plan(plan))
     if annual_done is not None:
@@ -129,7 +136,7 @@ def plan_cmd(
             notifier.send_document(html_path, caption=f"ETF 调仓报告 {plan.as_of} · {plan.plan_id}")
         except Exception as exc:  # noqa: BLE001
             raise _fail(exc) from None
-        typer.echo("telegram: sent")
+        typer.echo(f"notification: sent via {type(notifier).__name__}")
 
 
 @etf_app.command("telegram-chat-id")
@@ -205,8 +212,35 @@ def record_fill_cmd(
     policy_file: PolicyOpt = DEFAULT_POLICY_PATH,
     ledger_dir: LedgerOpt = DEFAULT_LEDGER_DIR,
     on: Annotated[str | None, typer.Option("--date", help="Trade date YYYY-MM-DD, default today")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Validate and preview only; write nothing")] = False,
 ) -> None:
-    """Append one real fill you executed by hand."""
+    """Append one real fill you executed by hand (use --dry-run to preview first)."""
+    if dry_run:
+        try:
+            policy, _ = load_policy(policy_file)
+            state = load_ledger(ledger_dir)
+            fields = fill_fields(
+                policy,
+                symbol=symbol if "." in symbol else f"{symbol}.SH",
+                side=side,
+                quantity=quantity,
+                price=Decimal(price),
+                commission_paid=Decimal(commission) if commission is not None else None,
+                event_date=date.fromisoformat(on) if on else _today(),
+                plan_id=plan_id,
+                note=note,
+            )
+            cash_after, holdings_after = simulate(state, fields)
+        except Exception as exc:  # noqa: BLE001
+            raise _fail(exc) from None
+        side_cn = "买入" if side == "buy" else "卖出"
+        typer.echo(
+            f"预览（未写入）：{side_cn} {fields['symbol']} {quantity} 份 @ {fields['price']}，"
+            f"佣金 {fields['commission']} 元"
+        )
+        typer.echo(f"记账后现金 {cash_after} 元；{fields['symbol']} 持仓 {holdings_after.get(fields['symbol'], 0)} 份")
+        typer.echo("dry_run=true ledger_unchanged=true")
+        return
     try:
         policy, _ = load_policy(policy_file)
         event = record_fill(
@@ -236,8 +270,19 @@ def cash_cmd(
     note: Annotated[str, typer.Option("--note", help="Reason, required")],
     ledger_dir: LedgerOpt = DEFAULT_LEDGER_DIR,
     on: Annotated[str | None, typer.Option("--date")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Validate and preview only; write nothing")] = False,
 ) -> None:
     """Record a cash movement (deposit, withdrawal, 逆回购利息, ETF 分红 …)."""
+    if dry_run:
+        try:
+            event_date = date.fromisoformat(on) if on else _today()
+            fields = cash_fields(amount=Decimal(amount), event_date=event_date, note=note)
+            cash_after, _ = simulate(load_ledger(ledger_dir), fields)
+        except Exception as exc:  # noqa: BLE001
+            raise _fail(exc) from None
+        typer.echo(f"预览（未写入）：现金变动 {fields['cash_amount']} 元（{note}），记账后现金 {cash_after} 元")
+        typer.echo("dry_run=true ledger_unchanged=true")
+        return
     try:
         event_date = date.fromisoformat(on) if on else _today()
         record_cash(ledger_dir, amount=Decimal(amount), event_date=event_date, note=note)
@@ -288,7 +333,7 @@ def bot_cmd(
 def repo_check_cmd(
     notify: Annotated[
         NotifyMode,
-        typer.Option("--notify", help="Telegram push: never, action (only when a reminder fires), always"),
+        typer.Option("--notify", help="Notify via AIQ_NOTIFY_CHANNEL: never, action (reminder only), always"),
     ] = "never",
     rate: Annotated[
         str | None, typer.Option("--rate", help="Annualized rate in %, skips fetching from SSE")
@@ -303,7 +348,7 @@ def repo_check_cmd(
     from app.manual.reverse_repo import advise, fetch_repo_rate, load_repo_policy, repo_message
 
     try:
-        notifier = TelegramNotifier.from_env() if notify != "never" else None
+        notifier = notifier_from_env(ledger_dir) if notify != "never" else None
         policy = load_repo_policy(repo_policy_file)
         state = load_ledger(ledger_dir)
         as_of = date.fromisoformat(on) if on else _today()
@@ -328,4 +373,49 @@ def repo_check_cmd(
             notifier.send_text(text)
         except Exception as exc:  # noqa: BLE001
             raise _fail(exc) from None
-        typer.echo("telegram: sent")
+        typer.echo(f"notification: sent via {type(notifier).__name__}")
+
+
+@etf_app.command("outbox")
+def outbox_cmd(
+    ack: Annotated[
+        list[str] | None,
+        typer.Option("--ack", help="Mark these message ids as sent (repeatable); use --ack-all for everything"),
+    ] = None,
+    ack_all: Annotated[bool, typer.Option("--ack-all", help="Mark every pending message as sent")] = False,
+    ledger_dir: LedgerOpt = DEFAULT_LEDGER_DIR,
+) -> None:
+    """List notifications waiting to be relayed (outbox channel), or mark them sent."""
+    from app.manual.notify import OUTBOX_DIRNAME
+
+    outbox = Path(ledger_dir) / OUTBOX_DIRNAME
+    if ack or ack_all:
+        moved = ack_messages(outbox, [] if ack_all else list(ack or []))
+        typer.echo(f"acknowledged={moved}")
+        return
+    messages = pending_messages(outbox)
+    typer.echo(f"pending={len(messages)}")
+    for message in messages:
+        typer.echo(f"=== MESSAGE {message['id']} ===")
+        text = str(message.get("text") or "")
+        if text:
+            typer.echo(text)
+        for attachment in message.get("attachments") or []:  # type: ignore[attr-defined]
+            typer.echo(f"[attachment] {attachment}")
+        typer.echo(f"=== END {message['id']} ===")
+
+
+@etf_app.command("muse-crontab")
+def muse_crontab_cmd(
+    repo_dir: Annotated[Path, typer.Option("--repo-dir", file_okay=False, help="Absolute repository path")],
+) -> None:
+    """Print the crontab block (in this machine's local time) for a no-root deployment such as a Muse VM."""
+    from app.manual.muse import crontab_block
+
+    try:
+        block, warnings = crontab_block(repo_dir.resolve())
+    except Exception as exc:  # noqa: BLE001
+        raise _fail(exc) from None
+    for warning in warnings:
+        typer.echo(warning, err=True)
+    typer.echo(block)
