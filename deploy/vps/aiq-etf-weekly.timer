@@ -1,0 +1,9 @@
+[Unit]
+Description=Send the ETF weekly summary on Friday after the close
+
+[Timer]
+OnCalendar=Fri 15:40 Asia/Shanghai
+Persistent=true
+
+[Install]
+WantedBy=timers.target

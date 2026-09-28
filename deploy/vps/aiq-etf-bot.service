@@ -1,0 +1,16 @@
+[Unit]
+Description=ai-quant ETF Telegram bookkeeping bot (records fills after button confirmation; never trades)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=aiq
+WorkingDirectory=/opt/ai-quant-research
+EnvironmentFile=/etc/ai-quant/telegram.env
+ExecStart=/opt/ai-quant-research/.venv/bin/ai-quant etf bot
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,271 @@
+from __future__ import annotations
+
+import json
+from datetime import date
+from decimal import Decimal
+from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
+
+from app.manual.etf_allocation import (
+    DEFAULT_POLICY_PATH,
+    EtfPolicy,
+    LedgerState,
+    Quote,
+    build_plan,
+    init_ledger,
+    load_ledger,
+    load_policy,
+    load_quotes_csv,
+    mark_annual_rebalance_done,
+    parse_sse_snapshot,
+    record_cash,
+    record_fill,
+)
+from app.manual.etf_report import render_plan_html
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PRICES = {
+    "510300.SH": Decimal("4.700"),
+    "513500.SH": Decimal("2.200"),
+    "518880.SH": Decimal("7.500"),
+    "511010.SH": Decimal("141.20"),
+}
+
+
+def _policy() -> tuple[EtfPolicy, str]:
+    return load_policy(PROJECT_ROOT / DEFAULT_POLICY_PATH)
+
+
+def _quotes(overrides: dict[str, Decimal] | None = None, iopv: Decimal | None = None) -> dict[str, Quote]:
+    prices = {**PRICES, **(overrides or {})}
+    return {
+        symbol: Quote(
+            symbol=symbol,
+            last=price,
+            bid=price,
+            ask=price,
+            iopv=iopv if symbol == "513500.SH" else None,
+            source="test",
+        )
+        for symbol, price in prices.items()
+    }
+
+
+def _plan(state: LedgerState, quotes: dict[str, Quote], as_of: date = date(2026, 9, 25)):  # type: ignore[no-untyped-def]
+    policy, sha = _policy()
+    return build_plan(policy=policy, policy_sha256=sha, state=state, quotes=quotes, as_of=as_of)
+
+
+def _deployed_ledger(tmp_path: Path) -> Path:
+    policy, _ = _policy()
+    init_ledger(tmp_path, cash=Decimal("80000"), event_date=date(2026, 9, 25))
+    plan = _plan(load_ledger(tmp_path), _quotes())
+    for order in plan.orders:
+        record_fill(
+            tmp_path,
+            policy,
+            symbol=order.symbol,
+            side=order.side,
+            quantity=order.quantity,
+            price=order.limit_price,
+            commission_paid=None,
+            event_date=date(2026, 9, 25),
+            plan_id=plan.plan_id,
+        )
+    return tmp_path
+
+
+def test_committed_policy_is_manual_only_and_fully_allocated() -> None:
+    policy, _ = _policy()
+    total = sum((asset.target_weight for asset in policy.assets), policy.cash_target_weight)
+    assert total == Decimal("1")
+    assert policy.execution_mode == "manual_orders_only"
+    assert policy.broker_connection is False
+    assert all(asset.symbol.endswith(".SH") for asset in policy.assets)
+
+
+def test_policy_rejects_weights_that_do_not_sum_to_one() -> None:
+    payload = json.loads((PROJECT_ROOT / DEFAULT_POLICY_PATH).read_text())
+    payload["cash_target_weight"] = "0.20"
+    with pytest.raises(ValidationError, match="must equal 1"):
+        EtfPolicy.model_validate(payload)
+
+
+def test_initial_plan_deploys_board_lots_without_overspending(tmp_path: Path) -> None:
+    init_ledger(tmp_path, cash=Decimal("80000"), event_date=date(2026, 9, 25))
+    plan = _plan(load_ledger(tmp_path), _quotes())
+    assert plan.triggers[0] == "initial_deployment"
+    assert {order.side for order in plan.orders} == {"buy"}
+    assert all(order.quantity % 100 == 0 for order in plan.orders)
+    assert plan.post_trade_cash >= 0
+    risk_weight = sum(
+        (leg.weight for leg in plan.post_trade if leg.symbol != "511010.SH"), Decimal("0")
+    )
+    assert abs(risk_weight - Decimal("0.45")) < Decimal("0.02")
+
+
+def test_recorded_fills_reproduce_the_plan_and_then_no_trade(tmp_path: Path) -> None:
+    _deployed_ledger(tmp_path)
+    state = load_ledger(tmp_path)
+    assert state.cash > 0
+    plan = _plan(state, _quotes())
+    assert plan.triggers == []
+    assert plan.orders == []
+
+
+def test_band_breach_sells_winner_before_buying(tmp_path: Path) -> None:
+    _deployed_ledger(tmp_path)
+    plan = _plan(load_ledger(tmp_path), _quotes({"510300.SH": Decimal("8.00")}), as_of=date(2026, 11, 2))
+    assert "band_breach:510300.SH" in plan.triggers
+    assert plan.orders[0].side == "sell"
+    assert plan.orders[0].symbol == "510300.SH"
+    assert plan.post_trade_cash >= 0
+    assert all(order.notional >= Decimal("2000") for order in plan.orders)
+
+
+def test_annual_calendar_rebalance_fires_once_per_year(tmp_path: Path) -> None:
+    _deployed_ledger(tmp_path)
+    assert "annual_calendar_rebalance" not in _plan(load_ledger(tmp_path), _quotes(), as_of=date(2026, 10, 5)).triggers
+    plan = _plan(load_ledger(tmp_path), _quotes(), as_of=date(2027, 1, 5))
+    assert plan.triggers[0] == "annual_calendar_rebalance"
+    assert plan.orders == []
+    assert mark_annual_rebalance_done(tmp_path, plan) is not None
+    later = _plan(load_ledger(tmp_path), _quotes(), as_of=date(2027, 1, 20))
+    assert "annual_calendar_rebalance" not in later.triggers
+
+
+def test_partial_annual_fill_keeps_remaining_orders(tmp_path: Path) -> None:
+    policy, _ = _policy()
+    _deployed_ledger(tmp_path)
+    moved = _quotes({"510300.SH": Decimal("3.60"), "518880.SH": Decimal("10.00")})
+    plan = _plan(load_ledger(tmp_path), moved, as_of=date(2027, 1, 5))
+    assert plan.triggers == ["annual_calendar_rebalance"]
+    assert len(plan.orders) >= 2
+    assert not any(leg.out_of_band for leg in plan.legs)
+    assert mark_annual_rebalance_done(tmp_path, plan) is None
+    first = plan.orders[0]
+    record_fill(
+        tmp_path,
+        policy,
+        symbol=first.symbol,
+        side=first.side,
+        quantity=first.quantity,
+        price=first.limit_price,
+        commission_paid=None,
+        event_date=date(2027, 1, 5),
+        plan_id=plan.plan_id,
+    )
+    rerun = _plan(load_ledger(tmp_path), moved, as_of=date(2027, 1, 6))
+    assert rerun.triggers == ["annual_calendar_rebalance"]
+    assert {order.symbol for order in rerun.orders} == {order.symbol for order in plan.orders[1:]}
+
+
+def test_qdii_buy_is_blocked_above_premium_limit(tmp_path: Path) -> None:
+    init_ledger(tmp_path, cash=Decimal("80000"), event_date=date(2026, 9, 25))
+    plan = _plan(load_ledger(tmp_path), _quotes(iopv=Decimal("2.10")))
+    assert all(order.symbol != "513500.SH" for order in plan.orders)
+    assert any("513500.SH" in item for item in plan.blocked)
+
+
+def test_ledger_rejects_oversell_and_tampering(tmp_path: Path) -> None:
+    policy, _ = _policy()
+    _deployed_ledger(tmp_path)
+    with pytest.raises(ValueError, match="exceeds holding"):
+        record_fill(
+            tmp_path,
+            policy,
+            symbol="518880.SH",
+            side="sell",
+            quantity=100_000,
+            price=Decimal("7.5"),
+            commission_paid=None,
+            event_date=date(2026, 9, 26),
+        )
+    ledger = tmp_path / "ledger.jsonl"
+    ledger.write_text(ledger.read_text().replace('"cash_amount": "80000"', '"cash_amount": "90000"'))
+    with pytest.raises(ValueError, match="hash chain broken"):
+        load_ledger(tmp_path)
+
+
+def test_ledger_is_append_only_and_cash_needs_reason(tmp_path: Path) -> None:
+    init_ledger(tmp_path, cash=Decimal("1000"), event_date=date(2026, 9, 25))
+    with pytest.raises(ValueError, match="append-only"):
+        init_ledger(tmp_path, cash=Decimal("1000"), event_date=date(2026, 9, 25))
+    with pytest.raises(ValueError, match="reason"):
+        record_cash(tmp_path, amount=Decimal("5"), event_date=date(2026, 9, 26), note=" ")
+    record_cash(tmp_path, amount=Decimal("1.23"), event_date=date(2026, 9, 26), note="逆回购利息")
+    assert load_ledger(tmp_path).cash == Decimal("1001.23")
+
+
+def test_quotes_csv_and_sse_snapshot_parsing(tmp_path: Path) -> None:
+    path = tmp_path / "q.csv"
+    path.write_text("symbol,last,bid,ask,iopv\n513500.SH,2.2,,,2.15\n", encoding="utf-8")
+    quote = load_quotes_csv(path)["513500.SH"]
+    assert quote.iopv == Decimal("2.15") and quote.bid is None
+    payload = json.dumps(
+        {
+            "code": "510300",
+            "date": 20260925,
+            "time": 150001,
+            "snap": ["沪深300ETF", 4.7, 4.68, 4.72, 4.66, 1000, 4700.0, [4.699, 100], [4.7, 200]],
+        }
+    ).encode()
+    parsed = parse_sse_snapshot("510300.SH", payload)
+    assert parsed.bid == Decimal("4.699") and parsed.ask == Decimal("4.7")
+    with pytest.raises(ValueError, match="mismatch"):
+        parse_sse_snapshot("518880.SH", payload)
+
+
+def test_html_report_shows_orders_bands_and_escapes_text(tmp_path: Path) -> None:
+    _deployed_ledger(tmp_path)
+    plan = _plan(load_ledger(tmp_path), _quotes({"510300.SH": Decimal("8.00")}), as_of=date(2026, 11, 2))
+    html = render_plan_html(plan)
+    assert "需要下单" in html and "超出容忍带" in html and plan.plan_id in html
+    assert html.count('class="row-hit"') == len(plan.legs) + 1
+    assert "<script>" in html and "prefers-color-scheme: dark" in html
+    quiet = render_plan_html(_plan(load_ledger(tmp_path), _quotes()))
+    assert "今天不用交易" in quiet and "调仓单（" not in quiet
+
+
+def test_telegram_notifier_sends_summary_and_report(tmp_path: Path) -> None:
+    from app.manual.etf_report import save_plan_html
+    from app.manual.notify import TelegramNotifier, plan_summary, should_notify
+
+    ledger = tmp_path / "ledger"
+    _deployed_ledger(ledger)
+    plan = _plan(load_ledger(ledger), _quotes({"510300.SH": Decimal("8.00")}), as_of=date(2026, 11, 2))
+    quiet = _plan(load_ledger(ledger), _quotes())
+    assert should_notify(plan, "action") and not should_notify(quiet, "action")
+    assert should_notify(quiet, "always") and not should_notify(plan, "never")
+    text = plan_summary(plan)
+    assert "需要调仓" in text and "卖出 510300" in text and plan.plan_id in text
+
+    calls: list[tuple[str, bytes, str]] = []
+
+    def fake_post(url: str, body: bytes, content_type: str) -> bytes:
+        calls.append((url, body, content_type))
+        return b'{"ok": true}'
+
+    notifier = TelegramNotifier(token="123:abc", chat_id="42", post=fake_post)
+    notifier.send_text(text)
+    report = save_plan_html(plan, tmp_path / "plan.json")
+    notifier.send_document(report, caption="report")
+    assert calls[0][0].endswith("/bot123:abc/sendMessage")
+    assert json.loads(calls[0][1])["chat_id"] == "42"
+    assert calls[1][0].endswith("/sendDocument") and calls[1][2].startswith("multipart/form-data")
+    assert b'filename="plan.html"' in calls[1][1] and b"<!doctype html>" in calls[1][1]
+
+    failing = TelegramNotifier(token="123:abc", chat_id="42", post=lambda *_: b'{"ok": false}')
+    with pytest.raises(ValueError, match="sendMessage failed"):
+        failing.send_text("x")
+
+
+def test_notifier_requires_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.manual.notify import CHAT_ID_ENV, TOKEN_ENV, TelegramNotifier
+
+    monkeypatch.delenv(TOKEN_ENV, raising=False)
+    monkeypatch.setenv(CHAT_ID_ENV, "42")
+    with pytest.raises(ValueError, match=TOKEN_ENV):
+        TelegramNotifier.from_env()

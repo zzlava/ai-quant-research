@@ -1,0 +1,64 @@
+{
+  "schema_version": "1",
+  "policy_version": "etf-multi-asset-manual-v1",
+  "adopted_on": "2026-09-25",
+  "user_instruction_text": "我可以暂时不开通程序化交易 按照项目选择的来手动下单 当前急需的是按照你建议的优先级1的方向去做ETF交易",
+  "execution_mode": "manual_orders_only",
+  "broker_connection": false,
+  "weights_basis": "a_priori_strategic_weights_not_optimized_on_any_backtest",
+  "initial_capital_cny": "80000",
+  "assets": [
+    {
+      "symbol": "510300.SH",
+      "role": "a_share_broad_equity",
+      "expected_name": "华泰柏瑞沪深300ETF",
+      "target_weight": "0.25",
+      "board_lot": 100,
+      "qdii": false
+    },
+    {
+      "symbol": "513500.SH",
+      "role": "overseas_equity_qdii",
+      "expected_name": "博时标普500ETF",
+      "target_weight": "0.10",
+      "board_lot": 100,
+      "qdii": true
+    },
+    {
+      "symbol": "518880.SH",
+      "role": "gold",
+      "expected_name": "华安黄金ETF",
+      "target_weight": "0.10",
+      "board_lot": 100,
+      "qdii": false
+    },
+    {
+      "symbol": "511010.SH",
+      "role": "cn_government_bond",
+      "expected_name": "国泰上证5年期国债ETF",
+      "target_weight": "0.45",
+      "board_lot": 100,
+      "qdii": false
+    }
+  ],
+  "cash_target_weight": "0.10",
+  "rebalance": {
+    "absolute_band": "0.05",
+    "relative_band": "0.25",
+    "annual_month": 1,
+    "min_trade_cny": "2000"
+  },
+  "cost": {
+    "commission_rate_per_side": "0.00025",
+    "minimum_commission_cny": "5",
+    "slippage_bps_when_no_quote": "5",
+    "user_must_confirm_actual_broker_rates": true
+  },
+  "qdii_max_premium": "0.02",
+  "hard_limits": {
+    "no_leverage": true,
+    "no_short": true,
+    "no_product_rotation": true,
+    "no_timing_signals": true
+  }
+}

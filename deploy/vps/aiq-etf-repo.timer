@@ -1,0 +1,9 @@
+[Unit]
+Description=Check reverse repo on weekdays, leaving time to lend before the 15:30 repo close
+
+[Timer]
+OnCalendar=Mon..Fri 14:40 Asia/Shanghai
+Persistent=false
+
+[Install]
+WantedBy=timers.target

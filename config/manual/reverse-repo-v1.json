@@ -1,0 +1,13 @@
+{
+  "schema_version": "1",
+  "policy_version": "reverse-repo-reminder-v1",
+  "symbol": "204001.SH",
+  "product_name": "上交所 1 天期国债逆回购 GC001",
+  "unit_cny": "1000",
+  "keep_cash_cny": "0",
+  "rate_threshold_pct": "2.5",
+  "remind_weekdays": [3],
+  "remind_weekday_note": "Thursday (weekday 3): a 1-day repo placed Thursday usually accrues interest over the weekend (3 days).",
+  "day_count_basis": 365,
+  "execution_mode": "manual_orders_only"
+}
